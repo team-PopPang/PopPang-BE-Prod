@@ -1,39 +1,34 @@
-# ✅ `make download` 명령어로 실행 가능하도록 연결
-download: download-privates
+# ===== 공통 변수 =====
+APP_NAME        := poppang-prod
+VERSION         := 1.0.0 ### 버전에 맞게 계속 바꿔줘야함 (이 부분만 수정하기)###
+IMAGE_NAME      := $(APP_NAME):$(VERSION)
+IMAGE_TAR       := $(APP_NAME)-$(VERSION).tar
 
-# -----------------------------
-# 🔐 Private 파일 다운로드
-# -----------------------------
-Private_Repository=team-PopPang/PopPang-Private
-Private_Branch=BE
-BASE_URL=https://raw.githubusercontent.com/$(Private_Repository)/$(Private_Branch)
+# 서버 정보
+SERVER_USER     := poppang
+SERVER_HOST     := 183.103.19.203
+SERVER_DIR      := /home/poppang/opt/deploy
 
-# ✅ 파일 다운로드 함수 (Authorization 헤더에 Bearer 적용)
-# $(1) = 디렉토리, $(2) = 파일명
-define download_file
-	mkdir -p $(1) && \
-	curl -s -H "Authorization: Bearer $(GITHUB_ACCESS_TOKEN)" \
-	     -o $(1)/$(2) \
-	     $(BASE_URL)/$(1)/$(2)
-endef
+# ===== 1. JAR 빌드 =====
+build-jar:
+	./gradlew clean bootJar
 
-# ✅ .env 파일 없을 경우 GitHub 토큰을 받아 저장
-download-privates:
-	@echo "🔐 Downloading private files..."
-	@if [ ! -f .env ]; then \
-		read -p "Enter your GitHub access token: " token; \
-		echo "GITHUB_ACCESS_TOKEN=$$token" > .env; \
-	fi
-	@set -a && . .env && set +a && \
-	$(MAKE) _download-privates-real
-	@echo "✅ Private file download complete."
+# ===== 2. Docker 이미지 빌드 (prod용) =====
+build-image: build-jar
+	docker buildx build --platform linux/amd64 -t $(IMAGE_NAME) --load .
 
-# ✅ 실제 다운로드 로직 (여러 파일 추가 가능)
-_download-privates-real:
-	$(call download_file,src/main/resources/auth,AuthKey_382T2TB4RW.p8)
-	$(call download_file,src/main/resources,application.yml)
-	$(call download_file,src/main/resources,application-dev.yml)
-	$(call download_file,src/main/resources,application-local.yml)
+# ===== 3. Docker 이미지 tar로 저장 =====
+save-image: build-image
+	docker save -o $(IMAGE_TAR) $(IMAGE_NAME)
 
+# ===== 4. 서버로 tar 전송 =====
+send-image: save-image
+	scp $(IMAGE_TAR) $(SERVER_USER)@$(SERVER_HOST):$(SERVER_DIR)/
 
+# ===== 5. 서버에서 이미지 로드 + 컨테이너 재시작 =====
+remote-deploy:
+	ssh $(SERVER_USER)@$(SERVER_HOST) "bash /home/poppang/opt/deploy/deploy-prod.sh $(SERVER_DIR)/$(IMAGE_TAR) $(IMAGE_NAME)"
 
+# ===== 6. 풀 파이프라인 (FE가 쓸 메인 명령어) =====
+prod-deploy: send-image remote-deploy
+	@echo "✅ prod 배포 완료: $(IMAGE_NAME)"
