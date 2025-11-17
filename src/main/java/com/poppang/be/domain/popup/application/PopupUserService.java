@@ -46,6 +46,8 @@ public class PopupUserService {
 
     @Transactional(readOnly = true)
     public List<PopupUserResponseDto> getAllPopupList(String userUuid) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
         List<Popup> popupList = popupRepository.findAll();
         if (popupList.isEmpty()) {
@@ -62,6 +64,9 @@ public class PopupUserService {
 
     @Transactional(readOnly = true)
     public PopupUserResponseDto getPopupByUuid(String userUuid, String popupUuid) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         Popup popup = popupRepository.findByUuid(popupUuid)
                 .orElseThrow(() -> new IllegalArgumentException("팝업을 찾을 수 없습니다. "));
 
@@ -114,6 +119,9 @@ public class PopupUserService {
 
     @Transactional(readOnly = true)
     public List<PopupUserResponseDto> getUpcomingPopupList(String userUuid, Integer upcomingDays) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         int days = (upcomingDays == null || upcomingDays <= 0) ? 10 : upcomingDays;
 
         LocalDate startDate = LocalDate.now().plusDays(1);
@@ -145,6 +153,8 @@ public class PopupUserService {
     }
 
     public List<PopupUserResponseDto> getInProgressPopupList(String userUuid) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
         List<Popup> popupList = popupRepository.findInProgressPopupList();
 
@@ -157,6 +167,9 @@ public class PopupUserService {
     }
 
     public List<PopupUserResponseDto> getFilteredHomePopupList(String userUuid, String region, String district, HomeSortStandard homeSortStandard) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         String normalizedRegion = StringNormalizer.normalizeRegion(region);
         String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
 
@@ -188,6 +201,9 @@ public class PopupUserService {
     }
 
     public List<PopupUserResponseDto> getFilteredMapPopupList(String userUuid, String region, String district, Double latitude, Double longitude, MapSortStandard mapSortStandard) {
+        Users user = usersRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
+
         String normalizedRegion = StringNormalizer.normalizeRegion(region);
         String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
 
