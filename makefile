@@ -1,34 +1,95 @@
+# =========================================
+# 🚀 PopPang BE PROD 배포용 Makefile
+# =========================================
+
+.DEFAULT_GOAL := all
+
 # ===== 공통 변수 =====
 APP_NAME        := poppang-prod
-VERSION         := 1.0.0 ### 버전에 맞게 계속 바꿔줘야함 (이 부분만 수정하기)###
+VERSION         := 1.0.1
 IMAGE_NAME      := $(APP_NAME):$(VERSION)
 IMAGE_TAR       := $(APP_NAME)-$(VERSION).tar
 
-# 서버 정보
-SERVER_USER     := poppang
-SERVER_HOST     := 183.103.19.203
+# ===== 서버 설정 =====
+# SSH_HOST: ~/.ssh/config 에 설정해둔 Host 별칭
+SSH_HOST        := poppang-server
 SERVER_DIR      := /home/poppang/opt/deploy
 
-# ===== 1. JAR 빌드 =====
+# ===== Private Repository 설정 =====
+PRIVATE_REPO       := team-PopPang/PopPang-Private
+PRIVATE_BRANCH     := BE
+PRIVATE_BASE_URL   := https://raw.githubusercontent.com/$(PRIVATE_REPO)/$(PRIVATE_BRANCH)
+
+# ===== PHONY =====
+.PHONY: all getKey reboot build-jar build-image save-image send-image remote-deploy prod-deploy
+
+# =========================================
+# 🔐 Private 파일 다운로드 함수
+# $(1): 디렉토리, $(2): 파일명
+# =========================================
+define download_file
+	mkdir -p $(1) && \
+	curl -s -H "Authorization: Bearer $(GITHUB_ACCESS_TOKEN)" \
+	     -o $(1)/$(2) \
+	     $(PRIVATE_BASE_URL)/$(1)/$(2)
+endef
+
+# =========================================
+# 🔐 GitHub Token 로딩 + Private 파일 다운로드
+# =========================================
+getKey:
+	@echo "🔐 Checking GitHub token..."
+	@if [ ! -f .env ]; then \
+		read -p "Enter GitHub Access Token: " token; \
+		echo "GITHUB_ACCESS_TOKEN=$$token" > .env; \
+	fi
+	@echo "🔐 Downloading private files..."
+	@set -a && . .env && set +a && \
+	$(call download_file,src/main/resources/auth,AuthKey_382T2TB4RW.p8) && \
+	$(call download_file,src/main/resources,application.yml) && \
+	$(call download_file,src/main/resources,application-dev.yml) && \
+	$(call download_file,src/main/resources,application-prod.yml) && \
+	$(call download_file,src/main/resources,application-local.yml)
+	@echo "✅ download completed."
+
+# =========================================
+# 🧩 기본(make) 동작: getKey + prod-deploy
+#   → "시크릿 가져오고 + 재배포"
+# =========================================
+all: getKey prod-deploy
+	@echo "🎉 모든 작업 완료 (getKey + prod-deploy)"
+
+# make 만 쳐도 all 이 실행됨
+default: all
+
+# =========================================
+# 🟢 실제 배포 파이프라인(prod-deploy)
+# =========================================
+
+# 1. JAR 빌드
 build-jar:
 	./gradlew clean bootJar
 
-# ===== 2. Docker 이미지 빌드 (prod용) =====
+# 2. Docker 이미지 빌드 (prod용)
 build-image: build-jar
 	docker buildx build --platform linux/amd64 -t $(IMAGE_NAME) --load .
 
-# ===== 3. Docker 이미지 tar로 저장 =====
+# 3. Docker 이미지 tar 로 저장
 save-image: build-image
 	docker save -o $(IMAGE_TAR) $(IMAGE_NAME)
 
-# ===== 4. 서버로 tar 전송 =====
+# 4. 서버로 tar 전송
 send-image: save-image
-	scp $(IMAGE_TAR) $(SERVER_USER)@$(SERVER_HOST):$(SERVER_DIR)/
+	scp $(IMAGE_TAR) $(SSH_HOST):$(SERVER_DIR)/
 
-# ===== 5. 서버에서 이미지 로드 + 컨테이너 재시작 =====
+# 5. 서버에서 이미지 로드 + 컨테이너 재시작
 remote-deploy:
-	ssh $(SERVER_USER)@$(SERVER_HOST) "bash /home/poppang/opt/deploy/deploy-prod.sh $(SERVER_DIR)/$(IMAGE_TAR) $(IMAGE_NAME)"
+	ssh $(SSH_HOST) "bash $(SERVER_DIR)/deploy-prod.sh $(SERVER_DIR)/$(IMAGE_TAR) $(IMAGE_NAME)"
 
-# ===== 6. 풀 파이프라인 (FE가 쓸 메인 명령어) =====
+# 6. 전체 배포 파이프라인
 prod-deploy: send-image remote-deploy
-	@echo "✅ prod 배포 완료: $(IMAGE_NAME)"
+	@echo ""
+	@echo "🎉🎉🎉===================================="
+	@echo "   🚀 PROD 배포 완료!"
+	@echo "   이미지: $(IMAGE_NAME)"
+	@echo "====================================🎉🎉🎉"
