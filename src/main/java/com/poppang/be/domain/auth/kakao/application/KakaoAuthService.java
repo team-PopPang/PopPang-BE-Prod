@@ -1,6 +1,7 @@
 package com.poppang.be.domain.auth.kakao.application;
 
 import com.poppang.be.common.enums.Role;
+import com.poppang.be.common.mail.EmailService;
 import com.poppang.be.domain.auth.dto.response.LoginResponseDto;
 import com.poppang.be.domain.auth.dto.response.SignupResponseDto;
 import com.poppang.be.domain.auth.kakao.config.KakaoProperties;
@@ -39,6 +40,7 @@ public class KakaoAuthService {
     private final UserAlertKeywordRepository userAlertKeywordRepository;
     private final UserRecommendRepository userRecommendRepository;
     private final RecommendRepository recommendRepository;
+    private final EmailService emailService;
 
     // Web 로그인
     @Transactional
@@ -101,6 +103,8 @@ public class KakaoAuthService {
                 userRecommendRepository.save(new UserRecommend(user, recommend));
             }
         }
+        emailService.sendNewUserSignUpMail(user);
+
         return SignupResponseDto.from(user);
     }
 

@@ -3,6 +3,7 @@ package com.poppang.be.domain.auth.apple.application;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.poppang.be.common.enums.Role;
+import com.poppang.be.common.mail.EmailService;
 import com.poppang.be.domain.auth.apple.config.AppleProperties;
 import com.poppang.be.domain.auth.apple.dto.request.AppleAppLoginRequestDto;
 import com.poppang.be.domain.auth.apple.dto.response.AppleTokenResponseDto;
@@ -45,6 +46,7 @@ public class AppleAuthService {
     private final UserAlertKeywordRepository userAlertKeywordRepository;
     private final UserRecommendRepository userRecommendRepository;
     private final RecommendRepository recommendRepository;
+    private final EmailService emailService;
 
     // Web 로그인
     @Transactional
@@ -112,6 +114,7 @@ public class AppleAuthService {
                 userRecommendRepository.save(new UserRecommend(user, recommend));
             }
         }
+        emailService.sendNewUserSignUpMail(user);
 
         return SignupResponseDto.from(user);
     }
