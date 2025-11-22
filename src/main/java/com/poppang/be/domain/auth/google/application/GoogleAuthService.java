@@ -5,6 +5,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.poppang.be.common.enums.Role;
+import com.poppang.be.common.mail.EmailService;
 import com.poppang.be.domain.auth.dto.response.LoginResponseDto;
 import com.poppang.be.domain.auth.dto.response.SignupResponseDto;
 import com.poppang.be.domain.auth.google.config.GoogleProperties;
@@ -43,6 +44,7 @@ public class GoogleAuthService {
     private final UserAlertKeywordRepository userAlertKeywordRepository;
     private final UserRecommendRepository userRecommendRepository;
     private final RecommendRepository recommendRepository;
+    private final EmailService emailService;
 
     // Web 로그인
     @Transactional
@@ -133,6 +135,7 @@ public class GoogleAuthService {
                 userRecommendRepository.save(new UserRecommend(user, recommend));
             }
         }
+        emailService.sendNewUserSignUpMail(user);
 
         return SignupResponseDto.from(user);
     }
