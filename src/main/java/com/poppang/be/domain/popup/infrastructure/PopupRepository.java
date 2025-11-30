@@ -17,10 +17,12 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             select p
             from Popup p
             where p.activated = true
-            and(
-                lower(p.name) like lower(concat('%', :q, '%')) 
-                or lower(p.captionSummary) like lower(concat('%', :q, '%') )
-            )
+              and p.startDate <= CURRENT_DATE
+              and p.endDate >= CURRENT_DATE
+              and (
+                    lower(p.name) like lower(concat('%', :q, '%'))
+                    or lower(p.captionSummary) like lower(concat('%', :q, '%'))
+                  )
             """)
     List<Popup> searchActivatedByKeyword(@Param("q") String q);
 
@@ -30,8 +32,8 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             select p
             from Popup p
             where p.activated = true
-            and p.startDate <= CURRENT DATE 
-            and p.endDate >= CURRENT DATE 
+            and p.startDate <= CURRENT_DATE
+            and p.endDate >= CURRENT_DATE
             order by p.startDate asc 
              """)
     List<Popup> findInProgressPopupList();
@@ -74,7 +76,6 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             @Param("excludeSize") int excludeSize,
             @Param("limit") int limit
     );
-
 
     interface RegionDistrictsRaw {
         String getRegion();
@@ -259,5 +260,16 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             """, nativeQuery = true)
     List<Popup> findActiveByMostViewed(@Param("region") String region,
                                        @Param("district") String district);
+
+    @Query(value = """
+                SELECT *
+                FROM popup p
+                WHERE p.is_active = 1
+                AND p.start_date <= CURRENT_DATE
+                AND p.end_date >= CURRENT_DATE
+                ORDER BY RAND()
+                LIMIT 10
+            """, nativeQuery = true)
+    List<Popup> findRandomActivePopups();
 
 }

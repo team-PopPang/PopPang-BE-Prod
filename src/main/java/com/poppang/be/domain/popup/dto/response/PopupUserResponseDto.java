@@ -41,7 +41,7 @@ public class PopupUserResponseDto {
 
     private List<String> imageUrlList;
     private MediaType mediaType;
-    private String recommend;
+    private List<String> recommendList;
     private long favoriteCount;
     private long viewCount;
 
@@ -65,7 +65,7 @@ public class PopupUserResponseDto {
                                 String captionSummary,
                                 List<String> imageUrlList,
                                 MediaType mediaType,
-                                String recommend,
+                                List<String> recommendList,
                                 long favoriteCount,
                                 long viewCount,
                                 boolean favorited) {
@@ -86,7 +86,7 @@ public class PopupUserResponseDto {
         this.captionSummary = captionSummary;
         this.imageUrlList = imageUrlList;
         this.mediaType = mediaType;
-        this.recommend = recommend;
+        this.recommendList = recommendList;
         this.favoriteCount = favoriteCount;
         this.viewCount = viewCount;
         this.favorited = favorited;

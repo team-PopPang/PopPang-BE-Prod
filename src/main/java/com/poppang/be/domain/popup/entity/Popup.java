@@ -123,4 +123,8 @@ public class Popup extends BaseEntity {
         this.activated = activated;
     }
 
+    public void deactivate() {
+        this.activated = false;
+    }
+
 }

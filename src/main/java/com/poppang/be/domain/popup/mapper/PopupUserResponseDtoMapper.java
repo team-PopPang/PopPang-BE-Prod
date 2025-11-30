@@ -49,10 +49,11 @@ public class PopupUserResponseDtoMapper {
 
         // 추천
         List<PopupRecommend> recs = popupRecommendRepository.findAllByPopup_IdIn(popupIdList);
-        Map<Long, String> recommendMap = new HashMap<>();
-        for (
-                PopupRecommend r : recs) {
-            recommendMap.putIfAbsent(r.getPopup().getId(), r.getRecommend().getRecommendName());
+        Map<Long, List<String>> recommendMap = new HashMap<>();
+        for (PopupRecommend r : recs) {
+            recommendMap
+                    .computeIfAbsent(r.getPopup().getId(), k -> new ArrayList<>())
+                    .add(r.getRecommend().getRecommendName());
         }
 
         // 좋아요 수 배치
@@ -92,7 +93,7 @@ public class PopupUserResponseDtoMapper {
                     .captionSummary(p.getCaptionSummary())
                     .imageUrlList(imageMap.getOrDefault(p.getId(), List.of()))
                     .mediaType(p.getMediaType())
-                    .recommend(recommendMap.getOrDefault(p.getId(), null))
+                    .recommendList(recommendMap.getOrDefault(p.getId(), null))
                     .favoriteCount(favoriteCountMap.getOrDefault(p.getId(), 0L))
                     .viewCount(viewCountMap.getOrDefault(p.getUuid(), 0L))
                     .favorited(isFavorited)
