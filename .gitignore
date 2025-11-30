@@ -58,6 +58,7 @@ Desktop.ini
 application.*
 application-dev.*
 application-local.*
+application-prod.*
 
 ### 애플 private key ###
 AuthKey_382T2TB4RW.p8
