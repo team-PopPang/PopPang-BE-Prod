@@ -13,29 +13,25 @@ import lombok.NoArgsConstructor;
 @Table(name = "popup_image")
 public class PopupImage extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "popup_id", nullable = false)
-    private Popup popup;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "popup_id", nullable = false)
+  private Popup popup;
 
-    @Column(name = "image_url", nullable = false, length = 1000)
-    private String imageUrl;
+  @Column(name = "image_url", nullable = false, length = 1000)
+  private String imageUrl;
 
-    @Column(name = "sort_order", nullable = false)
-    private int sortOrder;
+  @Column(name = "sort_order", nullable = false)
+  private int sortOrder;
 
-    @Builder
-    public PopupImage(Long id,
-                      Popup popup,
-                      String imageUrl,
-                      int sortOrder) {
-        this.id = id;
-        this.popup = popup;
-        this.imageUrl = imageUrl;
-        this.sortOrder = sortOrder;
-    }
-
+  @Builder
+  public PopupImage(Long id, Popup popup, String imageUrl, int sortOrder) {
+    this.id = id;
+    this.popup = popup;
+    this.imageUrl = imageUrl;
+    this.sortOrder = sortOrder;
+  }
 }

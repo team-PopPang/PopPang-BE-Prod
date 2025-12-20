@@ -7,16 +7,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AppleUserInfoResponseDto {
 
-    private String sub;
-    private String uid;
-    private String email;
+  private String sub;
+  private String uid;
+  private String email;
 
-    public AppleUserInfoResponseDto(String sub,
-                                    String uid,
-                                    String email) {
-        this.sub = sub;
-        this.uid = uid;
-        this.email = email;
-    }
-
+  public AppleUserInfoResponseDto(String sub, String uid, String email) {
+    this.sub = sub;
+    this.uid = uid;
+    this.email = email;
+  }
 }

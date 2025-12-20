@@ -9,22 +9,19 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RecommendResponseDto {
 
-    private Long id;
-    private String recommendName;
+  private Long id;
+  private String recommendName;
 
-    @Builder
-    public RecommendResponseDto(Long id,
-                                String recommendName) {
-        this.id = id;
-        this.recommendName = recommendName;
+  @Builder
+  public RecommendResponseDto(Long id, String recommendName) {
+    this.id = id;
+    this.recommendName = recommendName;
+  }
 
-    }
-
-    public static RecommendResponseDto from(Recommend recommend) {
-        return RecommendResponseDto.builder()
-                .id(recommend.getId())
-                .recommendName(recommend.getRecommendName())
-                .build();
-    }
-
+  public static RecommendResponseDto from(Recommend recommend) {
+    return RecommendResponseDto.builder()
+        .id(recommend.getId())
+        .recommendName(recommend.getRecommendName())
+        .build();
+  }
 }

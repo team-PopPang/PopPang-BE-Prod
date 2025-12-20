@@ -9,17 +9,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserAlertKeywordResponseDto {
 
-    private String alertKeyword;
+  private String alertKeyword;
 
-    @Builder
-    public UserAlertKeywordResponseDto(String alertKeyword) {
-        this.alertKeyword = alertKeyword;
-    }
+  @Builder
+  public UserAlertKeywordResponseDto(String alertKeyword) {
+    this.alertKeyword = alertKeyword;
+  }
 
-    public static UserAlertKeywordResponseDto from(UserAlertKeyword userAlertKeyword) {
-        return UserAlertKeywordResponseDto.builder()
-                .alertKeyword(userAlertKeyword.getAlertKeyword())
-                .build();
-    }
-
+  public static UserAlertKeywordResponseDto from(UserAlertKeyword userAlertKeyword) {
+    return UserAlertKeywordResponseDto.builder()
+        .alertKeyword(userAlertKeyword.getAlertKeyword())
+        .build();
+  }
 }

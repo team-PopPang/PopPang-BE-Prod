@@ -5,7 +5,6 @@ import lombok.Getter;
 @Getter
 public class UserFavoriteDeleteRequestDto {
 
-    private String userUuid;
-    private String popupUuid;
-
+  private String userUuid;
+  private String popupUuid;
 }

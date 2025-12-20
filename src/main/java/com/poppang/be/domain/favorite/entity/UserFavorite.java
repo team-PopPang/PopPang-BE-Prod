@@ -13,21 +13,20 @@ import lombok.NoArgsConstructor;
 @Table(name = "user_favorite")
 public class UserFavorite {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "users_id", nullable = false)
-    private Users user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "users_id", nullable = false)
+  private Users user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "popup_id", nullable = false)
-    private Popup popup;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "popup_id", nullable = false)
+  private Popup popup;
 
-    public UserFavorite(Users user, Popup popup) {
-        this.user = user;
-        this.popup = popup;
-    }
-
+  public UserFavorite(Users user, Popup popup) {
+    this.user = user;
+    this.popup = popup;
+  }
 }

@@ -5,6 +5,5 @@ import lombok.Getter;
 @Getter
 public class FavoriteCountRequestDto {
 
-    private Long popupId;
-
+  private Long popupId;
 }

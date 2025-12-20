@@ -6,19 +6,18 @@ import lombok.Getter;
 @Getter
 public class AppleTokenResponseDto {
 
-    @JsonProperty("id_token")
-    private String idToken;
+  @JsonProperty("id_token")
+  private String idToken;
 
-    @JsonProperty("access_token")
-    private String accessToken;
+  @JsonProperty("access_token")
+  private String accessToken;
 
-    @JsonProperty("expires_in")
-    private String expiresIn;
+  @JsonProperty("expires_in")
+  private String expiresIn;
 
-    @JsonProperty("refresh_token")
-    private String refreshToken;
+  @JsonProperty("refresh_token")
+  private String refreshToken;
 
-    @JsonProperty("token_type")
-    private String tokenType;
-
+  @JsonProperty("token_type")
+  private String tokenType;
 }

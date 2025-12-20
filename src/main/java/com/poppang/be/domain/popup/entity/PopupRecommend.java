@@ -14,22 +14,21 @@ import lombok.NoArgsConstructor;
 @Table(name = "popup_recommend")
 public class PopupRecommend extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "popup_id", nullable = false)
-    private Popup popup;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "popup_id", nullable = false)
+  private Popup popup;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recommend_id", nullable = false)
-    private Recommend recommend;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "recommend_id", nullable = false)
+  private Recommend recommend;
 
-    @Builder
-    public PopupRecommend(Popup popup, Recommend recommend) {
-        this.popup = popup;
-        this.recommend = recommend;
-    }
-
+  @Builder
+  public PopupRecommend(Popup popup, Recommend recommend) {
+    this.popup = popup;
+    this.recommend = recommend;
+  }
 }

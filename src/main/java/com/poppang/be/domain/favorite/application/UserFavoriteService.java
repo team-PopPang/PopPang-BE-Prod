@@ -3,89 +3,16 @@ package com.poppang.be.domain.favorite.application;
 import com.poppang.be.domain.favorite.dto.request.UserFavoriteDeleteRequestDto;
 import com.poppang.be.domain.favorite.dto.request.UserFavoriteRegisterRequestDto;
 import com.poppang.be.domain.favorite.dto.response.FavoriteCountResponseDto;
-import com.poppang.be.domain.favorite.entity.UserFavorite;
-import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
 import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
-import com.poppang.be.domain.popup.entity.Popup;
-import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;
-import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;
-import com.poppang.be.domain.popup.infrastructure.PopupRepository;
-import com.poppang.be.domain.popup.infrastructure.PopupTotalViewCountRepository;
-import com.poppang.be.domain.popup.mapper.PopupUserResponseDtoMapper;
-import com.poppang.be.domain.users.entity.Users;
-import com.poppang.be.domain.users.infrastructure.UsersRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
-@Service
-@RequiredArgsConstructor
-public class UserFavoriteService {
+public interface UserFavoriteService {
 
-    private final UsersRepository usersRepository;
-    private final PopupRepository popupRepository;
-    private final UserFavoriteRepository userFavoriteRepository;
-    private final PopupImageRepository popupImageRepository;
-    private final PopupRecommendRepository popupRecommendRepository;
-    private final PopupTotalViewCountRepository popupTotalViewCountRepository;
-    private final PopupUserResponseDtoMapper popupUserResponseDtoMapper;
+  void registerFavorite(UserFavoriteRegisterRequestDto userFavoriteRegisterRequestDto);
 
+  void deleteFavorite(UserFavoriteDeleteRequestDto userFavoriteDeleteRequestDto);
 
-    @Transactional
-    public void registerFavorite(UserFavoriteRegisterRequestDto userFavoriteRegisterRequestDto) {
-        Users user = usersRepository.findByUuid(userFavoriteRegisterRequestDto.getUserUuid())
-                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다. "));
+  FavoriteCountResponseDto getFavoriteCount(String popupUuid);
 
-        Popup popup = popupRepository.findByUuid(userFavoriteRegisterRequestDto.getPopupUuid())
-                .orElseThrow(() -> new IllegalArgumentException("팝업을 찾을 수 없습니다. "));
-
-        boolean exists = userFavoriteRepository.existsByUserAndPopup(user, popup);
-        if (exists) {
-            throw new IllegalStateException("이미 찜한 팝업입니다. ");
-        }
-
-        UserFavorite userFavorite = new UserFavorite(user, popup);
-
-        userFavoriteRepository.save(userFavorite);
-    }
-
-    @Transactional
-    public void deleteFavorite(UserFavoriteDeleteRequestDto userFavoriteDeleteRequestDto) {
-        UserFavorite userFavorite = userFavoriteRepository.findByUserUuidAndPopupUuid(userFavoriteDeleteRequestDto.getUserUuid(), userFavoriteDeleteRequestDto.getPopupUuid())
-                .orElseThrow(() -> new IllegalStateException("해당 찜 기록이 없습니다. "));
-
-        userFavoriteRepository.delete(userFavorite);
-    }
-
-    @Transactional(readOnly = true)
-    public FavoriteCountResponseDto getFavoriteCount(String popupUuid) {
-        long count = userFavoriteRepository.countByPopupUuid(popupUuid);
-
-        return FavoriteCountResponseDto.from(count);
-    }
-
-    @Transactional(readOnly = true)
-    public List<PopupUserResponseDto> getFavoritePopupList(String userUuid) {
-        Users user = usersRepository.findByUuid(userUuid)
-                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
-
-        List<UserFavorite> userFavoriteList = userFavoriteRepository.findAllByUserUuid(userUuid);
-        if (userFavoriteList.isEmpty()) {
-            return List.of();
-        }
-
-        Set<Long> favoritedPopupIdList = userFavoriteList
-                .stream()
-                .map(f -> f.getPopup().getId())
-                .collect(Collectors.toSet());
-
-        List<Popup> popupList = popupRepository.findAllById(favoritedPopupIdList);
-
-        return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
-    }
-
+  List<PopupUserResponseDto> getFavoritePopupList(String userUuid);
 }

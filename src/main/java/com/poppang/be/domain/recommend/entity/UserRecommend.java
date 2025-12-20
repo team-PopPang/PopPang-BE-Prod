@@ -12,21 +12,20 @@ import lombok.NoArgsConstructor;
 @Table(name = "user_recommend")
 public class UserRecommend {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "users_id", nullable = false)
-    private Users user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "users_id", nullable = false)
+  private Users user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recommend_id", nullable = false)
-    private Recommend recommend;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "recommend_id", nullable = false)
+  private Recommend recommend;
 
-    public UserRecommend(Users user, Recommend recommend) {
-        this.user = user;
-        this.recommend = recommend;
-    }
-
+  public UserRecommend(Users user, Recommend recommend) {
+    this.user = user;
+    this.recommend = recommend;
+  }
 }

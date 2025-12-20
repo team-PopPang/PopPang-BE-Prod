@@ -7,6 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserAlertDeleteRequestDto {
 
-    private String popupUuid;
-
+  private String popupUuid;
 }

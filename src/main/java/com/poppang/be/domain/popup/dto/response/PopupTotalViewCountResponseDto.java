@@ -8,11 +8,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PopupTotalViewCountResponseDto {
 
-    private long totalViewCount;
+  private long totalViewCount;
 
-    @Builder
-    public PopupTotalViewCountResponseDto(long totalViewCount) {
-        this.totalViewCount = totalViewCount;
-    }
-
+  @Builder
+  public PopupTotalViewCountResponseDto(long totalViewCount) {
+    this.totalViewCount = totalViewCount;
+  }
 }

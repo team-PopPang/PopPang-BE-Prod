@@ -7,6 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserUpdateFcmTokenResquestDto {
 
-    private String fcmToken;
-
+  private String fcmToken;
 }

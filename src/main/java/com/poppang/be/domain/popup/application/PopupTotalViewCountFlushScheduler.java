@@ -10,13 +10,12 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PopupTotalViewCountFlushScheduler {
 
-    private final PopupTotalViewCountFlushService popupTotalViewCountFlushService;
+  private final PopupTotalViewCountFlushService popupTotalViewCountFlushService;
 
-    @Scheduled(initialDelay = 10_000, fixedDelay = 60_000)
-    public void flush() {
-        log.info("[Flush] start");
-        popupTotalViewCountFlushService.flushDeltas();
-        log.info("[Flush] end");
-    }
-
+  @Scheduled(initialDelay = 10_000, fixedDelay = 60_000)
+  public void flush() {
+    log.info("[Flush] start");
+    popupTotalViewCountFlushService.flushDeltas();
+    log.info("[Flush] end");
+  }
 }

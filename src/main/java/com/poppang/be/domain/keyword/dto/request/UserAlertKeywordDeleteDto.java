@@ -5,7 +5,6 @@ import lombok.Getter;
 @Getter
 public class UserAlertKeywordDeleteDto {
 
-    private String userUuid;
-    private String deleteAlertKeyword;
-
+  private String userUuid;
+  private String deleteAlertKeyword;
 }

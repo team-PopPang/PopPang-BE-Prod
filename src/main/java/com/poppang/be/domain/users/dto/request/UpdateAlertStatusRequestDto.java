@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UpdateAlertStatusRequestDto {
 
-    @JsonProperty("isAlerted")
-    private boolean alerted;
-
+  @JsonProperty("isAlerted")
+  private boolean alerted;
 }

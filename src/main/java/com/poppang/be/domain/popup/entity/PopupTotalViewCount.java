@@ -13,11 +13,10 @@ import lombok.NoArgsConstructor;
 @Table(name = "popup_total_view_count")
 public class PopupTotalViewCount {
 
-    @Id
-    @Column(name = "popup_uuid", length = 36)
-    private String popupUuid;
+  @Id
+  @Column(name = "popup_uuid", length = 36)
+  private String popupUuid;
 
-    @Column(name = "view_count", nullable = false)
-    private long viewCount;
-
+  @Column(name = "view_count", nullable = false)
+  private long viewCount;
 }

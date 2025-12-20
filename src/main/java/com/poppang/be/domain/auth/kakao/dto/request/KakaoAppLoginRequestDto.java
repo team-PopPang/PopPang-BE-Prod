@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class KakaoAppLoginRequestDto {
 
-    @JsonProperty("access_token")
-    private String accessToken;
-
+  @JsonProperty("access_token")
+  private String accessToken;
 }

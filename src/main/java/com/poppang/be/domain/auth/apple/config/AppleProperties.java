@@ -11,11 +11,10 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "apple")
 public class AppleProperties {
 
-    private String clientId;
-    private String teamId;
-    private String keyId;
-    private String privateKeyPath;
-    private String redirectUri;
-    private String tokenUri;
-
+  private String clientId;
+  private String teamId;
+  private String keyId;
+  private String privateKeyPath;
+  private String redirectUri;
+  private String tokenUri;
 }

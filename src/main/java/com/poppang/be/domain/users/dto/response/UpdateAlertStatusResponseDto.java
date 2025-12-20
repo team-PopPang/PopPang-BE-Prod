@@ -9,15 +9,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UpdateAlertStatusResponseDto {
 
-    private String userUuid;
-    @JsonProperty("isAlerted")
-    private boolean alerted;
+  private String userUuid;
 
-    @Builder
-    public UpdateAlertStatusResponseDto(String userUuid,
-                                        boolean alerted) {
-        this.userUuid = userUuid;
-        this.alerted = alerted;
-    }
+  @JsonProperty("isAlerted")
+  private boolean alerted;
 
+  @Builder
+  public UpdateAlertStatusResponseDto(String userUuid, boolean alerted) {
+    this.userUuid = userUuid;
+    this.alerted = alerted;
+  }
 }

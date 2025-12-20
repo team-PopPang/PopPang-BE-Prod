@@ -8,17 +8,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class FavoriteCountResponseDto {
 
-    private long count;
+  private long count;
 
-    @Builder
-    public FavoriteCountResponseDto(long count) {
-        this.count = count;
-    }
+  @Builder
+  public FavoriteCountResponseDto(long count) {
+    this.count = count;
+  }
 
-    public static FavoriteCountResponseDto from(long count) {
-        return FavoriteCountResponseDto.builder()
-                .count(count)
-                .build();
-    }
-
+  public static FavoriteCountResponseDto from(long count) {
+    return FavoriteCountResponseDto.builder().count(count).build();
+  }
 }

@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class GoogleAppLoginRequestDto {
 
-    @JsonProperty("id_token")
-    private String idToken;
-
+  @JsonProperty("id_token")
+  private String idToken;
 }

@@ -8,9 +8,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AppleAppLoginRequestDto {
 
-    @JsonProperty("auth_code")
-    private String authCode;
+  @JsonProperty("auth_code")
+  private String authCode;
 
-    private String email;
-
+  private String email;
 }

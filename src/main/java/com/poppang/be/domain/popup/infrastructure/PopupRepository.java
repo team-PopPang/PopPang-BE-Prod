@@ -1,19 +1,19 @@
 package com.poppang.be.domain.popup.infrastructure;
 
 import com.poppang.be.domain.popup.entity.Popup;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
-
 public interface PopupRepository extends JpaRepository<Popup, Long> {
 
-    Optional<Popup> findByUuid(String popupUuid);
+  Optional<Popup> findByUuid(String popupUuid);
 
-    @Query("""
+  @Query(
+      """
             select p
             from Popup p
             where p.activated = true
@@ -24,21 +24,24 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
                     or lower(p.captionSummary) like lower(concat('%', :q, '%'))
                   )
             """)
-    List<Popup> searchActivatedByKeyword(@Param("q") String q);
+  List<Popup> searchActivatedByKeyword(@Param("q") String q);
 
-    List<Popup> findByActivatedTrueAndStartDateBetween(LocalDate startDate, LocalDate endDate);
+  List<Popup> findByActivatedTrueAndStartDateBetween(LocalDate startDate, LocalDate endDate);
 
-    @Query("""
+  @Query(
+      """
             select p
             from Popup p
             where p.activated = true
             and p.startDate <= CURRENT_DATE
             and p.endDate >= CURRENT_DATE
-            order by p.startDate asc 
+            order by p.startDate asc
              """)
-    List<Popup> findInProgressPopupList();
+  List<Popup> findInProgressPopupList();
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT
               p.*,
               (6371 * ACOS(
@@ -53,15 +56,17 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY distance_km ASC, p.created_at DESC
-            """, nativeQuery = true)
-    List<Popup> findActiveByClosest(
-            @Param("region") String region,
-            @Param("district") String district,
-            @Param("lat") Double latitude,
-            @Param("lng") Double longitude
-    );
+            """,
+      nativeQuery = true)
+  List<Popup> findActiveByClosest(
+      @Param("region") String region,
+      @Param("district") String district,
+      @Param("lat") Double latitude,
+      @Param("lng") Double longitude);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT *
             FROM popup p
             WHERE p.is_active = 1
@@ -70,27 +75,30 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:excludeSize = 0 OR p.id NOT IN (:excludeIds))
             ORDER BY RAND()
             LIMIT :limit
-            """, nativeQuery = true)
-    List<Popup> findRandomActivePopupsExcluding(
-            @Param("excludeIds") List<Long> excludeIds,
-            @Param("excludeSize") int excludeSize,
-            @Param("limit") int limit
-    );
+            """,
+      nativeQuery = true)
+  List<Popup> findRandomActivePopupsExcluding(
+      @Param("excludeIds") List<Long> excludeIds,
+      @Param("excludeSize") int excludeSize,
+      @Param("limit") int limit);
 
-    interface RegionDistrictsRaw {
-        String getRegion();
+  interface RegionDistrictsRaw {
+    String getRegion();
 
-        String getDistricts();
-    }
+    String getDistricts();
+  }
 
-    @Query("""
+  @Query(
+      """
             select p.uuid as uuid
             from Popup p
             where p.id in :ids
             """)
-    List<String> findAllUuidByIdIn(@Param("ids") List<Long> ids);
+  List<String> findAllUuidByIdIn(@Param("ids") List<Long> ids);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT
                 region,
                 CONCAT(
@@ -167,10 +175,13 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
                     ELSE 1
                 END,
                 region
-            """, nativeQuery = true)
-    List<RegionDistrictsRaw> findRegionDistrictsJson();
+            """,
+      nativeQuery = true)
+  List<RegionDistrictsRaw> findRegionDistrictsJson();
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT p.*, COALESCE(f.cnt, 0) AS likes
             FROM popup p
             LEFT JOIN (
@@ -181,11 +192,14 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             WHERE (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY likes DESC, p.created_at DESC
-            """, nativeQuery = true)
-    List<Popup> findPopupListByRegionAndLikes(@Param("region") String region,
-                                              @Param("district") String district);
+            """,
+      nativeQuery = true)
+  List<Popup> findPopupListByRegionAndLikes(
+      @Param("region") String region, @Param("district") String district);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT
                 p.*,
                 (6371 * ACOS(
@@ -197,10 +211,13 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             WHERE (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY distance ASC, p.created_at DESC
-            """, nativeQuery = true)
-    List<Popup> findPopupListByRegionAndDistance(String region, String district, Double latitude, Double longitude);
+            """,
+      nativeQuery = true)
+  List<Popup> findPopupListByRegionAndDistance(
+      String region, String district, Double latitude, Double longitude);
 
-    @Query("""
+  @Query(
+      """
             SELECT p
             FROM Popup p
             WHERE p.activated = true
@@ -210,10 +227,12 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:district IS NULL OR p.roadAddress LIKE CONCAT('%', :district, '%'))
             ORDER BY p.startDate DESC
             """)
-    List<Popup> findActiveByNewest(@Param("region") String region,
-                                   @Param("district") String district);
+  List<Popup> findActiveByNewest(
+      @Param("region") String region, @Param("district") String district);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT p.*
             FROM popup p
             WHERE p.is_active = 1
@@ -222,13 +241,14 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY p.end_date ASC, p.start_date ASC
-            """, nativeQuery = true)
-    List<Popup> findActiveByClosingSoon(
-            @Param("region") String region,
-            @Param("district") String district
-    );
+            """,
+      nativeQuery = true)
+  List<Popup> findActiveByClosingSoon(
+      @Param("region") String region, @Param("district") String district);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT p.*
             FROM popup p
             LEFT JOIN (
@@ -242,11 +262,14 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY COALESCE(uf.fav_cnt, 0) DESC, p.created_at DESC
-            """, nativeQuery = true)
-    List<Popup> findActiveByMostFavorited(@Param("region") String region,
-                                          @Param("district") String district);
+            """,
+      nativeQuery = true)
+  List<Popup> findActiveByMostFavorited(
+      @Param("region") String region, @Param("district") String district);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
             SELECT p.*
             FROM popup p
             LEFT JOIN popup_total_view_count v
@@ -257,11 +280,14 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY COALESCE(v.view_count, 0) DESC, p.created_at DESC
-            """, nativeQuery = true)
-    List<Popup> findActiveByMostViewed(@Param("region") String region,
-                                       @Param("district") String district);
+            """,
+      nativeQuery = true)
+  List<Popup> findActiveByMostViewed(
+      @Param("region") String region, @Param("district") String district);
 
-    @Query(value = """
+  @Query(
+      value =
+          """
                 SELECT *
                 FROM popup p
                 WHERE p.is_active = 1
@@ -269,7 +295,7 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
                 AND p.end_date >= CURRENT_DATE
                 ORDER BY RAND()
                 LIMIT 10
-            """, nativeQuery = true)
-    List<Popup> findRandomActivePopups();
-
+            """,
+      nativeQuery = true)
+  List<Popup> findRandomActivePopups();
 }
