@@ -59,7 +59,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     }
     // 유저가 찜한 팝업 id 리스트
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -147,7 +147,7 @@ public class PopupUserServiceImpl implements PopupUserService {
         popupRepository.findByActivatedTrueAndStartDateBetween(startDate, endDate);
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -168,7 +168,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     List<Popup> popupList = popupRepository.searchActivatedByKeyword(term);
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -185,7 +185,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     List<Popup> popupList = popupRepository.findInProgressPopupList();
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -204,7 +204,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -250,7 +250,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -332,7 +332,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     }
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -348,7 +348,7 @@ public class PopupUserServiceImpl implements PopupUserService {
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
@@ -398,7 +398,7 @@ public class PopupUserServiceImpl implements PopupUserService {
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 

@@ -87,7 +87,8 @@ public class UserFavoriteServiceImpl implements UserFavoriteService {
             .findByUuid(userUuid)
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
-    List<UserFavorite> userFavoriteList = userFavoriteRepository.findAllByUserUuid(userUuid);
+    List<UserFavorite> userFavoriteList =
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid);
     if (userFavoriteList.isEmpty()) {
       return List.of();
     }

@@ -93,7 +93,7 @@ public class UserAlertServiceImpl implements UserAlertService {
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
     List<UserAlert> userAlertList =
-        userAlertRepository.findAllByUser_IdOrderByAlertedAtDesc(user.getId());
+        userAlertRepository.findAllByUserIdOrderByAlertedAtDesc(user.getId());
 
     if (userAlertList.isEmpty()) {
       return List.of();
@@ -102,7 +102,7 @@ public class UserAlertServiceImpl implements UserAlertService {
     List<Popup> popupList = userAlertList.stream().map(UserAlert::getPopup).toList();
 
     Set<Long> favoritedPopupIdList =
-        userFavoriteRepository.findAllByUserUuid(userUuid).stream()
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 

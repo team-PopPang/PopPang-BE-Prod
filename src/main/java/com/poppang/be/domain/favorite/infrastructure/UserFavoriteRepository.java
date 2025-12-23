@@ -19,15 +19,23 @@ public interface UserFavoriteRepository extends JpaRepository<UserFavorite, Long
 
   long countByPopupUuid(String popupUuid);
 
-  List<UserFavorite> findAllByUserUuid(String userUuid);
+  @Query(
+      """
+            SELECT uf
+            FROM UserFavorite uf
+            JOIN FETCH uf.popup p
+            WHERE uf.user.uuid = :userUuid
+            AND p.activated = true
+                  """)
+  List<UserFavorite> findAllActivatedByUserUuid(@Param("userUuid") String userUuid);
 
   @Query(
       """
-              SELECT uf.popup.id AS popupId, COUNT(uf.id) AS cnt
-              FROM UserFavorite uf
-              WHERE uf.popup.id IN :popupIds
-              GROUP BY uf.popup.id
-            """)
+                      SELECT uf.popup.id AS popupId, COUNT(uf.id) AS cnt
+                      FROM UserFavorite uf
+                      WHERE uf.popup.id IN :popupIds
+                      GROUP BY uf.popup.id
+                    """)
   List<FavoriteCountRow> countAllByPopupIds(@Param("popupIds") List<Long> popupIds);
 
   interface FavoriteCountRow {
