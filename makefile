@@ -14,7 +14,7 @@ endif
 
 # ===== 공통 변수 =====
 APP_NAME        := poppang-prod
-VERSION         := 1.0.1
+VERSION         := 1.1.3
 IMAGE_NAME      := $(APP_NAME):$(VERSION)
 IMAGE_TAR       := $(APP_NAME)-$(VERSION).tar
 
