@@ -25,4 +25,16 @@ public class RecommendServiceImpl implements RecommendService {
 
     return recommendResponseDtoList;
   }
+
+  @Override
+  public List<RecommendResponseDto> webGetAllRecommendList() {
+    List<Recommend> recommendList = recommendRepository.findAll();
+    List<RecommendResponseDto> recommendResponseDtoList = new ArrayList<>();
+
+    for (Recommend recommend : recommendList) {
+      recommendResponseDtoList.add(RecommendResponseDto.from(recommend));
+    }
+
+    return recommendResponseDtoList;
+  }
 }

@@ -6,4 +6,6 @@ import java.util.List;
 public interface RecommendService {
 
   List<RecommendResponseDto> getAllRecommendList();
+
+  List<RecommendResponseDto> webGetAllRecommendList();
 }
