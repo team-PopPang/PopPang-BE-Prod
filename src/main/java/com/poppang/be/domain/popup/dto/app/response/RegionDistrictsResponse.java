@@ -1,4 +1,4 @@
-package com.poppang.be.domain.popup.dto.response;
+package com.poppang.be.domain.popup.dto.app.response;
 
 import java.util.List;
 import lombok.Builder;

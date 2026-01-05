@@ -4,6 +4,10 @@ import com.poppang.be.domain.popup.entity.Popup;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+
+import com.poppang.be.domain.popup.infrastructure.projection.PopupWebFavoriteRow;
+import com.poppang.be.domain.popup.infrastructure.projection.PopupWebRandomRow;
+import com.poppang.be.domain.popup.infrastructure.projection.PopupWebUpcomingRow;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,8 +17,9 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
   Optional<Popup> findByUuid(String popupUuid);
 
   @Query(
-      """
-            select p
+          """
+
+                  select p
             from Popup p
             where p.activated = true
               and p.startDate <= CURRENT_DATE
@@ -298,4 +303,73 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             """,
       nativeQuery = true)
   List<Popup> findRandomActivePopups();
+
+  @Query(
+          value =
+      """
+        SELECT
+        p.uuid AS popupUuid,
+        p.name AS popupName,
+        pi.image_url AS thumbnailUrl
+        FROM popup p
+        JOIN popup_image pi
+        ON pi.popup_id = p.id
+        AND pi.sort_order = 0
+                WHERE p.is_active = 1
+                AND p.start_date <= CURRENT_DATE
+                AND p.end_date >= CURRENT_DATE
+                ORDER BY RAND()
+                LIMIT :limit
+""", nativeQuery = true)
+  List<PopupWebRandomRow> findRandomActiveWithThumbnail(@Param("limit") int limit);
+
+  @Query(
+          value =
+                  """
+        SELECT
+        p.uuid AS popupUuid,
+        p.name AS popupName,
+        pi.image_url AS thumbnailUrl,
+        p.region AS region,
+        p.start_date AS startDate,
+        p.end_date AS endDate
+        FROM popup_total_view_count ptvc
+        JOIN popup p
+        ON p.uuid = ptvc.popup_uuid
+        JOIN popup_image pi
+        ON pi.popup_id = p.id
+        AND pi.sort_order = 0
+                WHERE p.is_active = 1
+                AND p.start_date <= CURRENT_DATE
+                AND p.end_date >= CURRENT_DATE
+                ORDER BY ptvc.view_count DESC
+                LIMIT :limit
+""", nativeQuery = true
+  )
+  List<PopupWebFavoriteRow> findTopViewedActiveWithThumbnail(@Param("limit")int limit);
+
+  @Query(
+          value =
+                  """
+            SELECT
+                p.uuid AS popupUuid,
+                p.name AS popupName,
+                pi.image_url AS thumbnailUrl,
+                p.region AS region,
+                p.start_date AS startDate,
+                p.end_date AS endDate
+            FROM popup p
+            JOIN popup_image pi
+            ON pi.popup_id = p.id
+            AND pi.sort_order = 0
+            WHERE p.is_active = 1
+            AND p.start_date BETWEEN :startDate AND :endDate
+            ORDER BY start_date ASC
+            LIMIT :limit
+""", nativeQuery = true
+  )
+  List<PopupWebUpcomingRow> findUpcomingActiveWithThumbnail(
+          @Param("startDate") LocalDate startDate,
+          @Param("endDate") LocalDate endDate,
+          @Param("limit") int limit);
 }

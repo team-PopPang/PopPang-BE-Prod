@@ -2,7 +2,7 @@ package com.poppang.be.domain.popup.application;
 
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
-import com.poppang.be.domain.popup.dto.request.PopupImageUpsertRequestDto;
+import com.poppang.be.domain.popup.dto.app.request.PopupImageUpsertRequestDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
 import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;

@@ -1,6 +1,6 @@
 package com.poppang.be.domain.popup.application;
 
-import com.poppang.be.domain.popup.dto.response.PopupTotalViewCountResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupTotalViewCountResponseDto;
 
 public interface PopupTotalViewCountService {
 

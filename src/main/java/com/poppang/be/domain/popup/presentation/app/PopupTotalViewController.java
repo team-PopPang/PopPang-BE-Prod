@@ -1,7 +1,7 @@
-package com.poppang.be.domain.popup.presentation;
+package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupTotalViewCountServiceImpl;
-import com.poppang.be.domain.popup.dto.response.PopupTotalViewCountResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupTotalViewCountResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;

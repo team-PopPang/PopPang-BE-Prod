@@ -1,7 +1,7 @@
-package com.poppang.be.domain.popup.presentation;
+package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupImageServiceImpl;
-import com.poppang.be.domain.popup.dto.request.PopupImageUpsertRequestDto;
+import com.poppang.be.domain.popup.dto.app.request.PopupImageUpsertRequestDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;

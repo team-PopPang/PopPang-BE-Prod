@@ -1,9 +1,9 @@
-package com.poppang.be.domain.popup.presentation;
+package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupServiceImpl;
-import com.poppang.be.domain.popup.dto.request.PopupRegisterRequestDto;
-import com.poppang.be.domain.popup.dto.response.PopupResponseDto;
-import com.poppang.be.domain.popup.dto.response.RegionDistrictsResponse;
+import com.poppang.be.domain.popup.dto.app.request.PopupRegisterRequestDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.RegionDistrictsResponse;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
 import com.poppang.be.domain.popup.enums.SortStandard;

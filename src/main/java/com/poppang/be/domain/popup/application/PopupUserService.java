@@ -1,6 +1,6 @@
 package com.poppang.be.domain.popup.application;
 
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
 import java.util.List;

@@ -4,7 +4,7 @@ import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.util.StringNormalizer;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
 import com.poppang.be.domain.popup.entity.PopupRecommend;

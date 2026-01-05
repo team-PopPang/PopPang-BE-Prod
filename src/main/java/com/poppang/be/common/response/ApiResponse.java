@@ -9,7 +9,7 @@ import lombok.Getter;
 public class ApiResponse<T> {
 
   private static final int SUCCESS_CODE = 0;
-  private static final String SUCCESS_MESSAGE = "요청 성공";
+  private static final String SUCCESS_MESSAGE = "요청 성공!";
 
   private final boolean success;
   private final int code;

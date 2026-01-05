@@ -2,7 +2,7 @@ package com.poppang.be.domain.alert.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.MediaType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;

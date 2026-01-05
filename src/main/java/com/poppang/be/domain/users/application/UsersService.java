@@ -1,6 +1,6 @@
 package com.poppang.be.domain.users.application;
 
-import com.poppang.be.domain.popup.dto.response.UserUpdateFcmTokenResquestDto;
+import com.poppang.be.domain.popup.dto.app.response.UserUpdateFcmTokenResquestDto;
 import com.poppang.be.domain.users.dto.request.ChangeNicknameRequestDto;
 import com.poppang.be.domain.users.dto.request.UpdateAlertStatusRequestDto;
 import com.poppang.be.domain.users.dto.response.*;

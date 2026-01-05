@@ -1,7 +1,7 @@
 package com.poppang.be.domain.popup.mapper;
 
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
-import com.poppang.be.domain.popup.dto.response.PopupResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
 import com.poppang.be.domain.popup.entity.PopupRecommend;

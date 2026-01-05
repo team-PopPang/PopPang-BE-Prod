@@ -1,4 +1,4 @@
-package com.poppang.be.domain.popup.dto.request;
+package com.poppang.be.domain.popup.dto.app.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;

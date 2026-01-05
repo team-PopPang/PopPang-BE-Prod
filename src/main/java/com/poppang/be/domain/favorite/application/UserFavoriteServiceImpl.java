@@ -7,7 +7,7 @@ import com.poppang.be.domain.favorite.dto.request.UserFavoriteRegisterRequestDto
 import com.poppang.be.domain.favorite.dto.response.FavoriteCountResponseDto;
 import com.poppang.be.domain.favorite.entity.UserFavorite;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;

@@ -4,7 +4,7 @@ import com.poppang.be.domain.favorite.application.UserFavoriteServiceImpl;
 import com.poppang.be.domain.favorite.dto.request.UserFavoriteDeleteRequestDto;
 import com.poppang.be.domain.favorite.dto.request.UserFavoriteRegisterRequestDto;
 import com.poppang.be.domain.favorite.dto.response.FavoriteCountResponseDto;
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

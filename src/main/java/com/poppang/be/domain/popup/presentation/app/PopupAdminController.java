@@ -1,4 +1,4 @@
-package com.poppang.be.domain.popup.presentation;
+package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupAdminServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;

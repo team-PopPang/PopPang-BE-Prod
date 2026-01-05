@@ -1,6 +1,7 @@
-package com.poppang.be.domain.popup.dto.response;
+package com.poppang.be.domain.popup.dto.app.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.poppang.be.domain.popup.entity.MediaType;
 import com.poppang.be.domain.popup.entity.Popup;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -13,7 +14,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class PopupResponseDto {
+public class PopupUserResponseDto {
 
   private String popupUuid;
   private String name;
@@ -43,8 +44,11 @@ public class PopupResponseDto {
   private long favoriteCount;
   private long viewCount;
 
+  @JsonProperty("isFavorited")
+  private boolean favorited;
+
   @Builder
-  public PopupResponseDto(
+  public PopupUserResponseDto(
       String popupUuid,
       String name,
       LocalDate startDate,
@@ -63,7 +67,8 @@ public class PopupResponseDto {
       MediaType mediaType,
       List<String> recommendList,
       long favoriteCount,
-      long viewCount) {
+      long viewCount,
+      boolean favorited) {
 
     this.popupUuid = popupUuid;
     this.name = name;
@@ -84,10 +89,11 @@ public class PopupResponseDto {
     this.recommendList = recommendList;
     this.favoriteCount = favoriteCount;
     this.viewCount = viewCount;
+    this.favorited = favorited;
   }
 
-  public static PopupResponseDto from(Popup popup) {
-    return PopupResponseDto.builder()
+  public static PopupUserResponseDto from(Popup popup) {
+    return PopupUserResponseDto.builder()
         .popupUuid(popup.getUuid())
         .name(popup.getName())
         .startDate(popup.getStartDate())

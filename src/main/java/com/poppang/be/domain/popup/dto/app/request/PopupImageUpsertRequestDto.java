@@ -1,4 +1,4 @@
-package com.poppang.be.domain.popup.dto.request;
+package com.poppang.be.domain.popup.dto.app.request;
 
 import lombok.Getter;
 

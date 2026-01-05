@@ -8,7 +8,7 @@ import com.poppang.be.domain.alert.dto.response.UserAlertResponseDto;
 import com.poppang.be.domain.alert.entity.UserAlert;
 import com.poppang.be.domain.alert.infrastructure.UserAlertRepository;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
-import com.poppang.be.domain.popup.dto.response.PopupUserResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
 import com.poppang.be.domain.popup.mapper.PopupUserResponseDtoMapper;
