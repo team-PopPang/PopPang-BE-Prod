@@ -42,4 +42,6 @@ public interface PopupService {
   List<PopupResponseDto> getRelatedPopupList(String popupUuid);
 
   List<PopupResponseDto> getRandomPopupList();
+
+  List<PopupResponseDto> getRecommendationPopupList(Long recommendId);
 }

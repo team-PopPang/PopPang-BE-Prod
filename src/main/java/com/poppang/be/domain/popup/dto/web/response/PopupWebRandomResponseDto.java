@@ -7,14 +7,14 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 public class PopupWebRandomResponseDto {
-    private String popupUuid;
-    private String name;
-    private String thumbnailUrl;
+  private String popupUuid;
+  private String name;
+  private String thumbnailUrl;
 
-    @Builder
-    public PopupWebRandomResponseDto(String popupUuid, String name, String thumbnailUrl) {
-        this.popupUuid = popupUuid;
-        this.name = name;
-        this.thumbnailUrl = thumbnailUrl;
-    }
+  @Builder
+  public PopupWebRandomResponseDto(String popupUuid, String name, String thumbnailUrl) {
+    this.popupUuid = popupUuid;
+    this.name = name;
+    this.thumbnailUrl = thumbnailUrl;
+  }
 }

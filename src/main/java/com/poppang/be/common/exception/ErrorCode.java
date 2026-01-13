@@ -37,6 +37,15 @@ public enum ErrorCode {
   POPUP_RECOMMEND_NOT_FOUND(HttpStatus.NOT_FOUND, 4305, "해당 팝업에는 추천 값이 존재하지 않습니다."),
 
   // ==================================================
+  // 5000 ~ 5099 : Auth / JWT (인증)
+  // ==================================================
+  INVALID_TOKEN(HttpStatus.UNAUTHORIZED, 5001, "유효하지 않은 토큰입니다."),
+  EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, 5002, "만료된 토큰입니다."),
+  UNSUPPORTED_TOKEN(HttpStatus.UNAUTHORIZED, 5003, "지원하지 않는 토큰 형식입니다."),
+  MALFORMED_TOKEN(HttpStatus.UNAUTHORIZED, 5004, "손상된 토큰입니다."),
+  TOKEN_SIGNATURE_INVALID(HttpStatus.UNAUTHORIZED, 5005, "토큰 서명이 올바르지 않습니다."),
+
+  // ==================================================
   // 6000 ~ 6999 : System / Unexpected
   // ==================================================
   INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 6000, "서버 에러가 발생했습니다.");

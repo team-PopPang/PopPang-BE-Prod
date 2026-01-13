@@ -33,9 +33,12 @@ spotless {
 dependencies {
 
     // --- Spring ---
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // --- Spring Security ---
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    testImplementation 'org.springframework.security:spring-security-test'
 
     // --- DB ---
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -51,13 +54,18 @@ dependencies {
     // --- Google ---
     implementation 'com.google.api-client:google-api-client:2.2.0'
 
-    // Jackson2 JSON 팩토리 (반드시 필요)
+    // --- Jackson2 JSON 팩토리 ---
     implementation 'com.google.http-client:google-http-client-jackson2:1.43.2'
 
     // --- Swagger ---
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0'
 
-    // 이메일을 보내기 위한 라이브러리
+    // --- JWT ---
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly    'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // --- 이메일 발송 라이브러리 ---
     implementation 'com.sun.mail:jakarta.mail:2.0.1'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

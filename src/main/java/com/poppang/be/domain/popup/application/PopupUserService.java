@@ -33,4 +33,6 @@ public interface PopupUserService {
   List<PopupUserResponseDto> getRelatedPopupList(String userUuid, String popupUuid);
 
   List<PopupUserResponseDto> getRandomPopupList(String userUuid);
+
+  List<PopupUserResponseDto> getRecommendationPopupList(String userUuid, Long recommendId);
 }

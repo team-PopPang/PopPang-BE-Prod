@@ -1,7 +1,6 @@
 package com.poppang.be.domain.users.entity;
 
 import com.poppang.be.common.entity.BaseEntity;
-import com.poppang.be.common.enums.Role;
 import com.poppang.be.domain.auth.kakao.dto.request.SignupRequestDto;
 import com.poppang.be.domain.users.dto.request.ChangeNicknameRequestDto;
 import jakarta.persistence.*;

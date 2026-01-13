@@ -434,4 +434,12 @@ public class PopupServiceImpl implements PopupService {
 
     return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
   }
+
+  @Override
+  public List<PopupResponseDto> getRecommendationPopupList(Long recommendId) {
+
+    List<Popup> popupList = popupRepository.findActivePopupsByRecommendId(recommendId);
+
+    return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
+  }
 }

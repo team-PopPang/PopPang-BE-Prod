@@ -1,10 +1,10 @@
 package com.poppang.be.domain.popup.application;
 
-import com.poppang.be.common.enums.Role;
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
+import com.poppang.be.domain.users.entity.Role;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +35,17 @@ public class PopupAdminServiceImpl implements PopupAdminService {
     if (user.getRole() != Role.ADMIN) {
       throw new BaseException(ErrorCode.ACCESS_DENIED);
     }
+
+    popup.deactivate();
+  }
+
+  @Override
+  @Transactional
+  public void deactivatePopupV2(String popupUuid) {
+    Popup popup =
+        popupRepository
+            .findByUuid(popupUuid)
+            .orElseThrow(() -> new BaseException(ErrorCode.POPUP_NOT_FOUND));
 
     popup.deactivate();
   }

@@ -13,7 +13,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PopupRecommendRepository extends JpaRepository<PopupRecommend, Long> {
 
-  List<PopupRecommend> findAllByPopup_IdIn(List<Long> popupIdList);
+  @Query(
+      """
+        SELECT pr
+        FROM PopupRecommend pr
+        JOIN FETCH pr.recommend r
+        WHERE pr.popup.id IN :popupIdList
+""")
+  List<PopupRecommend> findAllByPopupIdsWithRecommend(List<Long> popupIdList);
 
   PopupRecommend findFirstByPopup_Id(Long id);
 

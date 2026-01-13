@@ -406,4 +406,22 @@ public class PopupUserServiceImpl implements PopupUserService {
 
     return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
   }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<PopupUserResponseDto> getRecommendationPopupList(String userUuid, Long recommendId) {
+    Users user =
+        usersRepository
+            .findByUuid(userUuid)
+            .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
+
+    Set<Long> favoritedPopupIdList =
+        userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
+            .map(f -> f.getPopup().getId())
+            .collect(Collectors.toSet());
+
+    List<Popup> popupList = popupRepository.findActivePopupsByRecommendId(recommendId);
+
+    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
+  }
 }

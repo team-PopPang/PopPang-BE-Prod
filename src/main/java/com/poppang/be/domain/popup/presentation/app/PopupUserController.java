@@ -1,6 +1,6 @@
 package com.poppang.be.domain.popup.presentation.app;
 
-import com.poppang.be.domain.popup.application.PopupUserServiceImpl;
+import com.poppang.be.domain.popup.application.PopupUserService;
 import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
@@ -12,19 +12,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "[POPUP-USER] 개인화", description = "유저별 팝업 조회 API")
+@Tag(name = "[POPUP-USER] 회원", description = "회원 유저 팝업 API")
 @RestController
 @RequestMapping("/api/v1/users/{userUuid}/popups")
 @RequiredArgsConstructor
 public class PopupUserController {
 
-  private final PopupUserServiceImpl popupUserServiceImpl;
+  private final PopupUserService popupUserService;
 
   @Operation(summary = "팝업 전체 조회", description = "모든 팝업스토어 정보를 조회합니다. (비활성화된 팝업 포함)")
   @GetMapping
   public ResponseEntity<List<PopupUserResponseDto>> getAllPopupList(@PathVariable String userUuid) {
     List<PopupUserResponseDto> popupUserResponseDtoList =
-        popupUserServiceImpl.getAllPopupList(userUuid);
+        popupUserService.getAllPopupList(userUuid);
 
     return ResponseEntity.ok(popupUserResponseDtoList);
   }
@@ -34,7 +34,7 @@ public class PopupUserController {
   public ResponseEntity<PopupUserResponseDto> getPopupByUuid(
       @PathVariable String userUuid, @PathVariable String popupUuid) {
     PopupUserResponseDto popupUserResponseDto =
-        popupUserServiceImpl.getPopupByUuid(userUuid, popupUuid);
+        popupUserService.getPopupByUuid(userUuid, popupUuid);
 
     return ResponseEntity.ok(popupUserResponseDto);
   }
@@ -47,7 +47,7 @@ public class PopupUserController {
           @RequestParam(name = "upcomingDays", required = false)
           Integer upcomingDays) {
     List<PopupUserResponseDto> upcomingPopupUserList =
-        popupUserServiceImpl.getUpcomingPopupList(userUuid, upcomingDays);
+        popupUserService.getUpcomingPopupList(userUuid, upcomingDays);
 
     return ResponseEntity.ok(upcomingPopupUserList);
   }
@@ -75,7 +75,7 @@ public class PopupUserController {
   public ResponseEntity<List<PopupUserResponseDto>> getRecommendPopupList(
       @PathVariable String userUuid) {
     List<PopupUserResponseDto> recommendPopupList =
-        popupUserServiceImpl.getRecommendPopupList(userUuid);
+        popupUserService.getRecommendPopupList(userUuid);
 
     return ResponseEntity.ok(recommendPopupList);
   }
@@ -85,7 +85,7 @@ public class PopupUserController {
   public ResponseEntity<List<PopupUserResponseDto>> getSearchPopupList(
       @PathVariable String userUuid, @RequestParam("q") String q) {
     List<PopupUserResponseDto> searchPopupUserList =
-        popupUserServiceImpl.getSearchPopupList(userUuid, q);
+        popupUserService.getSearchPopupList(userUuid, q);
 
     return ResponseEntity.ok(searchPopupUserList);
   }
@@ -94,13 +94,12 @@ public class PopupUserController {
       summary = "진행 중인 팝업 조회",
       description =
           "현재 날짜 기준으로 오픈 중(진행 중)인 모든 팝업스토어 정보를 조회합니다. "
-              + "시작일(`start_date`)이 오늘 이전이거나 같고, 종료일(`end_date`)이 오늘 이후이거나 같은 팝업만 반환됩니다.",
-      tags = {"[POPUP] 공통"})
+              + "시작일(`start_date`)이 오늘 이전이거나 같고, 종료일(`end_date`)이 오늘 이후이거나 같은 팝업만 반환됩니다.")
   @GetMapping("/inProgress")
   public ResponseEntity<List<PopupUserResponseDto>> getInProgressPopupList(
       @PathVariable String userUuid) {
     List<PopupUserResponseDto> inProgressPopupList =
-        popupUserServiceImpl.getInProgressPopupList(userUuid);
+        popupUserService.getInProgressPopupList(userUuid);
 
     return ResponseEntity.ok(inProgressPopupList);
   }
@@ -126,7 +125,7 @@ public class PopupUserController {
       @RequestParam String district,
       @RequestParam HomeSortStandard homeSortStandard) {
     List<PopupUserResponseDto> filteredHomePopupList =
-        popupUserServiceImpl.getFilteredHomePopupList(userUuid, region, district, homeSortStandard);
+        popupUserService.getFilteredHomePopupList(userUuid, region, district, homeSortStandard);
 
     return filteredHomePopupList;
   }
@@ -156,7 +155,7 @@ public class PopupUserController {
       @RequestParam(required = false) Double longitude,
       @RequestParam MapSortStandard mapSortStandard) {
     List<PopupUserResponseDto> filteredMapPopupList =
-        popupUserServiceImpl.getFilteredMapPopupList(
+        popupUserService.getFilteredMapPopupList(
             userUuid, region, district, latitude, longitude, mapSortStandard);
 
     return ResponseEntity.ok(filteredMapPopupList);
@@ -184,7 +183,7 @@ public class PopupUserController {
   public ResponseEntity<List<PopupUserResponseDto>> getRelatedPopupList(
       @PathVariable String userUuid, @PathVariable String popupUuid) {
     List<PopupUserResponseDto> relatedPopupList =
-        popupUserServiceImpl.getRelatedPopupList(userUuid, popupUuid);
+        popupUserService.getRelatedPopupList(userUuid, popupUuid);
 
     return ResponseEntity.ok(relatedPopupList);
   }
@@ -207,8 +206,24 @@ public class PopupUserController {
   @GetMapping("/random")
   public ResponseEntity<List<PopupUserResponseDto>> getRandomPopupList(
       @PathVariable String userUuid) {
-    List<PopupUserResponseDto> randomPopupList = popupUserServiceImpl.getRandomPopupList(userUuid);
+    List<PopupUserResponseDto> randomPopupList = popupUserService.getRandomPopupList(userUuid);
 
     return ResponseEntity.ok(randomPopupList);
+  }
+
+  @Operation(
+      summary = "추천 카테고리별 팝업 목록 조회",
+      description =
+          """
+        특정 추천 카테고리(recommendId)에 속한 팝업 목록을 조회합니다.
+        유저 UUID를 기준으로 좋아요 여부(favorited) 등 사용자 맞춤 정보가 포함됩니다.
+        """)
+  @GetMapping("/recommendations/{recommendId}")
+  public ResponseEntity<List<PopupUserResponseDto>> getRecommendationPopupList(
+      @PathVariable String userUuid, @PathVariable Long recommendId) {
+    List<PopupUserResponseDto> recommendationPopupList =
+        popupUserService.getRecommendationPopupList(userUuid, recommendId);
+
+    return ResponseEntity.ok(recommendationPopupList);
   }
 }

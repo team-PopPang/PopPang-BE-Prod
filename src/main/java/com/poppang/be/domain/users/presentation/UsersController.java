@@ -1,10 +1,11 @@
 package com.poppang.be.domain.users.presentation;
 
 import com.poppang.be.domain.popup.dto.app.response.UserUpdateFcmTokenResquestDto;
-import com.poppang.be.domain.users.application.UsersServiceImpl;
+import com.poppang.be.domain.users.application.UsersService;
 import com.poppang.be.domain.users.dto.request.ChangeNicknameRequestDto;
 import com.poppang.be.domain.users.dto.request.UpdateAlertStatusRequestDto;
 import com.poppang.be.domain.users.dto.response.*;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -18,12 +19,12 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UsersController {
 
-  private final UsersServiceImpl usersServiceImpl;
+  private final UsersService usersService;
 
   @Operation(summary = "유저 정보 조회", description = "userUuid를 기준으로 유저의 기본 정보를 조회합니다.")
   @GetMapping("/{userUuid}")
   public ResponseEntity<GetUserResponseDto> getUserInfo(@PathVariable String userUuid) {
-    GetUserResponseDto getUserResponseDto = usersServiceImpl.getUserInfo(userUuid);
+    GetUserResponseDto getUserResponseDto = usersService.getUserInfo(userUuid);
 
     return ResponseEntity.ok(getUserResponseDto);
   }
@@ -41,7 +42,7 @@ public class UsersController {
       @PathVariable String userUuid,
       @RequestBody UpdateAlertStatusRequestDto updateAlertStatusRequestDto) {
     UpdateAlertStatusResponseDto updateAlertStatusResponseDto =
-        usersServiceImpl.updateAlertStatus(userUuid, updateAlertStatusRequestDto);
+        usersService.updateAlertStatus(userUuid, updateAlertStatusRequestDto);
 
     return ResponseEntity.ok(updateAlertStatusResponseDto);
   }
@@ -51,7 +52,7 @@ public class UsersController {
   public ResponseEntity<NicknameDuplicateResponseDto> checkNicknameDuplicated(
       @RequestParam String nickname) {
     NicknameDuplicateResponseDto nicknameDuplicateResponseDto =
-        usersServiceImpl.checkNicknameDuplicated(nickname);
+        usersService.checkNicknameDuplicated(nickname);
 
     return ResponseEntity.ok(nicknameDuplicateResponseDto);
   }
@@ -62,7 +63,7 @@ public class UsersController {
       @PathVariable String userUuid,
       @RequestBody ChangeNicknameRequestDto changeNicknameRequestDto) {
 
-    usersServiceImpl.changeNickname(userUuid, changeNicknameRequestDto);
+    usersService.changeNickname(userUuid, changeNicknameRequestDto);
 
     return ResponseEntity.ok().build();
   }
@@ -72,29 +73,23 @@ public class UsersController {
       description = "유저 회원탈퇴를 진행합니다. (hard-delete)라서 데이터는 복구할 수 없습니다.")
   @DeleteMapping("{userUuid}/hard-delete")
   public ResponseEntity<Void> hardDeleteUser(@PathVariable String userUuid) {
-    usersServiceImpl.hardDeleteUser(userUuid);
+    usersService.hardDeleteUser(userUuid);
 
     return ResponseEntity.ok().build();
   }
 
-  @Operation(
-      summary = "유저 탈퇴 기능 (soft-delete)",
-      description = "유저 회원탈퇴를 진행합니다. (soft-delete)라서 데이터는 복구 가능한 상태입니다. ",
-      deprecated = true)
+  @Hidden
   @PatchMapping("/{userUuid}/soft-delete")
   public ResponseEntity<Void> softDeleteUser(@PathVariable String userUuid) {
-    usersServiceImpl.softDeleteUser(userUuid);
+    usersService.softDeleteUser(userUuid);
 
     return ResponseEntity.ok().build();
   }
 
-  @Operation(
-      summary = "유저 복구 기능 (soft-delete 복구)",
-      description = "유저 복구를 진행합니다. 테스트 환경에서 사용하기 위한 API입니다. ",
-      deprecated = true)
+  @Hidden
   @PatchMapping("/{userUuid}/resotre")
   public ResponseEntity<Void> restoreUser(@PathVariable String userUuid) {
-    usersServiceImpl.restoreUser(userUuid);
+    usersService.restoreUser(userUuid);
 
     return ResponseEntity.ok().build();
   }
@@ -105,7 +100,7 @@ public class UsersController {
   @GetMapping("/{userUuid}/fcm-token/duplicate-check")
   public ResponseEntity<Boolean> isFcmTokenDuplicated(
       @PathVariable String userUuid, @RequestParam String fcmToken) {
-    boolean fcmTokenDuplicated = usersServiceImpl.isFcmTokenDuplicated(userUuid, fcmToken);
+    boolean fcmTokenDuplicated = usersService.isFcmTokenDuplicated(userUuid, fcmToken);
 
     return ResponseEntity.ok(fcmTokenDuplicated);
   }
@@ -117,7 +112,7 @@ public class UsersController {
   public ResponseEntity<Void> updateFcmToken(
       @PathVariable String userUuid,
       @RequestBody UserUpdateFcmTokenResquestDto userUpdateFcmTokenResquestDto) {
-    usersServiceImpl.updateFcmToken(userUuid, userUpdateFcmTokenResquestDto);
+    usersService.updateFcmToken(userUuid, userUpdateFcmTokenResquestDto);
 
     return ResponseEntity.ok().build();
   }
@@ -127,7 +122,7 @@ public class UsersController {
   @GetMapping("/with-alert-keyword/a")
   public ResponseEntity<List<UserWithKeywordListResponseDto>> getUserWithKeywordList() {
     List<UserWithKeywordListResponseDto> userWithKeywordListResponseDtoList =
-        usersServiceImpl.getUserWithKeywordList();
+        usersService.getUserWithKeywordList();
 
     return ResponseEntity.ok(userWithKeywordListResponseDtoList);
   }
@@ -137,7 +132,7 @@ public class UsersController {
   @GetMapping("/with-alert-keyword/b")
   public ResponseEntity<List<UserWithKeywordListResponseDtoB>> getUserWithKeywordListB() {
     List<UserWithKeywordListResponseDtoB> userWithKeywordListResponseDtoBList =
-        usersServiceImpl.getUserWithKeywordListB();
+        usersService.getUserWithKeywordListB();
 
     return ResponseEntity.ok(userWithKeywordListResponseDtoBList);
   }

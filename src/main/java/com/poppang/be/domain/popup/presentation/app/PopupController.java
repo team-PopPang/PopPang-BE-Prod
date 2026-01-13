@@ -1,12 +1,13 @@
 package com.poppang.be.domain.popup.presentation.app;
 
-import com.poppang.be.domain.popup.application.PopupServiceImpl;
+import com.poppang.be.domain.popup.application.PopupService;
 import com.poppang.be.domain.popup.dto.app.request.PopupRegisterRequestDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.RegionDistrictsResponse;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
 import com.poppang.be.domain.popup.enums.SortStandard;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,18 +16,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "[POPUP] 공통", description = "팝업스토어 관련 API")
+@Tag(name = "[POPUP] 비회원", description = "비회원 유저 팝업 API")
 @RestController
 @RequestMapping("/api/v1/popup")
 @RequiredArgsConstructor
 public class PopupController {
 
-  private final PopupServiceImpl popupServiceImpl;
+  private final PopupService popupService;
 
   @Operation(summary = "팝업 전체 조회", description = "모든 팝업스토어 정보를 조회합니다. (비활성화된 팝업 포함)")
   @GetMapping
   public ResponseEntity<List<PopupResponseDto>> getAllPopupList() {
-    List<PopupResponseDto> allPopupList = popupServiceImpl.getAllPopupList();
+    List<PopupResponseDto> allPopupList = popupService.getAllPopupList();
 
     return ResponseEntity.ok(allPopupList);
   }
@@ -34,7 +35,7 @@ public class PopupController {
   @Operation(summary = "팝업 단건 조회", description = "popupUuid로 단건 팝업 조회합니다. ")
   @GetMapping("/{popupUuid}")
   public ResponseEntity<PopupResponseDto> getPopupByUuid(@PathVariable String popupUuid) {
-    PopupResponseDto popupResponseDto = popupServiceImpl.getPopupByUuid(popupUuid);
+    PopupResponseDto popupResponseDto = popupService.getPopupByUuid(popupUuid);
 
     return ResponseEntity.ok(popupResponseDto);
   }
@@ -42,21 +43,18 @@ public class PopupController {
   @Operation(summary = "팝업 검색", description = "특정 키워드로 팝업스토어를 검색합니다.")
   @GetMapping("/search")
   public ResponseEntity<List<PopupResponseDto>> getSearchPopupList(@RequestParam("q") String q) {
-    List<PopupResponseDto> searchPopupList = popupServiceImpl.getSearchPopupList(q);
+    List<PopupResponseDto> searchPopupList = popupService.getSearchPopupList(q);
 
     return ResponseEntity.ok(searchPopupList);
   }
 
-  @Operation(
-      summary = "다가오는 팝업 조회 (D-1 ~ D-10)",
-      description = "오늘부터 10일 이내에 시작하는 팝업을 반환합니다.",
-      tags = {"[POPUP] 공통"})
+  @Operation(summary = "다가오는 팝업 조회 (D-1 ~ D-10)", description = "오늘부터 10일 이내에 시작하는 팝업을 반환합니다.")
   @GetMapping("/upcoming")
   public ResponseEntity<List<PopupResponseDto>> getUpcomingPopupList(
       @Parameter(description = "며칠 뒤까지 조회 (기본 10)")
           @RequestParam(name = "upcomingDays", required = false)
           Integer upcomingDays) {
-    List<PopupResponseDto> upcomingPopupList = popupServiceImpl.getUpcomingPopupList(upcomingDays);
+    List<PopupResponseDto> upcomingPopupList = popupService.getUpcomingPopupList(upcomingDays);
 
     return ResponseEntity.ok(upcomingPopupList);
   }
@@ -79,7 +77,7 @@ public class PopupController {
   @GetMapping("/{userUuid}/recommend")
   public ResponseEntity<List<PopupResponseDto>> getRecommendPopupList(
       @PathVariable String userUuid) {
-    List<PopupResponseDto> recommendPopupList = popupServiceImpl.getRecommendPopupList(userUuid);
+    List<PopupResponseDto> recommendPopupList = popupService.getRecommendPopupList(userUuid);
 
     return ResponseEntity.ok(recommendPopupList);
   }
@@ -88,11 +86,10 @@ public class PopupController {
       summary = "진행 중인 팝업 조회",
       description =
           "현재 날짜 기준으로 오픈 중(진행 중)인 모든 팝업스토어 정보를 조회합니다. "
-              + "시작일(`start_date`)이 오늘 이전이거나 같고, 종료일(`end_date`)이 오늘 이후이거나 같은 팝업만 반환됩니다.",
-      tags = {"[POPUP] 공통"})
+              + "시작일(`start_date`)이 오늘 이전이거나 같고, 종료일(`end_date`)이 오늘 이후이거나 같은 팝업만 반환됩니다.")
   @GetMapping("/inProgress")
   public ResponseEntity<List<PopupResponseDto>> getInProgressPopupList() {
-    List<PopupResponseDto> inProgressPopupList = popupServiceImpl.getInProgressPopupList();
+    List<PopupResponseDto> inProgressPopupList = popupService.getInProgressPopupList();
 
     return ResponseEntity.ok(inProgressPopupList);
   }
@@ -106,7 +103,7 @@ public class PopupController {
   @PostMapping
   public ResponseEntity<Void> registerPopup(
       @RequestBody PopupRegisterRequestDto popupRegisterRequestDto) {
-    popupServiceImpl.registerPopup(popupRegisterRequestDto);
+    popupService.registerPopup(popupRegisterRequestDto);
 
     return ResponseEntity.ok().build();
   }
@@ -118,22 +115,12 @@ public class PopupController {
               + "서울은 '전체'와 실제 'OO구'들을 포함하고, 서울 외 지역은 '전체'만 포함합니다.")
   @GetMapping("/regions/districts")
   public ResponseEntity<List<RegionDistrictsResponse>> getRegionDistricts() {
-    List<RegionDistrictsResponse> regionDistrictsResponseList =
-        popupServiceImpl.getRegionDistricts();
+    List<RegionDistrictsResponse> regionDistrictsResponseList = popupService.getRegionDistricts();
 
     return ResponseEntity.ok(regionDistrictsResponseList);
   }
 
-  @Operation(
-      summary = "팝업 필터 조회 API",
-      description =
-          """
-                    지역(region), 구(district), 정렬 기준(sortStandard), 좌표(latitude, longitude)에 따라 팝업 리스트를 필터링합니다.
-                    - sortStandard: LIKES(좋아요 순), DISTANCE(가까운 순)
-                    - district는 '전체'로 요청하면 전체 지역을 의미합니다.
-                    - latitude, longitude는 가까운순 정렬 시 필수값입니다.
-                    """,
-      deprecated = true)
+  @Hidden
   @GetMapping("/filtered")
   public ResponseEntity<List<PopupResponseDto>> getFilteredPopupList(
       @RequestParam String region,
@@ -142,7 +129,7 @@ public class PopupController {
       @RequestParam(required = false) Double latitude,
       @RequestParam(required = false) Double longitude) {
     List<PopupResponseDto> filteredPopupList =
-        popupServiceImpl.getFilteredPopupList(region, district, sortStandard, latitude, longitude);
+        popupService.getFilteredPopupList(region, district, sortStandard, latitude, longitude);
 
     return ResponseEntity.ok(filteredPopupList);
   }
@@ -167,7 +154,7 @@ public class PopupController {
       @RequestParam String district,
       @RequestParam HomeSortStandard homeSortStandard) {
     List<PopupResponseDto> filteredHomePopupList =
-        popupServiceImpl.getFilteredHomePopupList(region, district, homeSortStandard);
+        popupService.getFilteredHomePopupList(region, district, homeSortStandard);
 
     return ResponseEntity.ok(filteredHomePopupList);
   }
@@ -196,7 +183,7 @@ public class PopupController {
       @RequestParam(required = false) Double longitude,
       @RequestParam MapSortStandard mapSortStandard) {
     List<PopupResponseDto> filteredMapPopupList =
-        popupServiceImpl.getFilteredMapPopupList(
+        popupService.getFilteredMapPopupList(
             region, district, latitude, longitude, mapSortStandard);
 
     return ResponseEntity.ok(filteredMapPopupList);
@@ -224,7 +211,7 @@ public class PopupController {
   @GetMapping("/{popupUuid}/related")
   public ResponseEntity<List<PopupResponseDto>> getRelatedPopupList(
       @PathVariable String popupUuid) {
-    List<PopupResponseDto> relatedPopupList = popupServiceImpl.getRelatedPopupList(popupUuid);
+    List<PopupResponseDto> relatedPopupList = popupService.getRelatedPopupList(popupUuid);
 
     return ResponseEntity.ok(relatedPopupList);
   }
@@ -246,8 +233,26 @@ public class PopupController {
                 """)
   @GetMapping("/random")
   public ResponseEntity<List<PopupResponseDto>> getRandomPopupList() {
-    List<PopupResponseDto> randomPopupList = popupServiceImpl.getRandomPopupList();
+    List<PopupResponseDto> randomPopupList = popupService.getRandomPopupList();
 
     return ResponseEntity.ok(randomPopupList);
+  }
+
+  @Operation(
+      summary = "추천 카테고리별 팝업 목록 조회",
+      description =
+          """
+        특정 추천 카테고리(recommendId)에 속한 팝업 스토어 목록을 조회합니다.
+
+        - 지도 상단 Featured / 추천 영역에서 사용됩니다.
+        - 현재 활성화된 팝업만 반환합니다.
+        """)
+  @GetMapping("/recommendations/{recommendId}")
+  public ResponseEntity<List<PopupResponseDto>> getRecommendationPopupList(
+      @PathVariable Long recommendId) {
+    List<PopupResponseDto> recommendationPopupList =
+        popupService.getRecommendationPopupList(recommendId);
+
+    return ResponseEntity.ok(recommendationPopupList);
   }
 }

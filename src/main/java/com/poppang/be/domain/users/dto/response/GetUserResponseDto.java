@@ -1,8 +1,8 @@
 package com.poppang.be.domain.users.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.poppang.be.common.enums.Role;
 import com.poppang.be.domain.users.entity.Provider;
+import com.poppang.be.domain.users.entity.Role;
 import com.poppang.be.domain.users.entity.Users;
 import lombok.Builder;
 import lombok.Getter;

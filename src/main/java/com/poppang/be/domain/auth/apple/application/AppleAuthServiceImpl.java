@@ -2,7 +2,6 @@ package com.poppang.be.domain.auth.apple.application;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.JWTClaimsSet;
-import com.poppang.be.common.enums.Role;
 import com.poppang.be.common.mail.EmailService;
 import com.poppang.be.domain.auth.apple.config.AppleProperties;
 import com.poppang.be.domain.auth.apple.dto.request.AppleAppLoginRequestDto;
@@ -20,6 +19,7 @@ import com.poppang.be.domain.recommend.entity.UserRecommend;
 import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
 import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
 import com.poppang.be.domain.users.entity.Provider;
+import com.poppang.be.domain.users.entity.Role;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.text.ParseException;

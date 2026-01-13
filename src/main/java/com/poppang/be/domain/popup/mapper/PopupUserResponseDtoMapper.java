@@ -50,7 +50,8 @@ public class PopupUserResponseDtoMapper {
     }
 
     // 추천
-    List<PopupRecommend> recs = popupRecommendRepository.findAllByPopup_IdIn(popupIdList);
+    List<PopupRecommend> recs =
+        popupRecommendRepository.findAllByPopupIdsWithRecommend(popupIdList);
     Map<Long, List<String>> recommendMap = new HashMap<>();
     for (PopupRecommend r : recs) {
       recommendMap

@@ -1,5 +1,6 @@
 package com.poppang.be.domain.recommend.application;
 
+import com.poppang.be.domain.recommend.dto.response.RecommendFeaturedResponseDto;
 import com.poppang.be.domain.recommend.dto.response.RecommendResponseDto;
 import com.poppang.be.domain.recommend.entity.Recommend;
 import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service;
 public class RecommendServiceImpl implements RecommendService {
 
   private final RecommendRepository recommendRepository;
+
+  private static final List<Integer> FEATURED_RECOMMEND_IDS = List.of(21);
 
   @Override
   public List<RecommendResponseDto> getAllRecommendList() {
@@ -36,5 +39,12 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     return recommendResponseDtoList;
+  }
+
+  @Override
+  public List<RecommendFeaturedResponseDto> getFeaturedForMap() {
+    List<Recommend> recommendList = recommendRepository.findAllByIdIn(FEATURED_RECOMMEND_IDS);
+
+    return recommendList.stream().map(RecommendFeaturedResponseDto::from).toList();
   }
 }
