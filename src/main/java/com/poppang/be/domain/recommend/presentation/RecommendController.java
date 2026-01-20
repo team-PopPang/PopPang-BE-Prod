@@ -6,6 +6,8 @@ import com.poppang.be.domain.recommend.dto.response.RecommendFeaturedResponseDto
 import com.poppang.be.domain.recommend.dto.response.RecommendResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +43,10 @@ public class RecommendController {
         """)
   @GetMapping("/featured")
   public ResponseEntity<List<RecommendFeaturedResponseDto>> getFeaturedForMap() {
-    List<RecommendFeaturedResponseDto> featuredForMap = recommendService.getFeaturedForMap();
+//    List<RecommendFeaturedResponseDto> featuredForMap = recommendService.getFeaturedForMap();
+
+    // Line 49 삭제 후 46 주석 없애기
+    List<RecommendFeaturedResponseDto> featuredForMap = new ArrayList<>();
 
     return ResponseEntity.ok(featuredForMap);
   }
