@@ -6,10 +6,13 @@ import com.poppang.be.common.util.StringNormalizer;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
 import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
+import com.poppang.be.domain.popup.entity.PopupAdvertisement;
+import com.poppang.be.domain.popup.entity.PopupAdvertisementPlacement;
 import com.poppang.be.domain.popup.entity.PopupImage;
 import com.poppang.be.domain.popup.entity.PopupRecommend;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
+import com.poppang.be.domain.popup.infrastructure.PopupAdvertisementRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
@@ -21,9 +24,11 @@ import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +40,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PopupUserServiceImpl implements PopupUserService {
 
+  private static final int RECOMMEND_POPUP_LIMIT = 10;
+
   private final PopupRepository popupRepository;
+  private final PopupAdvertisementRepository popupAdvertisementRepository;
   private final PopupImageRepository popupImageRepository;
   private final RecommendRepository recommendRepository;
   private final PopupRecommendRepository popupRecommendRepository;
@@ -64,6 +72,66 @@ public class PopupUserServiceImpl implements PopupUserService {
             .collect(Collectors.toSet());
 
     return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
+  }
+
+  private List<Popup> prependAdvertisementPopups(List<Popup> recommendedPopupList) {
+    List<Popup> advertisementPopupList = findActiveAdvertisementPopupList();
+    if (advertisementPopupList.isEmpty()) {
+      return recommendedPopupList;
+    }
+
+    Set<Long> advertisementPopupIdSet =
+        advertisementPopupList.stream().map(Popup::getId).collect(Collectors.toSet());
+
+    List<Popup> finalPopupList = new ArrayList<>(RECOMMEND_POPUP_LIMIT);
+    for (Popup advertisementPopup : advertisementPopupList) {
+      if (finalPopupList.size() == RECOMMEND_POPUP_LIMIT) {
+        return finalPopupList;
+      }
+      finalPopupList.add(advertisementPopup);
+    }
+
+    for (Popup recommendedPopup : recommendedPopupList) {
+      if (finalPopupList.size() == RECOMMEND_POPUP_LIMIT) {
+        break;
+      }
+      if (!advertisementPopupIdSet.contains(recommendedPopup.getId())) {
+        finalPopupList.add(recommendedPopup);
+      }
+    }
+
+    return finalPopupList;
+  }
+
+  private List<Popup> findActiveAdvertisementPopupList() {
+    List<PopupAdvertisement> advertisements =
+        popupAdvertisementRepository.findActiveAdvertisements(
+            PopupAdvertisementPlacement.USER_RECOMMEND_TOP, LocalDateTime.now());
+    if (advertisements.isEmpty()) {
+      return List.of();
+    }
+
+    List<Long> popupIdList =
+        advertisements.stream().map(PopupAdvertisement::getPopupId).distinct().toList();
+    if (popupIdList.isEmpty()) {
+      return List.of();
+    }
+
+    Map<Long, Popup> popupMap =
+        popupRepository.findActiveInProgressByIdIn(popupIdList).stream()
+            .collect(Collectors.toMap(Popup::getId, popup -> popup));
+
+    Set<Long> pickedPopupIdSet = new HashSet<>();
+    List<Popup> advertisementPopupList = new ArrayList<>(popupIdList.size());
+    for (PopupAdvertisement advertisement : advertisements) {
+      Long popupId = advertisement.getPopupId();
+      Popup popup = popupMap.get(popupId);
+      if (popup != null && pickedPopupIdSet.add(popupId)) {
+        advertisementPopupList.add(popup);
+      }
+    }
+
+    return advertisementPopupList;
   }
 
   @Override
@@ -336,7 +404,10 @@ public class PopupUserServiceImpl implements PopupUserService {
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
-    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
+    List<Popup> finalPopupList = prependAdvertisementPopups(popupList);
+
+    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(
+        finalPopupList, favoritedPopupIdList);
   }
 
   @Override

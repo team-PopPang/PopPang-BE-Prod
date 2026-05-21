@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PopPang Backend · 데이터베이스 스키마 분석</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #181b22;
+    --surface-2: #1f232c;
+    --border: #2c313c;
+    --text: #e6e8ec;
+    --text-dim: #9aa3b2;
+    --accent: #ff6b35;
+    --blue: #4aa3ff;
+    --green: #3ecf8e;
+    --yellow: #f5c451;
+    --red: #ff6b6b;
+    --purple: #b48cff;
+    --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.7; font-size: 15px;
+  }
+  .layout { display: flex; max-width: 1400px; margin: 0 auto; }
+
+  nav.toc {
+    width: 260px; flex-shrink: 0; height: 100vh;
+    position: sticky; top: 0; overflow-y: auto;
+    padding: 28px 18px; border-right: 1px solid var(--border); background: var(--surface);
+  }
+  nav.toc .brand { font-weight: 800; font-size: 18px; margin-bottom: 4px; }
+  nav.toc .brand span { color: var(--accent); }
+  nav.toc .brand-sub { font-size: 12px; color: var(--text-dim); margin-bottom: 22px; }
+  nav.toc a {
+    display: block; color: var(--text-dim); text-decoration: none;
+    font-size: 13.5px; padding: 6px 10px; border-radius: 6px; transition: all .15s;
+  }
+  nav.toc a:hover { background: var(--surface-2); color: var(--text); }
+  nav.toc a.group { margin-top: 14px; color: var(--accent); font-weight: 700; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+  nav.toc .backlink { margin-top:20px; font-size:12px; color:var(--blue); }
+
+  main { flex: 1; padding: 48px 56px 120px; min-width: 0; }
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h1 { font-size: 30px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.02em; }
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 8px 0 18px;
+    padding-bottom: 10px; border-bottom: 2px solid var(--border); letter-spacing: -.01em;
+  }
+  h2 .num {
+    display: inline-block; background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700; width: 26px; height: 26px;
+    line-height: 26px; text-align: center; border-radius: 7px; margin-right: 10px; vertical-align: middle;
+  }
+  h3 { font-size: 16.5px; font-weight: 700; margin: 26px 0 10px; }
+  h3 .tname { font-family: var(--mono); color: var(--accent); font-size: 15px; }
+  h4 { font-size: 14px; font-weight: 700; margin: 18px 0 8px; color: var(--blue); }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 0 0 14px 22px; }
+  li { margin-bottom: 5px; }
+  a { color: var(--blue); }
+  code {
+    font-family: var(--mono); font-size: 12.6px;
+    background: var(--surface-2); color: var(--accent);
+    padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);
+  }
+  pre {
+    background: #0b0d11; border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; margin: 12px 0 16px; font-size: 12.6px; line-height: 1.65;
+  }
+  pre code { background: none; border: none; color: #d4d7dd; padding: 0; }
+  .cmt { color: #5f6b7d; } .kw { color: var(--purple); } .str { color: var(--green); }
+
+  .hero {
+    background: linear-gradient(135deg, #1d2128, #14161b);
+    border: 1px solid var(--border); border-radius: 14px; padding: 32px 36px; margin-bottom: 28px;
+  }
+  .hero .tagline { color: var(--text-dim); font-size: 15px; }
+  .hero .meta { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 13px; font-size: 12px; color: var(--text-dim);
+  }
+  .pill b { color: var(--text); }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 11px; border: 1px solid var(--border); }
+  th { background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 11.5px; }
+  td { color: var(--text-dim); vertical-align: top; }
+  td code, th code { font-size: 11.8px; }
+  tr:nth-child(even) td { background: #14161b; }
+  .colname { color: var(--text); font-family: var(--mono); font-size: 12px; }
+
+  /* key badges */
+  .k { font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 3px; color:#fff; display:inline-block; }
+  .k.pk { background: #9e6a03; }
+  .k.fk { background: #1f6feb; }
+  .k.uq { background: #8957e5; }
+  .k.no { background: #b62324; }
+  .k.yes { background: #2d7d46; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .grid { display: grid; gap: 14px; }
+  .grid.c2 { grid-template-columns: 1fr 1fr; }
+  .grid.c3 { grid-template-columns: repeat(3, 1fr); }
+
+  .note { border-left: 3px solid var(--blue); background: #4aa3ff14; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .warn { border-left: 3px solid var(--yellow); background: #f5c45114; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .danger { border-left: 3px solid var(--red); background: #ff6b6b14; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .tip { border-left: 3px solid var(--green); background: #3ecf8e14; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .note b, .warn b, .danger b, .tip b { color: var(--text); }
+  .label { font-weight: 700; font-size: 12px; letter-spacing: .04em; }
+  .warn .label { color: var(--yellow); } .danger .label { color: var(--red); }
+  .tip .label { color: var(--green); } .note .label { color: var(--blue); }
+
+  .erd {
+    font-family: var(--mono); font-size: 13px; line-height: 1.9;
+    background: #0b0d11; border: 1px solid var(--border);
+    border-radius: 10px; padding: 22px 24px; margin: 14px 0 16px;
+    color: var(--text-dim); white-space: pre; overflow-x: auto;
+  }
+  .erd .hub { color: var(--accent); font-weight: 700; }
+  .erd .jt { color: var(--blue); }
+  .erd .leaf { color: var(--green); }
+  .erd .dim { color: #5f6b7d; }
+  .erd .arr { color: var(--yellow); }
+
+  .tablebox {
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 10px 0;
+  }
+  .tablebox .tb-head {
+    background: var(--surface-2); padding: 9px 14px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tablebox .tb-head .nm { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 14px; }
+  .tablebox .tb-head .desc { color: var(--text-dim); font-size: 12.5px; }
+  .badge {
+    font-size: 10px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .badge.base { color: var(--green); border-color: #3ecf8e55; }
+  .badge.nobase { color: var(--text-dim); }
+  .tablebox table { margin: 0; border: none; }
+  .tablebox table td, .tablebox table th { border-left: none; border-right: none; }
+
+  footer { color: var(--text-dim); font-size: 12.5px; text-align: center; padding-top: 30px; border-top: 1px solid var(--border); }
+  hr.soft { border: none; border-top: 1px dashed var(--border); margin: 22px 0; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; font-size:12px; color:var(--text-dim); margin: 8px 0 14px; }
+  .legend span { display:flex; align-items:center; gap:5px; }
+
+  @media (max-width: 980px) {
+    nav.toc { display: none; }
+    main { padding: 28px 22px 80px; }
+    .grid.c2, .grid.c3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="toc">
+    <div class="brand">Pop<span>Pang</span> BE</div>
+    <div class="brand-sub">데이터베이스 스키마 분석</div>
+    <a class="group">개요</a>
+    <a href="#overview">1. 스키마 개요</a>
+    <a href="#erd">2. 관계도 (ERD)</a>
+    <a class="group">테이블 명세</a>
+    <a href="#t-users">3. users</a>
+    <a href="#t-popup">4. popup</a>
+    <a href="#t-popup-image">5. popup_image</a>
+    <a href="#t-popup-recommend">6. popup_recommend</a>
+    <a href="#t-popup-submission">7. popup_submission</a>
+    <a href="#t-popup-view">8. popup_total_view_count</a>
+    <a href="#t-recommend">9. recommend</a>
+    <a href="#t-user-recommend">10. user_recommend</a>
+    <a href="#t-user-alert-keyword">11. user_alert_keyword</a>
+    <a href="#t-user-alert">12. user_alert</a>
+    <a href="#t-user-favorite">13. user_favorite</a>
+    <a class="group">분석</a>
+    <a href="#patterns">14. 공통 설계 패턴</a>
+    <a href="#enums">15. Enum 매핑</a>
+    <a href="#fk">16. 관계 (FK) 정리</a>
+    <a href="#redis">17. Redis 데이터</a>
+    <a href="#index">18. 인덱스/제약 분석</a>
+    <a href="#gotchas">19. 스키마 관점 주의사항</a>
+    <a class="backlink" href="onboarding.html">← 온보딩 가이드로</a>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+
+    <div class="hero">
+      <h1>🗄️ 데이터베이스 스키마 분석</h1>
+      <p class="tagline">JPA 엔티티 12개 · 리포지토리 쿼리 기반으로 역설계한 PopPang 백엔드 DB 스키마</p>
+      <div class="meta">
+        <span class="pill">MySQL</span>
+        <span class="pill">테이블 <b>11개</b></span>
+        <span class="pill">+ Redis 키 <b>2종</b></span>
+        <span class="pill">스키마 관리 <b>ddl-auto: update</b></span>
+        <span class="pill">분석일 <b>2026-05-21</b></span>
+      </div>
+      <p style="margin-top:16px; margin-bottom:0; color:var(--text-dim); font-size:13.5px;">
+        이 문서는 <code>onboarding.html</code>의 후속편입니다. 별도 DDL 스크립트가 없는 프로젝트라
+        <b style="color:var(--text)">JPA 엔티티가 곧 스키마 정의</b>입니다. 엔티티와 리포지토리(네이티브 쿼리 포함)를
+        도메인별 분석 에이전트로 분해하여 실제 DB 테이블 구조를 복원했습니다.
+      </p>
+    </div>
+
+    <!-- 1. 개요 -->
+    <section id="overview">
+      <h2><span class="num">1</span>스키마 개요</h2>
+      <p>
+        스키마는 <code>application-local.yml</code>의 <code>spring.jpa.hibernate.ddl-auto: update</code> 설정에 따라
+        <b>애플리케이션 기동 시 엔티티 기준으로 자동 생성/변경</b>됩니다. 즉 SQL DDL 파일이나
+        Flyway/Liquibase 같은 마이그레이션 도구는 없습니다 — <b>엔티티 클래스가 유일한 스키마 원본(source of truth)</b>입니다.
+      </p>
+
+      <h3>전체 테이블 목록 (11개)</h3>
+      <table>
+        <tr>
+          <th style="width:46px;">#</th><th>테이블</th><th>엔티티</th><th>도메인</th>
+          <th>역할</th><th style="width:110px;">감사 컬럼</th>
+        </tr>
+        <tr><td>1</td><td><code>users</code></td><td>Users</td><td>users</td><td>회원 정보 (소셜 로그인 계정)</td><td><span class="badge base">created/updated</span></td></tr>
+        <tr><td>2</td><td><code>popup</code></td><td>Popup</td><td>popup</td><td>팝업스토어 기본 정보</td><td><span class="badge base">created/updated</span></td></tr>
+        <tr><td>3</td><td><code>popup_image</code></td><td>PopupImage</td><td>popup</td><td>팝업 이미지 (다중)</td><td><span class="badge base">created/updated</span></td></tr>
+        <tr><td>4</td><td><code>popup_recommend</code></td><td>PopupRecommend</td><td>popup</td><td>팝업 ↔ 추천카테고리 연결</td><td><span class="badge base">created/updated</span></td></tr>
+        <tr><td>5</td><td><code>popup_submission</code></td><td>PopupSubmission</td><td>popup</td><td>사용자 팝업 제보</td><td><span class="badge base">created/updated</span></td></tr>
+        <tr><td>6</td><td><code>popup_total_view_count</code></td><td>PopupTotalViewCount</td><td>popup</td><td>팝업별 누적 조회수</td><td><span class="badge nobase">없음</span></td></tr>
+        <tr><td>7</td><td><code>recommend</code></td><td>Recommend</td><td>recommend</td><td>추천 카테고리</td><td><span class="badge nobase">없음</span></td></tr>
+        <tr><td>8</td><td><code>user_recommend</code></td><td>UserRecommend</td><td>recommend</td><td>회원 ↔ 관심카테고리 연결</td><td><span class="badge nobase">없음</span></td></tr>
+        <tr><td>9</td><td><code>user_alert_keyword</code></td><td>UserAlertKeyword</td><td>keyword</td><td>회원 알림 키워드</td><td><span class="badge nobase">없음</span></td></tr>
+        <tr><td>10</td><td><code>user_alert</code></td><td>UserAlert</td><td>alert</td><td>회원이 알림받은 팝업 이력</td><td><span class="badge nobase">없음</span></td></tr>
+        <tr><td>11</td><td><code>user_favorite</code></td><td>UserFavorite</td><td>favorite</td><td>회원 찜 (회원↔팝업)</td><td><span class="badge nobase">없음</span></td></tr>
+      </table>
+
+      <div class="note">
+        <span class="label">ℹ️ auth 도메인엔 테이블이 없습니다</span>
+        <p style="margin:6px 0 0;">
+          <code>auth</code> 도메인은 JPA 엔티티가 없습니다. 소셜 로그인은 외부 API 호출 + DTO로 처리하고,
+          <b>리프레시 토큰은 DB가 아닌 Redis</b>에 저장합니다 (17장 참고).
+        </p>
+      </div>
+
+      <div class="warn">
+        <span class="label">⚠️ 감사 컬럼 적용이 불균일합니다</span>
+        <p style="margin:6px 0 0;">
+          <code>BaseEntity</code>(<code>created_at</code>/<code>updated_at</code> 자동 기록)를 상속하는 테이블은
+          <b>5개뿐</b>입니다: <code>users</code>, <code>popup</code>, <code>popup_image</code>,
+          <code>popup_recommend</code>, <code>popup_submission</code>.
+          나머지 6개 테이블엔 생성/수정 시각 컬럼이 아예 없습니다 — 특히 <code>user_favorite</code>,
+          <code>user_alert</code>, <code>user_recommend</code> 같은 사용자 행동 데이터에 타임스탬프가 없어
+          "언제 찜했는지" 같은 분석이 불가능합니다. (개선 후보)
+        </p>
+      </div>
+    </section>
+
+    <!-- 2. ERD -->
+    <section id="erd">
+      <h2><span class="num">2</span>관계도 (ERD)</h2>
+      <p>
+        스키마는 <b><code>users</code>(회원)</b>와 <b><code>popup</code>(팝업)</b> 두 개의 허브 테이블을 중심으로,
+        그 사이를 잇는 조인 테이블들로 구성됩니다.
+      </p>
+      <div class="legend">
+        <span><b style="color:var(--accent)">■</b> 허브 테이블</span>
+        <span><b style="color:var(--blue)">■</b> 조인/연결 테이블</span>
+        <span><b style="color:var(--green)">■</b> 종속(1:N) 테이블</span>
+        <span><b style="color:#5f6b7d">┄┄</b> 논리적 연결 (DB FK 제약 없음)</span>
+      </div>
+      <div class="erd"><span class="leaf">user_alert_keyword</span>  <span class="arr">──N:1──▶</span>  <span class="hub">users</span>
+<span class="jt">user_alert</span>          <span class="arr">──N:1──▶</span>  <span class="hub">users</span>      <span class="jt">user_alert</span>      <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>
+<span class="jt">user_favorite</span>       <span class="arr">──N:1──▶</span>  <span class="hub">users</span>      <span class="jt">user_favorite</span>   <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>
+<span class="jt">user_recommend</span>      <span class="arr">──N:1──▶</span>  <span class="hub">users</span>      <span class="jt">user_recommend</span>  <span class="arr">──N:1──▶</span>  recommend
+
+<span class="leaf">popup_image</span>         <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>
+<span class="jt">popup_recommend</span>     <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>      <span class="jt">popup_recommend</span> <span class="arr">──N:1──▶</span>  recommend
+<span class="leaf">popup_submission</span>    <span class="dim">┄┄(submitter_user_id ┄┄▶ users.id : FK 제약 없음)</span>
+
+<span class="hub">popup</span>  <span class="dim">┄┄(uuid ┄┄▶ popup_total_view_count.popup_uuid : FK 제약 없음)</span></div>
+
+      <h3>관계 요약</h3>
+      <ul>
+        <li><b><code>users</code> 1 : N</b> → <code>user_alert_keyword</code>, <code>user_alert</code>, <code>user_favorite</code>, <code>user_recommend</code></li>
+        <li><b><code>popup</code> 1 : N</b> → <code>popup_image</code>, <code>popup_recommend</code>, <code>user_alert</code>, <code>user_favorite</code></li>
+        <li><b><code>recommend</code> 1 : N</b> → <code>popup_recommend</code>, <code>user_recommend</code></li>
+        <li><b>M:N 관계</b>는 모두 명시적 조인 엔티티로 풀어냄: 회원↔팝업(<code>user_favorite</code>, <code>user_alert</code>), 회원↔카테고리(<code>user_recommend</code>), 팝업↔카테고리(<code>popup_recommend</code>)</li>
+        <li><b>논리적 연결만 존재</b>(JPA <code>@ManyToOne</code> 없이 단순 컬럼): <code>popup_total_view_count.popup_uuid</code> ↔ <code>popup.uuid</code>, <code>popup_submission.submitter_user_id</code> ↔ <code>users.id</code></li>
+      </ul>
+      <div class="note">
+        <span class="label">ℹ️ FK 제약은 JPA가 생성</span>
+        <p style="margin:6px 0 0;">
+          <code>@ManyToOne</code> + <code>@JoinColumn</code>으로 매핑된 관계는 <code>ddl-auto</code>가
+          실제 FK 제약을 만듭니다. 반면 <code>popup_total_view_count</code>와
+          <code>popup_submission.submitter_user_id</code>는 단순 컬럼이라
+          <b>DB 레벨 무결성 보장이 없습니다</b> — 애플리케이션 코드가 정합성을 책임집니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== 테이블 명세 ===== -->
+    <section id="tables-intro">
+      <h2 style="border:none; margin-bottom:4px;">테이블 상세 명세</h2>
+      <p style="color:var(--text-dim); font-size:13.5px;">
+        각 컬럼의 SQL 타입은 JPA 어노테이션 + Hibernate 6 / MySQL 기본 매핑 규칙으로 추론한 값입니다.
+        키 배지: <span class="k pk">PK</span> 기본키 · <span class="k fk">FK</span> 외래키 ·
+        <span class="k uq">UQ</span> 유니크 제약.
+      </p>
+    </section>
+
+    <!-- 3. users -->
+    <section id="t-users">
+      <h3>3. <span class="tname">users</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 회원 정보</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">users</span><span class="badge base">BaseEntity 상속</span><span class="desc">소셜 로그인 계정 1건 = 1행</span></div>
+        <table>
+          <tr><th style="width:140px;">컬럼</th><th style="width:130px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:90px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT, <code>updatable=false</code>. 내부 식별자</td></tr>
+          <tr><td class="colname">uid</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td><span class="k uq">UQ</span></td><td>소셜 provider가 발급한 고유 사용자 ID</td></tr>
+          <tr><td class="colname">uuid</td><td><code>VARCHAR(36)</code></td><td><span class="k no">NO</span></td><td>—</td><td><code>@PrePersist</code>로 자동 생성. <b>API 외부 식별자.</b> <code>unique=true</code> 미선언(주의)</td></tr>
+          <tr><td class="colname">provider</td><td><code>VARCHAR(20)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>enum STRING — <code>GOOGLE</code>/<code>APPLE</code>/<code>KAKAO</code></td></tr>
+          <tr><td class="colname">email</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>—</td></tr>
+          <tr><td class="colname">nickname</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td><span class="k uq">UQ</span></td><td>—</td></tr>
+          <tr><td class="colname">role</td><td><code>VARCHAR(20)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>enum STRING — <code>ADMIN</code>/<code>MEMBER</code></td></tr>
+          <tr><td class="colname">is_alerted</td><td><code>BIT(1)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>필드명 <code>alerted</code>. 알림 수신 여부</td></tr>
+          <tr><td class="colname">fcm_token</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>푸시 알림용 FCM 토큰</td></tr>
+          <tr><td class="colname">is_deleted</td><td><code>BIT(1)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>필드명 <code>deleted</code>. 소프트 삭제 플래그</td></tr>
+          <tr><td class="colname">created_at</td><td><code>DATETIME</code></td><td><span class="k no">NO</span></td><td>—</td><td>BaseEntity · <code>@CreatedDate</code> · <code>updatable=false</code></td></tr>
+          <tr><td class="colname">updated_at</td><td><code>DATETIME</code></td><td><span class="k yes">YES</span></td><td>—</td><td>BaseEntity · <code>@LastModifiedDate</code></td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);">
+        PK <code>id</code>(IDENTITY) · 외래키 없음(다른 테이블이 이 테이블을 참조하는 허브).
+        <b>boolean의 <code>nullable=true</code></b>: <code>is_alerted</code>/<code>is_deleted</code>는 Java <code>boolean</code>(원시형)이지만
+        <code>@Column(nullable=true)</code>라 DDL상 NULL 허용 — 데이터 정합성상 어색한 부분.
+      </p>
+    </section>
+
+    <!-- 4. popup -->
+    <section id="t-popup">
+      <h3>4. <span class="tname">popup</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 팝업스토어</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">popup</span><span class="badge base">BaseEntity 상속</span><span class="desc">가장 큰 테이블 · 대부분 크롤러가 입력</span></div>
+        <table>
+          <tr><th style="width:150px;">컬럼</th><th style="width:130px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:90px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">uuid</td><td><code>VARCHAR(36)</code></td><td><span class="k no">NO</span></td><td>—</td><td><code>@PrePersist</code> 자동 생성. 조회수 테이블과의 조인 키. <code>unique=true</code> 미선언(주의)</td></tr>
+          <tr><td class="colname">name</td><td><code>VARCHAR(50)</code></td><td><span class="k no">NO</span></td><td>—</td><td>팝업명 · 검색 대상</td></tr>
+          <tr><td class="colname">start_date</td><td><code>DATE</code></td><td><span class="k no">NO</span></td><td>—</td><td>거의 모든 목록 쿼리의 필터 조건</td></tr>
+          <tr><td class="colname">end_date</td><td><code>DATE</code></td><td><span class="k no">NO</span></td><td>—</td><td>거의 모든 목록 쿼리의 필터 조건</td></tr>
+          <tr><td class="colname">open_time</td><td><code>TIME</code></td><td><span class="k yes">YES</span></td><td>—</td><td>운영 시작 시각</td></tr>
+          <tr><td class="colname">close_time</td><td><code>TIME</code></td><td><span class="k yes">YES</span></td><td>—</td><td>운영 종료 시각</td></tr>
+          <tr><td class="colname">address</td><td><code>VARCHAR(255)</code></td><td><span class="k no">NO</span></td><td>—</td><td>지번 주소</td></tr>
+          <tr><td class="colname">road_address</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>도로명 주소. <code>SUBSTRING_INDEX</code>/<code>LIKE</code>로 지역·구 필터링에 사용</td></tr>
+          <tr><td class="colname">region</td><td><code>VARCHAR(100)</code></td><td><span class="k no">NO</span></td><td>—</td><td>지역명</td></tr>
+          <tr><td class="colname">latitude</td><td><code>DOUBLE</code></td><td><span class="k yes">YES</span></td><td>—</td><td>위도 · 하버사인 거리 계산</td></tr>
+          <tr><td class="colname">longitude</td><td><code>DOUBLE</code></td><td><span class="k yes">YES</span></td><td>—</td><td>경도 · 하버사인 거리 계산</td></tr>
+          <tr><td class="colname">geocoding_query</td><td><code>VARCHAR(255)</code></td><td><span class="k yes">YES</span></td><td>—</td><td>지오코딩 질의 문자열</td></tr>
+          <tr><td class="colname">insta_post_id</td><td><code>VARCHAR(255)</code></td><td><span class="k no">NO</span></td><td><span class="k uq">UQ</span></td><td>인스타그램 게시물 ID — 크롤링 중복 방지용 유니크 키</td></tr>
+          <tr><td class="colname">insta_post_url</td><td><code>VARCHAR(255)</code></td><td><span class="k no">NO</span></td><td>—</td><td>원본 게시물 URL</td></tr>
+          <tr><td class="colname">caption_summary</td><td><code>TEXT</code></td><td><span class="k no">NO</span></td><td>—</td><td><code>columnDefinition="TEXT"</code> · 키워드 검색 대상</td></tr>
+          <tr><td class="colname">caption</td><td><code>TEXT</code></td><td><span class="k no">NO</span></td><td>—</td><td><code>columnDefinition="TEXT"</code> · 원문 캡션</td></tr>
+          <tr><td class="colname">media_type</td><td><code>VARCHAR</code></td><td><span class="k yes">YES</span></td><td>—</td><td>enum STRING — <code>IMAGE</code>/<code>CAROUSEL_ALBUM</code>/<code>VIDEO</code></td></tr>
+          <tr><td class="colname">is_active</td><td><code>BIT(1)</code></td><td><span class="k no">NO</span></td><td>—</td><td>필드명 <code>activated</code>. 노출 여부. 네이티브 쿼리는 <code>is_active = 1</code>로 비교</td></tr>
+          <tr><td class="colname">created_at / updated_at</td><td><code>DATETIME</code></td><td>—</td><td>—</td><td>BaseEntity. <code>created_at</code>은 목록 2차 정렬 기준으로 자주 쓰임</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. popup_image -->
+    <section id="t-popup-image">
+      <h3>5. <span class="tname">popup_image</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 팝업 이미지</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">popup_image</span><span class="badge base">BaseEntity 상속</span><span class="desc">팝업 1건에 이미지 N개</span></div>
+        <table>
+          <tr><th style="width:140px;">컬럼</th><th style="width:140px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:130px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">popup_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → popup.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">image_url</td><td><code>VARCHAR(1000)</code></td><td><span class="k no">NO</span></td><td>—</td><td>이미지 URL (길이 1000)</td></tr>
+          <tr><td class="colname">sort_order</td><td><code>INT</code></td><td><span class="k no">NO</span></td><td>—</td><td>표시 순서. <b><code>0</code> = 대표/썸네일 이미지</b> (네이티브 쿼리가 <code>sort_order = 0</code>으로 썸네일 선별)</td></tr>
+          <tr><td class="colname">created_at / updated_at</td><td><code>DATETIME</code></td><td>—</td><td>—</td><td>BaseEntity</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. popup_recommend -->
+    <section id="t-popup-recommend">
+      <h3>6. <span class="tname">popup_recommend</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 팝업↔추천카테고리 연결</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">popup_recommend</span><span class="badge base">BaseEntity 상속</span><span class="desc">popup ↔ recommend M:N 조인 엔티티</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:160px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">popup_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → popup.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">recommend_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → recommend.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">created_at / updated_at</td><td><code>DATETIME</code></td><td>—</td><td>—</td><td>BaseEntity</td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);"><code>(popup_id, recommend_id)</code> 복합 유니크 제약은 없음 — 동일 조합 중복 입력이 DB상 허용됨.</p>
+    </section>
+
+    <!-- 7. popup_submission -->
+    <section id="t-popup-submission">
+      <h3>7. <span class="tname">popup_submission</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 팝업 제보</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">popup_submission</span><span class="badge base">BaseEntity 상속</span><span class="desc">사용자가 제보한 팝업, 관리자가 승인/반려</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:90px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">name</td><td><code>VARCHAR(100)</code></td><td><span class="k no">NO</span></td><td>—</td><td>제보된 팝업명</td></tr>
+          <tr><td class="colname">start_date</td><td><code>DATE</code></td><td><span class="k no">NO</span></td><td>—</td><td>—</td></tr>
+          <tr><td class="colname">end_date</td><td><code>DATE</code></td><td><span class="k no">NO</span></td><td>—</td><td>—</td></tr>
+          <tr><td class="colname">address</td><td><code>VARCHAR(255)</code></td><td><span class="k no">NO</span></td><td>—</td><td>—</td></tr>
+          <tr><td class="colname">description</td><td><code>TEXT</code></td><td><span class="k yes">YES</span></td><td>—</td><td><code>columnDefinition="TEXT"</code></td></tr>
+          <tr><td class="colname">submitter_user_id</td><td><code>BIGINT</code></td><td><span class="k yes">YES</span></td><td>—</td><td>제보자 <code>users.id</code> — <b>JPA 관계가 아닌 단순 컬럼</b>(FK 제약 없음)</td></tr>
+          <tr><td class="colname">status</td><td><code>VARCHAR</code></td><td><span class="k no">NO</span></td><td>—</td><td>enum STRING — <code>PENDING</code>/<code>APPROVED</code>/<code>REJECTED</code></td></tr>
+          <tr><td class="colname">created_at / updated_at</td><td><code>DATETIME</code></td><td>—</td><td>—</td><td>BaseEntity</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- 8. popup_total_view_count -->
+    <section id="t-popup-view">
+      <h3>8. <span class="tname">popup_total_view_count</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 누적 조회수</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">popup_total_view_count</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">팝업별 조회수 집계 (Redis → 1분마다 flush)</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:130px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:90px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">popup_uuid</td><td><code>VARCHAR(36)</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td><b>자연키</b> — <code>popup.uuid</code> 값을 그대로 PK로 사용. AUTO_INCREMENT 아님</td></tr>
+          <tr><td class="colname">view_count</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td>—</td><td>누적 조회수</td></tr>
+        </table>
+      </div>
+      <p>이 테이블은 다른 테이블과 달리 <code>id</code> 대리키가 없고 <code>popup_uuid</code>가 직접 PK입니다.
+        조회수는 <code>UPSERT</code> 네이티브 쿼리로 누적됩니다:</p>
+<pre><code><span class="kw">INSERT INTO</span> popup_total_view_count (popup_uuid, view_count)
+<span class="kw">VALUES</span> (:uuid, :delta)
+<span class="kw">ON DUPLICATE KEY UPDATE</span> view_count = view_count + <span class="kw">VALUES</span>(view_count);</code></pre>
+      <p style="font-size:13px;color:var(--text-dim);">
+        <code>ON DUPLICATE KEY UPDATE</code>는 MySQL 전용 문법으로, PK(<code>popup_uuid</code>) 충돌 시 기존 값에 누적합니다.
+        조회수 누적 흐름은 <code>onboarding.html</code> 9장 참고.
+      </p>
+    </section>
+
+    <!-- 9. recommend -->
+    <section id="t-recommend">
+      <h3>9. <span class="tname">recommend</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 추천 카테고리</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">recommend</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">추천 카테고리 마스터 데이터</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:130px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:90px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">uuid</td><td><code>VARCHAR(36)</code></td><td><span class="k no">NO</span></td><td>—</td><td><code>@PrePersist</code> 자동 생성</td></tr>
+          <tr><td class="colname">recommend_name</td><td><code>VARCHAR(100)</code></td><td><span class="k no">NO</span></td><td><span class="k uq">UQ</span></td><td>카테고리명 (예: 패션, F&amp;B)</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- 10. user_recommend -->
+    <section id="t-user-recommend">
+      <h3>10. <span class="tname">user_recommend</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 회원↔관심카테고리</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">user_recommend</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">회원이 가입 시 고른 관심 카테고리</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:170px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">users_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → users.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">recommend_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → recommend.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);"><code>(users_id, recommend_id)</code> 복합 유니크 제약 없음.</p>
+    </section>
+
+    <!-- 11. user_alert_keyword -->
+    <section id="t-user-alert-keyword">
+      <h3>11. <span class="tname">user_alert_keyword</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 알림 키워드</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">user_alert_keyword</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">회원이 등록한 관심 키워드</span></div>
+        <table>
+          <tr><th style="width:160px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:150px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">users_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → users.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">alert_keyword</td><td><code>VARCHAR(100)</code></td><td><span class="k no">NO</span></td><td>—</td><td>키워드 텍스트. 외부 알림 배치가 신규 팝업과 매칭</td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);">
+        리포지토리에 <code>findByUserUuidAndAlertKeyword(...)</code>가 <code>Optional</code>을 반환 →
+        애플리케이션은 <code>(회원, 키워드)</code>를 논리적 유니크로 취급하지만 <b>DB 제약은 없음</b>.
+      </p>
+    </section>
+
+    <!-- 12. user_alert -->
+    <section id="t-user-alert">
+      <h3>12. <span class="tname">user_alert</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 알림받은 팝업 이력</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">user_alert</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">회원↔팝업 조인 + 알림 상태</span></div>
+        <table>
+          <tr><th style="width:140px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:150px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">users_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → users.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">popup_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → popup.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">alerted_at</td><td><code>DATETIME</code></td><td><span class="k no">NO</span></td><td>—</td><td>알림 발송 시각</td></tr>
+          <tr><td class="colname">read_at</td><td><code>DATETIME</code></td><td><span class="k yes">YES</span></td><td>—</td><td>읽음 처리 시각. 읽기 전 <code>NULL</code>, <code>markAsRead()</code>가 채움</td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);">
+        리포지토리에 <code>existsByUser_IdAndPopup_Id(...)</code>가 있어 <code>(users_id, popup_id)</code>를
+        유니크 의도로 다루지만 <b>DB 복합 유니크 제약은 선언되어 있지 않음</b>.
+      </p>
+    </section>
+
+    <!-- 13. user_favorite -->
+    <section id="t-user-favorite">
+      <h3>13. <span class="tname">user_favorite</span> <span style="font-weight:400;font-size:13px;color:var(--text-dim)">— 찜</span></h3>
+      <div class="tablebox">
+        <div class="tb-head"><span class="nm">user_favorite</span><span class="badge nobase">BaseEntity 미상속</span><span class="desc">회원↔팝업 순수 조인 테이블</span></div>
+        <table>
+          <tr><th style="width:140px;">컬럼</th><th style="width:120px;">SQL 타입</th><th style="width:60px;">Null</th><th style="width:150px;">키</th><th>설명</th></tr>
+          <tr><td class="colname">id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k pk">PK</span></td><td>AUTO_INCREMENT</td></tr>
+          <tr><td class="colname">users_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → users.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+          <tr><td class="colname">popup_id</td><td><code>BIGINT</code></td><td><span class="k no">NO</span></td><td><span class="k fk">FK</span> → popup.id</td><td><code>@ManyToOne(LAZY)</code></td></tr>
+        </table>
+      </div>
+      <p style="font-size:13px;color:var(--text-dim);">
+        추가 컬럼 없는 순수 조인 테이블. <code>existsByUserAndPopup(...)</code>,
+        <code>existsByUser_UuidAndPopup_Uuid(...)</code>로 "1회원 1팝업 1찜"을 <b>애플리케이션 레벨에서만</b> 보장.
+        DB 복합 유니크 제약 없음 → 동시 요청 시 중복 찜 가능성 존재.
+      </p>
+    </section>
+
+    <!-- 14. 공통 패턴 -->
+    <section id="patterns">
+      <h2><span class="num">14</span>공통 설계 패턴</h2>
+      <div class="grid c2">
+        <div class="card">
+          <h4>① id / uuid 이중 식별자</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>users</code>·<code>popup</code>·<code>recommend</code>는 내부 PK <code>id</code>(BIGINT)와
+            외부 노출용 <code>uuid</code>(VARCHAR 36)를 함께 가집니다.
+            FK 조인은 <code>id</code>, API 식별은 <code>uuid</code>. <code>uuid</code>는 <code>@PrePersist</code>로 자동 생성.
+          </p>
+        </div>
+        <div class="card">
+          <h4>② BIGINT IDENTITY 대리키</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>popup_total_view_count</code>를 제외한 모든 테이블이
+            <code>id BIGINT AUTO_INCREMENT</code> 대리키를 PK로 사용.
+            <code>popup_total_view_count</code>만 <code>popup_uuid</code> 자연키.
+          </p>
+        </div>
+        <div class="card">
+          <h4>③ 명시적 조인 엔티티</h4>
+          <p style="font-size:13px;margin:0;">
+            M:N을 <code>@ManyToMany</code> 대신 독립 엔티티로 풀어냄
+            (<code>user_favorite</code>, <code>user_alert</code>, <code>user_recommend</code>, <code>popup_recommend</code>).
+            각자 <code>id</code> PK 보유 → 확장 용이.
+          </p>
+        </div>
+        <div class="card">
+          <h4>④ 전부 LAZY @ManyToOne</h4>
+          <p style="font-size:13px;margin:0;">
+            모든 관계가 단방향 <code>@ManyToOne(fetch = LAZY)</code>.
+            <code>@OneToMany</code> 컬렉션 매핑은 쓰지 않음 → 자식은 항상 리포지토리로 직접 조회.
+          </p>
+        </div>
+        <div class="card">
+          <h4>⑤ boolean → BIT(1), is_ 접두사</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>activated</code>→<code>is_active</code>, <code>alerted</code>→<code>is_alerted</code>,
+            <code>deleted</code>→<code>is_deleted</code>. 필드명과 컬럼명이 다르니 쿼리 작성 시 주의.
+          </p>
+        </div>
+        <div class="card">
+          <h4>⑥ 소프트 삭제 (users 한정)</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>users.is_deleted</code> 플래그로 소프트 삭제 지원.
+            단 회원 탈퇴 API는 hard-delete도 별도 제공 — 일관성은 부분적.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15. Enum -->
+    <section id="enums">
+      <h2><span class="num">15</span>Enum 매핑</h2>
+      <p>모든 enum은 <code>@Enumerated(EnumType.STRING)</code> — DB에 <b>문자열(상수명) 그대로 저장</b>됩니다 (ordinal 미사용, 안전).</p>
+      <table>
+        <tr><th style="width:150px;">컬럼</th><th style="width:200px;">Enum 타입</th><th>값</th></tr>
+        <tr><td><code>users.provider</code></td><td><code>Provider</code></td><td><code>GOOGLE</code>, <code>APPLE</code>, <code>KAKAO</code></td></tr>
+        <tr><td><code>users.role</code></td><td><code>users.entity.Role</code></td><td><code>ADMIN</code>, <code>MEMBER</code></td></tr>
+        <tr><td><code>popup.media_type</code></td><td><code>MediaType</code></td><td><code>IMAGE</code>, <code>CAROUSEL_ALBUM</code>, <code>VIDEO</code></td></tr>
+        <tr><td><code>popup_submission.status</code></td><td><code>PopupSubmissionStatus</code></td><td><code>PENDING</code>, <code>APPROVED</code>, <code>REJECTED</code></td></tr>
+      </table>
+      <div class="warn">
+        <span class="label">⚠️ Role 클래스가 2개</span>
+        <p style="margin:6px 0 0;">
+          <code>com.poppang.be.domain.users.entity.Role</code>(DB 매핑에 실제 사용, <code>toAuthority()</code> 보유)와
+          <code>com.poppang.be.common.enums.Role</code>(미사용)이 같은 값으로 공존합니다.
+          DB 컬럼에 매핑되는 건 <b>전자</b>뿐입니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- 16. FK -->
+    <section id="fk">
+      <h2><span class="num">16</span>관계 (FK) 정리</h2>
+      <table>
+        <tr><th>자식 테이블 (컬럼)</th><th>부모 테이블</th><th>관계</th><th>제약</th></tr>
+        <tr><td><code>popup_image.popup_id</code></td><td><code>popup.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>popup_recommend.popup_id</code></td><td><code>popup.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>popup_recommend.recommend_id</code></td><td><code>recommend.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_recommend.users_id</code></td><td><code>users.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_recommend.recommend_id</code></td><td><code>recommend.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_alert_keyword.users_id</code></td><td><code>users.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_alert.users_id</code></td><td><code>users.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_alert.popup_id</code></td><td><code>popup.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_favorite.users_id</code></td><td><code>users.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>user_favorite.popup_id</code></td><td><code>popup.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
+        <tr><td><code>popup_total_view_count.popup_uuid</code></td><td><code>popup.uuid</code></td><td>1 : 1 (논리)</td><td><span class="k no">FK 없음</span> — 단순 컬럼, 네이티브 쿼리로만 조인</td></tr>
+        <tr><td><code>popup_submission.submitter_user_id</code></td><td><code>users.id</code></td><td>N : 1 (논리)</td><td><span class="k no">FK 없음</span> — 단순 컬럼</td></tr>
+      </table>
+      <p style="font-size:13px;color:var(--text-dim);">
+        FK 있는 관계 10개는 <code>@ManyToOne</code>+<code>@JoinColumn</code> 매핑이라 <code>ddl-auto</code>가 실제 제약을 생성.
+        논리적 연결 2개는 무결성을 DB가 보장하지 않으므로 코드에서 직접 챙겨야 함.
+      </p>
+    </section>
+
+    <!-- 17. Redis -->
+    <section id="redis">
+      <h2><span class="num">17</span>Redis 데이터 구조</h2>
+      <p>RDB 외에 Redis도 데이터 저장소로 쓰입니다. JPA 엔티티가 아니므로 위 테이블 목록엔 없지만 스키마의 일부입니다.</p>
+      <table>
+        <tr><th style="width:240px;">키 패턴</th><th style="width:90px;">타입</th><th style="width:90px;">TTL</th><th>용도 / 값</th></tr>
+        <tr>
+          <td><code>auth:refresh:{userUuid}</code></td><td>String</td><td><code>jwt.refreshTokenExpDays</code></td>
+          <td>리프레시 토큰 저장. 토큰 갱신 시 저장값과 대조해 탈취 탐지. <code>RefreshTokenRedisRepositoryImpl</code></td>
+        </tr>
+        <tr>
+          <td><code>popup:view:{popupUuid}:delta</code></td><td>String (정수)</td><td>70초</td>
+          <td>조회수 임시 카운터. <code>INCR</code>로 +1, 스케줄러가 <code>GETSET</code>으로 회수해 <code>popup_total_view_count</code>에 누적</td>
+        </tr>
+      </table>
+      <div class="note">
+        <span class="label">ℹ️ Redis ↔ RDB 연결</span>
+        <p style="margin:6px 0 0;">
+          <code>popup:view:*:delta</code>(Redis, 휘발성 1분 버퍼) → 스케줄러 flush →
+          <code>popup_total_view_count</code>(MySQL, 영속) 순으로 흐릅니다.
+          즉 정확한 누적 조회수는 MySQL, 최근 1분 미반영분은 Redis에 있습니다.
+        </p>
+      </div>
+    </section>
+
+    <!-- 18. 인덱스 -->
+    <section id="index">
+      <h2><span class="num">18</span>인덱스 / 제약 분석</h2>
+
+      <h3>현재 자동 생성되는 인덱스</h3>
+      <ul>
+        <li>모든 테이블의 <b>PK 인덱스</b> (<code>id</code> 또는 <code>popup_uuid</code>)</li>
+        <li><b>유니크 인덱스</b>: <code>users.uid</code>, <code>users.nickname</code>, <code>popup.insta_post_id</code>, <code>recommend.recommend_name</code></li>
+        <li><b>FK 인덱스</b>: <code>@JoinColumn</code> 컬럼 10개에 대해 MySQL이 자동 생성 (<code>popup_id</code>, <code>users_id</code>, <code>recommend_id</code> 등)</li>
+      </ul>
+
+      <h3>리포지토리 쿼리로 본 인덱스 추가 후보</h3>
+      <p>네이티브 쿼리들이 다음 컬럼을 반복적으로 필터/정렬에 사용합니다 — 데이터가 늘면 인덱스 추가를 검토할 만합니다:</p>
+      <table>
+        <tr><th style="width:200px;">테이블</th><th>컬럼</th><th>근거</th></tr>
+        <tr><td><code>popup</code></td><td>복합 <code>(is_active, start_date, end_date)</code></td><td>거의 모든 목록 쿼리가 "현재 운영 중 활성 팝업" 필터를 사용</td></tr>
+        <tr><td><code>popup</code></td><td><code>uuid</code></td><td><code>findByUuid</code> + 조회수/이미지 조인 키인데 유니크 인덱스 없음</td></tr>
+        <tr><td><code>popup</code></td><td><code>created_at</code></td><td>다수 쿼리의 2차 정렬 기준</td></tr>
+        <tr><td><code>popup_image</code></td><td>복합 <code>(popup_id, sort_order)</code></td><td>썸네일 선별 <code>sort_order = 0</code> + 정렬</td></tr>
+        <tr><td><code>popup_submission</code></td><td><code>status</code></td><td><code>findByStatus(PENDING)</code> 필터</td></tr>
+        <tr><td><code>user_favorite</code></td><td><code>popup_id</code></td><td>찜 수 집계 <code>GROUP BY popup_id</code> (FK 인덱스로 일부 커버됨)</td></tr>
+      </table>
+
+      <div class="danger">
+        <span class="label">🚨 누락된 복합 유니크 제약</span>
+        <p style="margin:6px 0 8px;">
+          조인 테이블들이 "중복 금지" 의도를 <b>애플리케이션 코드(<code>existsBy...</code>)로만</b> 지키고,
+          DB 제약이 없습니다:
+        </p>
+        <ul style="margin:0;">
+          <li><code>user_favorite (users_id, popup_id)</code> — 동시 요청 시 중복 찜 가능</li>
+          <li><code>user_alert (users_id, popup_id)</code> — 중복 알림 이력 가능</li>
+          <li><code>user_recommend (users_id, recommend_id)</code> — 중복 관심사 가능</li>
+          <li><code>popup_recommend (popup_id, recommend_id)</code> — 중복 매핑 가능</li>
+          <li><code>user_alert_keyword (users_id, alert_keyword)</code> — 중복 키워드 가능</li>
+        </ul>
+        <p style="margin:8px 0 0;">
+          → 각 엔티티에 <code>@Table(uniqueConstraints = @UniqueConstraint(columnNames = {...}))</code>를
+          추가하면 DB가 직접 막아줍니다. 단 <b>기존 운영 데이터에 이미 중복이 있으면 제약 추가가 실패</b>하므로,
+          적용 전 중복 정리가 필요합니다.
+        </p>
+      </div>
+
+      <h3>비효율 쿼리 메모</h3>
+      <ul>
+        <li><code>LIKE '%검색어%'</code> (팝업 검색) — 선행 와일드카드라 인덱스 활용 불가. 데이터 증가 시 FULLTEXT 인덱스 검토</li>
+        <li><code>ORDER BY RAND()</code> (랜덤 팝업) — 인덱스 불가, 전체 정렬. 데이터가 적을 때만 허용 가능</li>
+        <li><code>SUBSTRING_INDEX(road_address, ' ', 1)</code> 등 함수 가공 컬럼 필터 — 일반 B-tree 인덱스 미적용</li>
+      </ul>
+    </section>
+
+    <!-- 19. 주의사항 -->
+    <section id="gotchas">
+      <h2><span class="num">19</span>스키마 관점 주의사항</h2>
+      <div class="grid c2">
+        <div class="card">
+          <h4>🔴 ddl-auto: update 의존</h4>
+          <p style="font-size:13px;margin:0;">
+            마이그레이션 도구 없음. 엔티티 수정 = 스키마 변경.
+            <code>update</code>는 컬럼 <b>추가</b>만 반영하고 삭제·타입축소·제약변경은 무시 →
+            운영 DB와 엔티티가 조용히 어긋날 수 있음.
+          </p>
+        </div>
+        <div class="card">
+          <h4>🔴 복합 유니크 제약 부재</h4>
+          <p style="font-size:13px;margin:0;">
+            조인 테이블 5종 모두 DB 유니크 제약 없음 (18장).
+            동시성 상황에서 중복 행 발생 가능.
+          </p>
+        </div>
+        <div class="card">
+          <h4>🟡 uuid에 unique 미선언</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>users.uuid</code>·<code>popup.uuid</code>는 API 식별자이자 조인 키인데
+            <code>unique=true</code>가 없음. 값은 <code>UUID.randomUUID()</code>라 사실상 안 겹치지만
+            제약과 인덱스가 없어 무결성·조회성능 모두 아쉬움.
+          </p>
+        </div>
+        <div class="card">
+          <h4>🟡 감사 컬럼 불균일</h4>
+          <p style="font-size:13px;margin:0;">
+            6개 테이블에 <code>created_at</code>이 없음. 사용자 행동 테이블
+            (<code>user_favorite</code> 등)에 시각 정보가 없어 시계열 분석 불가.
+          </p>
+        </div>
+        <div class="card">
+          <h4>🟡 FK 없는 논리적 연결</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>popup_total_view_count.popup_uuid</code>,
+            <code>popup_submission.submitter_user_id</code>는 FK 제약이 없어
+            고아 데이터(orphan)가 생겨도 DB가 막지 않음.
+          </p>
+        </div>
+        <div class="card">
+          <h4>🟢 boolean이 nullable</h4>
+          <p style="font-size:13px;margin:0;">
+            <code>is_alerted</code>·<code>is_deleted</code>가 <code>nullable=true</code>.
+            Java <code>boolean</code> 원시형이라 NULL을 못 받지만 DDL은 NULL 허용 →
+            <code>NOT NULL DEFAULT 0</code>이 더 안전.
+          </p>
+        </div>
+      </div>
+
+      <div class="tip" style="margin-top:18px;">
+        <span class="label">💡 스키마 개선을 시작한다면</span>
+        <p style="margin:6px 0 0;">
+          우선순위 제안: ① 조인 테이블 복합 유니크 제약 추가(중복 데이터 정리 후) →
+          ② <code>users.uuid</code>/<code>popup.uuid</code> 유니크 인덱스 →
+          ③ Flyway 도입 후 <code>ddl-auto</code>를 <code>validate</code>로 전환 →
+          ④ 행동 테이블에 <code>created_at</code> 추가.
+          모두 운영 DB 영향이 있으므로 반드시 팀과 합의하고 진행하세요.
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      PopPang Backend 데이터베이스 스키마 분석 · JPA 엔티티 12개 + 리포지토리 쿼리 역설계 · 작성일 2026-05-21<br>
+      엔티티 변경 시 이 문서도 함께 갱신하세요. 실제 스키마의 원본은 언제나 <b>JPA 엔티티 클래스</b>입니다.
+    </footer>
+
+  </main>
+</div>
+</body>
+</html>

@@ -40,8 +40,19 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             and p.startDate <= CURRENT_DATE
             and p.endDate >= CURRENT_DATE
             order by p.startDate asc
-             """)
+            """)
   List<Popup> findInProgressPopupList();
+
+  @Query(
+      """
+            SELECT p
+            FROM Popup p
+            WHERE p.id IN :popupIds
+              AND p.activated = true
+              AND p.startDate <= CURRENT_DATE
+              AND p.endDate >= CURRENT_DATE
+            """)
+  List<Popup> findActiveInProgressByIdIn(@Param("popupIds") List<Long> popupIds);
 
   @Query(
       value =
