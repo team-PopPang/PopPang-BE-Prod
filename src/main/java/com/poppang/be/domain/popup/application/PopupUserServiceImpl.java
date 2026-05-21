@@ -474,8 +474,9 @@ public class PopupUserServiceImpl implements PopupUserService {
             .collect(Collectors.toSet());
 
     List<Popup> popupList = popupRepository.findRandomActivePopups();
+    List<Popup> finalPopupList = prependAdvertisementPopups(popupList);
 
-    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
+    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(finalPopupList, favoritedPopupIdList);
   }
 
   @Override
