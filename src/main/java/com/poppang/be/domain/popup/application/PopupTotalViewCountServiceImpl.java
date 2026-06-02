@@ -16,6 +16,7 @@ public class PopupTotalViewCountServiceImpl implements PopupTotalViewCountServic
   private static final String SUFFIX = ":delta";
   private static final Duration TTL = Duration.ofSeconds(70);
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
+  private final PopupCountBoostService popupCountBoostService;
 
   // 조회수 +1 (원자적 INCR)
   @Override
@@ -48,9 +49,12 @@ public class PopupTotalViewCountServiceImpl implements PopupTotalViewCountServic
   @Override
   public PopupTotalViewCountResponseDto getTotalViewCount(String popupUuid) {
     Long viewCountByPopupUuid = popupTotalViewCountRepository.getViewCountByPopupUuid(popupUuid);
+    long viewCount = viewCountByPopupUuid == null ? 0L : viewCountByPopupUuid;
+    long totalViewCount =
+        viewCount + popupCountBoostService.getViewCountBoostByPopupUuid(popupUuid);
 
     PopupTotalViewCountResponseDto popupTotalViewCountResponseDto =
-        PopupTotalViewCountResponseDto.builder().totalViewCount(viewCountByPopupUuid).build();
+        PopupTotalViewCountResponseDto.builder().totalViewCount(totalViewCount).build();
 
     return popupTotalViewCountResponseDto;
   }

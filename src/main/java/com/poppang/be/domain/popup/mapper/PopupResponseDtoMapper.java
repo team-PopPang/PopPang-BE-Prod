@@ -1,6 +1,8 @@
 package com.poppang.be.domain.popup.mapper;
 
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
+import com.poppang.be.domain.popup.application.PopupCountBoostService;
+import com.poppang.be.domain.popup.application.PopupCountBoostValue;
 import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
@@ -23,6 +25,7 @@ public class PopupResponseDtoMapper {
   private final PopupRecommendRepository popupRecommendRepository;
   private final UserFavoriteRepository userFavoriteRepository;
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
+  private final PopupCountBoostService popupCountBoostService;
 
   public List<PopupResponseDto> toPopupResponseDtoList(List<Popup> popupList) {
 
@@ -70,9 +73,15 @@ public class PopupResponseDtoMapper {
       viewCountMap.put(row.getPopupUuid(), row.getViewCount() == null ? 0L : row.getViewCount());
     }
 
+    Map<Long, PopupCountBoostValue> boostValueMap =
+        popupCountBoostService.getBoostValueMap(popupIdList);
+
     // DTO 조립
     List<PopupResponseDto> popupResponseDtoList = new ArrayList<>(popupList.size());
     for (Popup popup : popupList) {
+      PopupCountBoostValue boostValue =
+          boostValueMap.getOrDefault(popup.getId(), PopupCountBoostValue.ZERO);
+
       popupResponseDtoList.add(
           PopupResponseDto.builder()
               .popupUuid(popup.getUuid())
@@ -92,8 +101,11 @@ public class PopupResponseDtoMapper {
               .imageUrlList(imageMap.getOrDefault(popup.getId(), List.of()))
               .mediaType(popup.getMediaType())
               .recommendList(recommendMap.getOrDefault(popup.getId(), null))
-              .favoriteCount(favoriteCountMap.getOrDefault(popup.getId(), 0L))
-              .viewCount(viewCountMap.getOrDefault(popup.getUuid(), 0L))
+              .favoriteCount(
+                  favoriteCountMap.getOrDefault(popup.getId(), 0L)
+                      + boostValue.favoriteCountBoost())
+              .viewCount(
+                  viewCountMap.getOrDefault(popup.getUuid(), 0L) + boostValue.viewCountBoost())
               .build());
     }
     return popupResponseDtoList;

@@ -1,6 +1,8 @@
 package com.poppang.be.domain.popup.mapper;
 
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
+import com.poppang.be.domain.popup.application.PopupCountBoostService;
+import com.poppang.be.domain.popup.application.PopupCountBoostValue;
 import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
@@ -20,6 +22,7 @@ public class PopupUserResponseDtoMapper {
   private final PopupRecommendRepository popupRecommendRepository;
   private final UserFavoriteRepository userFavoriteRepository;
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
+  private final PopupCountBoostService popupCountBoostService;
 
   public List<PopupUserResponseDto> toPopupUserResponseDtoList(
       List<Popup> popupList, Set<Long> favoritePopupIdList) {
@@ -71,10 +74,15 @@ public class PopupUserResponseDtoMapper {
       viewCountMap.put(row.getPopupUuid(), row.getViewCount() == null ? 0L : row.getViewCount());
     }
 
+    Map<Long, PopupCountBoostValue> boostValueMap =
+        popupCountBoostService.getBoostValueMap(popupIdList);
+
     // DTO 조립 (+ isFavorited)
     List<PopupUserResponseDto> popupUserResponseDtoList = new ArrayList<>(popupList.size());
     for (Popup p : popupList) {
       boolean isFavorited = favoritePopupIdList.contains(p.getId());
+      PopupCountBoostValue boostValue =
+          boostValueMap.getOrDefault(p.getId(), PopupCountBoostValue.ZERO);
 
       popupUserResponseDtoList.add(
           PopupUserResponseDto.builder()
@@ -95,8 +103,9 @@ public class PopupUserResponseDtoMapper {
               .imageUrlList(imageMap.getOrDefault(p.getId(), List.of()))
               .mediaType(p.getMediaType())
               .recommendList(recommendMap.getOrDefault(p.getId(), null))
-              .favoriteCount(favoriteCountMap.getOrDefault(p.getId(), 0L))
-              .viewCount(viewCountMap.getOrDefault(p.getUuid(), 0L))
+              .favoriteCount(
+                  favoriteCountMap.getOrDefault(p.getId(), 0L) + boostValue.favoriteCountBoost())
+              .viewCount(viewCountMap.getOrDefault(p.getUuid(), 0L) + boostValue.viewCountBoost())
               .favorited(isFavorited)
               .build());
     }

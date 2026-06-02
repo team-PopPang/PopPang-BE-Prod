@@ -31,6 +31,7 @@ public class PopupWebServiceImpl implements PopupWebService {
   private final UsersRepository usersRepository;
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
   private final UserFavoriteRepository userFavoriteRepository;
+  private final PopupCountBoostService popupCountBoostService;
 
   private static final int RANDOM_LIMIT = 5;
   private static final int FAVORITE_LIMIT = 5;
@@ -129,6 +130,7 @@ public class PopupWebServiceImpl implements PopupWebService {
     // 조회 수
     Long rawViewCount = popupTotalViewCountRepository.getViewCountByPopupUuid(popup.getUuid());
     long viewCount = (rawViewCount == null) ? 0L : rawViewCount;
+    PopupCountBoostValue boostValue = popupCountBoostService.getBoostValue(popup.getId());
 
     // DTO 조립
     PopupWebDetailResponseDto popupWebDetailResponseDto =
@@ -146,8 +148,8 @@ public class PopupWebServiceImpl implements PopupWebService {
             .captionSummary(popup.getCaptionSummary())
             .imageUrlList(imageUrlList)
             .recommendList(recommendNameList)
-            .favoriteCount(favoriteCount)
-            .viewCount(viewCount)
+            .favoriteCount(favoriteCount + boostValue.favoriteCountBoost())
+            .viewCount(viewCount + boostValue.viewCountBoost())
             .build();
 
     return popupWebDetailResponseDto;

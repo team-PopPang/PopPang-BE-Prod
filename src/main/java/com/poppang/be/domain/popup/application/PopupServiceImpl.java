@@ -52,6 +52,7 @@ public class PopupServiceImpl implements PopupService {
   private final UserRecommendRepository userRecommendRepository;
   private final UsersRepository usersRepository;
   private final PopupResponseDtoMapper popupResponseDtoMapper;
+  private final PopupCountBoostService popupCountBoostService;
   private final ObjectMapper objectMapper;
 
   @Override
@@ -172,6 +173,7 @@ public class PopupServiceImpl implements PopupService {
     // 조회 수
     Long rawViewCount = popupTotalViewCountRepository.getViewCountByPopupUuid(popup.getUuid());
     long viewCount = (rawViewCount == null) ? 0L : rawViewCount;
+    PopupCountBoostValue boostValue = popupCountBoostService.getBoostValue(popup.getId());
 
     // DTO 조립
     PopupResponseDto popupResponseDto =
@@ -193,8 +195,8 @@ public class PopupServiceImpl implements PopupService {
             .imageUrlList(imageUrlList)
             .mediaType(popup.getMediaType())
             .recommendList(recommendNameList)
-            .favoriteCount(favoriteCount)
-            .viewCount(viewCount)
+            .favoriteCount(favoriteCount + boostValue.favoriteCountBoost())
+            .viewCount(viewCount + boostValue.viewCountBoost())
             .build();
 
     return popupResponseDto;

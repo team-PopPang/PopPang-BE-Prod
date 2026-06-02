@@ -197,13 +197,17 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
   @Query(
       value =
           """
-            SELECT p.*, COALESCE(f.cnt, 0) AS likes
+            SELECT
+                p.*,
+                (COALESCE(f.cnt, 0) + COALESCE(pcb.favorite_count_boost, 0)) AS likes
             FROM popup p
             LEFT JOIN (
                 SELECT popup_id, COUNT(*) AS cnt
                 FROM user_favorite
                 GROUP BY popup_id
             ) f ON f.popup_id = p.id
+            LEFT JOIN popup_count_boost pcb
+                ON pcb.popup_id = p.id
             WHERE (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
             ORDER BY likes DESC, p.created_at DESC
@@ -271,12 +275,16 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
                 FROM user_favorite
                 GROUP BY popup_id
             ) uf ON uf.popup_id = p.id
+            LEFT JOIN popup_count_boost pcb
+                ON pcb.popup_id = p.id
             WHERE p.is_active = 1
               AND p.start_date <= CURRENT_DATE
               AND p.end_date >= CURRENT_DATE
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
-            ORDER BY COALESCE(uf.fav_cnt, 0) DESC, p.created_at DESC
+            ORDER BY
+                (COALESCE(uf.fav_cnt, 0) + COALESCE(pcb.favorite_count_boost, 0)) DESC,
+                p.created_at DESC
             """,
       nativeQuery = true)
   List<Popup> findActiveByMostFavorited(
@@ -289,12 +297,16 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
             FROM popup p
             LEFT JOIN popup_total_view_count v
                 ON v.popup_uuid = p.uuid
+            LEFT JOIN popup_count_boost pcb
+                ON pcb.popup_id = p.id
             WHERE p.is_active = 1
               AND p.start_date <= CURRENT_DATE
               AND p.end_date >= CURRENT_DATE
               AND (:region IS NULL OR SUBSTRING_INDEX(p.road_address, ' ', 1) = :region)
               AND (:district IS NULL OR p.road_address LIKE CONCAT('%', :district, '%'))
-            ORDER BY COALESCE(v.view_count, 0) DESC, p.created_at DESC
+            ORDER BY
+                (COALESCE(v.view_count, 0) + COALESCE(pcb.view_count_boost, 0)) DESC,
+                p.created_at DESC
             """,
       nativeQuery = true)
   List<Popup> findActiveByMostViewed(
@@ -344,16 +356,19 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
         p.region AS region,
         p.start_date AS startDate,
         p.end_date AS endDate
-        FROM popup_total_view_count ptvc
-        JOIN popup p
+        FROM popup p
+        LEFT JOIN popup_total_view_count ptvc
         ON p.uuid = ptvc.popup_uuid
+        LEFT JOIN popup_count_boost pcb
+        ON pcb.popup_id = p.id
         JOIN popup_image pi
         ON pi.popup_id = p.id
         AND pi.sort_order = 0
                 WHERE p.is_active = 1
                 AND p.start_date <= CURRENT_DATE
                 AND p.end_date >= CURRENT_DATE
-                ORDER BY ptvc.view_count DESC
+                ORDER BY
+                (COALESCE(ptvc.view_count, 0) + COALESCE(pcb.view_count_boost, 0)) DESC
                 LIMIT :limit
 """,
       nativeQuery = true)

@@ -52,6 +52,7 @@ public class PopupUserServiceImpl implements PopupUserService {
   private final UsersRepository usersRepository;
   private final UserRecommendRepository userRecommendRepository;
   private final PopupUserResponseDtoMapper popupUserResponseDtoMapper;
+  private final PopupCountBoostService popupCountBoostService;
 
   @Override
   @Transactional(readOnly = true)
@@ -165,6 +166,7 @@ public class PopupUserServiceImpl implements PopupUserService {
     // 조회 수
     Long rawViewCount = popupTotalViewCountRepository.getViewCountByPopupUuid(popup.getUuid());
     long viewCount = (rawViewCount == null) ? 0L : rawViewCount;
+    PopupCountBoostValue boostValue = popupCountBoostService.getBoostValue(popup.getId());
 
     // 좋아요 여부
     boolean isFavorited =
@@ -190,8 +192,8 @@ public class PopupUserServiceImpl implements PopupUserService {
             .imageUrlList(imageUrlList)
             .mediaType(popup.getMediaType())
             .recommendList(recommendNameList)
-            .favoriteCount(favoriteCount)
-            .viewCount(viewCount)
+            .favoriteCount(favoriteCount + boostValue.favoriteCountBoost())
+            .viewCount(viewCount + boostValue.viewCountBoost())
             .favorited(isFavorited)
             .build();
 
@@ -476,7 +478,8 @@ public class PopupUserServiceImpl implements PopupUserService {
     List<Popup> popupList = popupRepository.findRandomActivePopups();
     List<Popup> finalPopupList = prependAdvertisementPopups(popupList);
 
-    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(finalPopupList, favoritedPopupIdList);
+    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(
+        finalPopupList, favoritedPopupIdList);
   }
 
   @Override
