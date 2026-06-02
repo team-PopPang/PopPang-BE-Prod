@@ -24,12 +24,16 @@ public class SecurityConfig {
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.anyRequest()
-                    //                        .requestMatchers(
-                    //                                "/api/v1/auth/**",
-                    //                                "/swagger-ui/**",
-                    //                                "/v3/api-docs/**",
-                    //                                "/error"
+                auth.requestMatchers(
+                        "/swagger-ui",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs",
+                        "/v3/api-docs/**",
+                        "/v3/api-docs.yaml",
+                        "/v3/api-docs.yaml/**")
+                    .denyAll()
+                    .anyRequest()
                     .permitAll())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
