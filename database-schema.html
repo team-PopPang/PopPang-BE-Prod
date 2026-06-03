@@ -284,7 +284,7 @@
 
 <span class="leaf">popup_image</span>         <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>
 <span class="jt">popup_recommend</span>     <span class="arr">──N:1──▶</span>  <span class="hub">popup</span>      <span class="jt">popup_recommend</span> <span class="arr">──N:1──▶</span>  recommend
-<span class="leaf">popup_submission</span>    <span class="dim">┄┄(submitter_user_id ┄┄▶ users.id : FK 제약 없음)</span>
+<span class="leaf">popup_submission</span>    <span class="dim">┄┄(submitter_user_uuid ┄┄▶ users.uuid : FK 제약 없음)</span>
 
 <span class="hub">popup</span>  <span class="dim">┄┄(uuid ┄┄▶ popup_total_view_count.popup_uuid : FK 제약 없음)</span></div>
 
@@ -294,14 +294,14 @@
         <li><b><code>popup</code> 1 : N</b> → <code>popup_image</code>, <code>popup_recommend</code>, <code>user_alert</code>, <code>user_favorite</code></li>
         <li><b><code>recommend</code> 1 : N</b> → <code>popup_recommend</code>, <code>user_recommend</code></li>
         <li><b>M:N 관계</b>는 모두 명시적 조인 엔티티로 풀어냄: 회원↔팝업(<code>user_favorite</code>, <code>user_alert</code>), 회원↔카테고리(<code>user_recommend</code>), 팝업↔카테고리(<code>popup_recommend</code>)</li>
-        <li><b>논리적 연결만 존재</b>(JPA <code>@ManyToOne</code> 없이 단순 컬럼): <code>popup_total_view_count.popup_uuid</code> ↔ <code>popup.uuid</code>, <code>popup_submission.submitter_user_id</code> ↔ <code>users.id</code></li>
+        <li><b>논리적 연결만 존재</b>(JPA <code>@ManyToOne</code> 없이 단순 컬럼): <code>popup_total_view_count.popup_uuid</code> ↔ <code>popup.uuid</code>, <code>popup_submission.submitter_user_uuid</code> ↔ <code>users.uuid</code></li>
       </ul>
       <div class="note">
         <span class="label">ℹ️ FK 제약은 JPA가 생성</span>
         <p style="margin:6px 0 0;">
           <code>@ManyToOne</code> + <code>@JoinColumn</code>으로 매핑된 관계는 <code>ddl-auto</code>가
           실제 FK 제약을 만듭니다. 반면 <code>popup_total_view_count</code>와
-          <code>popup_submission.submitter_user_id</code>는 단순 컬럼이라
+          <code>popup_submission.submitter_user_uuid</code>는 단순 컬럼이라
           <b>DB 레벨 무결성 보장이 없습니다</b> — 애플리케이션 코드가 정합성을 책임집니다.
         </p>
       </div>
@@ -421,7 +421,7 @@
           <tr><td class="colname">end_date</td><td><code>DATE</code></td><td><span class="k no">NO</span></td><td>—</td><td>—</td></tr>
           <tr><td class="colname">address</td><td><code>VARCHAR(255)</code></td><td><span class="k no">NO</span></td><td>—</td><td>—</td></tr>
           <tr><td class="colname">description</td><td><code>TEXT</code></td><td><span class="k yes">YES</span></td><td>—</td><td><code>columnDefinition="TEXT"</code></td></tr>
-          <tr><td class="colname">submitter_user_id</td><td><code>BIGINT</code></td><td><span class="k yes">YES</span></td><td>—</td><td>제보자 <code>users.id</code> — <b>JPA 관계가 아닌 단순 컬럼</b>(FK 제약 없음)</td></tr>
+          <tr><td class="colname">submitter_user_uuid</td><td><code>VARCHAR(36)</code></td><td><span class="k no">NO</span></td><td>—</td><td>제보자 <code>users.uuid</code> — <b>JPA 관계가 아닌 단순 컬럼</b>(FK 제약 없음)</td></tr>
           <tr><td class="colname">status</td><td><code>VARCHAR</code></td><td><span class="k no">NO</span></td><td>—</td><td>enum STRING — <code>PENDING</code>/<code>APPROVED</code>/<code>REJECTED</code></td></tr>
           <tr><td class="colname">created_at / updated_at</td><td><code>DATETIME</code></td><td>—</td><td>—</td><td>BaseEntity</td></tr>
         </table>
@@ -625,7 +625,7 @@
         <tr><td><code>user_favorite.users_id</code></td><td><code>users.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
         <tr><td><code>user_favorite.popup_id</code></td><td><code>popup.id</code></td><td>N : 1</td><td><span class="k yes">FK 있음</span> · LAZY · NOT NULL</td></tr>
         <tr><td><code>popup_total_view_count.popup_uuid</code></td><td><code>popup.uuid</code></td><td>1 : 1 (논리)</td><td><span class="k no">FK 없음</span> — 단순 컬럼, 네이티브 쿼리로만 조인</td></tr>
-        <tr><td><code>popup_submission.submitter_user_id</code></td><td><code>users.id</code></td><td>N : 1 (논리)</td><td><span class="k no">FK 없음</span> — 단순 컬럼</td></tr>
+        <tr><td><code>popup_submission.submitter_user_uuid</code></td><td><code>users.uuid</code></td><td>N : 1 (논리)</td><td><span class="k no">FK 없음</span> — 단순 컬럼</td></tr>
       </table>
       <p style="font-size:13px;color:var(--text-dim);">
         FK 있는 관계 10개는 <code>@ManyToOne</code>+<code>@JoinColumn</code> 매핑이라 <code>ddl-auto</code>가 실제 제약을 생성.
@@ -747,7 +747,7 @@
           <h4>🟡 FK 없는 논리적 연결</h4>
           <p style="font-size:13px;margin:0;">
             <code>popup_total_view_count.popup_uuid</code>,
-            <code>popup_submission.submitter_user_id</code>는 FK 제약이 없어
+            <code>popup_submission.submitter_user_uuid</code>는 FK 제약이 없어
             고아 데이터(orphan)가 생겨도 DB가 막지 않음.
           </p>
         </div>
