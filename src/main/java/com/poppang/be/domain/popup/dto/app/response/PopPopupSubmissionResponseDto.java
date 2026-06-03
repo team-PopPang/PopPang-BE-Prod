@@ -18,6 +18,7 @@ public class PopPopupSubmissionResponseDto {
   private LocalDate endDate;
   private String address;
   private String description;
+  private String submitterUserUuid;
   private PopupSubmissionStatus status;
   private LocalDateTime createdAt;
 
@@ -29,6 +30,7 @@ public class PopPopupSubmissionResponseDto {
       LocalDate endDate,
       String address,
       String description,
+      String submitterUserUuid,
       PopupSubmissionStatus status,
       LocalDateTime createdAt) {
     this.id = id;
@@ -37,6 +39,7 @@ public class PopPopupSubmissionResponseDto {
     this.endDate = endDate;
     this.address = address;
     this.description = description;
+    this.submitterUserUuid = submitterUserUuid;
     this.status = status;
     this.createdAt = createdAt;
   }
@@ -49,6 +52,7 @@ public class PopPopupSubmissionResponseDto {
         .endDate(popupSubmission.getEndDate())
         .address(popupSubmission.getAddress())
         .description(popupSubmission.getDescription())
+        .submitterUserUuid(popupSubmission.getSubmitterUserUuid())
         .status(popupSubmission.getStatus())
         .createdAt(popupSubmission.getCreatedAt())
         .build();

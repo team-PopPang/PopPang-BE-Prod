@@ -32,8 +32,8 @@ public class PopupSubmission extends BaseEntity {
   @Column(columnDefinition = "TEXT")
   private String description;
 
-  @Column(name = "submitter_user_id")
-  private Long submitterUserId;
+  @Column(name = "submitter_user_uuid", nullable = false, length = 36)
+  private String submitterUserUuid;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false)
@@ -46,14 +46,14 @@ public class PopupSubmission extends BaseEntity {
       LocalDate endDate,
       String address,
       String description,
-      Long submitterUserId,
+      String submitterUserUuid,
       PopupSubmissionStatus status) {
     this.name = name;
     this.startDate = startDate;
     this.endDate = endDate;
     this.address = address;
     this.description = description;
-    this.submitterUserId = submitterUserId;
+    this.submitterUserUuid = submitterUserUuid;
     this.status = status;
   }
 

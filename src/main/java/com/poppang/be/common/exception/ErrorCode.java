@@ -35,6 +35,7 @@ public enum ErrorCode {
   INVALID_SORT_STANDARD(HttpStatus.BAD_REQUEST, 4303, "지원하지 않는 정렬 기준입니다."),
   INVALID_RECOMMEND_ID(HttpStatus.BAD_REQUEST, 4304, "유효하지 않은 recommendId가 포함되어 있습니다."),
   POPUP_RECOMMEND_NOT_FOUND(HttpStatus.NOT_FOUND, 4305, "해당 팝업에는 추천 값이 존재하지 않습니다."),
+  INVALID_SUBMITTER_USER_UUID(HttpStatus.BAD_REQUEST, 4306, "제보자 UUID는 필수입니다."),
 
   // ==================================================
   // 5000 ~ 5099 : Auth / JWT (인증)

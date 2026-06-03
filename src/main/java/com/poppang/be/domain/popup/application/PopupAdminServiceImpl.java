@@ -59,8 +59,23 @@ public class PopupAdminServiceImpl implements PopupAdminService {
   }
 
   @Override
+  @Transactional
   public void createPopupSubmission(
       PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto) {
+    if (popupSubmissionCreateRequestDto == null) {
+      throw new BaseException(ErrorCode.INVALID_SUBMITTER_USER_UUID);
+    }
+
+    String submitterUserUuid = popupSubmissionCreateRequestDto.getSubmitterUserUuid();
+
+    if (submitterUserUuid == null || submitterUserUuid.isBlank()) {
+      throw new BaseException(ErrorCode.INVALID_SUBMITTER_USER_UUID);
+    }
+
+    usersRepository
+        .findByUuidAndDeletedFalse(submitterUserUuid)
+        .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
+
     PopupSubmission popupSubmission = popupSubmissionCreateRequestDto.toEntity();
     popupSubmissionRepository.save(popupSubmission);
   }

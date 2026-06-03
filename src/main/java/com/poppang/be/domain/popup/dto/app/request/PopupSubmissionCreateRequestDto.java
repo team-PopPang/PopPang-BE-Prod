@@ -15,7 +15,7 @@ public class PopupSubmissionCreateRequestDto {
   private LocalDate endDate;
   private String address;
   private String description;
-  private Long submitterUserId;
+  private String submitterUserUuid;
 
   public PopupSubmission toEntity() {
     return PopupSubmission.builder()
@@ -24,7 +24,7 @@ public class PopupSubmissionCreateRequestDto {
         .endDate(this.endDate)
         .address(this.address)
         .description(this.description)
-        .submitterUserId(this.submitterUserId)
+        .submitterUserUuid(this.submitterUserUuid)
         .status(PopupSubmissionStatus.PENDING)
         .build();
   }
