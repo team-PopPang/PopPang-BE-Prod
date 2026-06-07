@@ -35,11 +35,11 @@ jobs:
         run: |
           mkdir -p src/main/resources
 
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $GITHUB_ACCESS_TOKEN" \
           -o src/main/resources/application.yml \
           $PRIVATE_BASE_URL/src/main/resources/application.yml
 
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $GITHUB_ACCESS_TOKEN" \
           -o src/main/resources/application-prod.yml \
           $PRIVATE_BASE_URL/src/main/resources/application-prod.yml
 
