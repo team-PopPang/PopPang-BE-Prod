@@ -1,0 +1,189 @@
+name: PopPang BE CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+  schedule:
+    # UTC 22:00 = KST 07:00
+    - cron: "0 22 * * *"
+
+env:
+  # ===== App 설정 =====
+  APP_NAME: poppang-dev 
+
+  # ===== 서버 설정 =====
+  # SSH_HOST: ~/.ssh/config 에 설정해둔 Host 별칭
+  SERVER_DIR: /home/poppang/opt/deploy
+
+  # ===== Private Repository 설정 =====
+  PRIVATE_REPO: team-PopPang/PopPang-Private 
+  PRIVATE_BRANCH: BE 
+  PRIVATE_BASE_URL: https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE
+
+  # =====Secret 설정 =====
+  SSH_HOST: ${{ secrets.SERVER_HOST }}
+  SERVER_USER: ${{ secrets.SERVER_USER }}
+  SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+  GH_PRIVATE_TOKEN: ${{ secrets.GH_PRIVATE_TOKEN }}
+  MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+  MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 코드 가져오기
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Java 설치 + Gradle 캐시
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      # 3. gradlew 실행 권한
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # 4. Docker buildx 설정
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 5. 버전 자동 생성
+      - name: Set image version
+        run: |
+          VERSION=${GITHUB_SHA::7}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${APP_NAME}:$VERSION" >> $GITHUB_ENV
+          echo "IMAGE_TAR=${APP_NAME}-$VERSION.tar" >> $GITHUB_ENV
+
+      # 6. Private config 다운로드
+      - name: Download private configs
+        run: |
+          mkdir -p src/main/resources/auth
+          
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+            -o src/main/resources/auth/AuthKey_382T2TB4RW.p8 \
+            $PRIVATE_BASE_URL/src/main/resources/auth/AuthKey_382T2TB4RW.p8
+          
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+            -o src/main/resources/application.yml \
+            $PRIVATE_BASE_URL/src/main/resources/application.yml
+          
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+            -o src/main/resources/application-dev.yml \
+            $PRIVATE_BASE_URL/src/main/resources/application-dev.yml
+          
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+            -o src/main/resources/application-local.yml \
+            $PRIVATE_BASE_URL/src/main/resources/application-local.yml
+          
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+            -o src/main/resources/application-prod.yml \
+            $PRIVATE_BASE_URL/src/main/resources/application-prod.yml
+
+      # 7. Gradle 빌드
+      - name: Build jar
+        run: ./gradlew clean bootJar --no-daemon --build-cache
+
+      # 8. Docker 이미지 빌드
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ${{ env.IMAGE_NAME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 9. Docker 이미지 tar 생성
+      - name: Save Docker image
+        run: |
+          docker save -o $IMAGE_TAR $IMAGE_NAME
+          chmod 644 $IMAGE_TAR
+
+      # 10. 서버로 이미지 전송
+      - name: Copy image to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SERVER_USER }}
+          key: ${{ env.SERVER_SSH_KEY }}
+          source: "${{ env.IMAGE_TAR }}"
+          target: "${{ env.SERVER_DIR }}"
+
+      # 11. 서버에서 배포 실행
+      - name: Remote deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SERVER_USER }}
+          key: ${{ env.SERVER_SSH_KEY }}
+          script: |
+            bash ${{ env.SERVER_DIR }}/deploy-prod.sh \
+            ${{ env.SERVER_DIR }}/${{ env.IMAGE_TAR }} \
+            ${{ env.IMAGE_NAME }}
+
+  notify:
+    name: Notify Result
+    runs-on: ubuntu-latest
+    needs: build-and-deploy
+    if: always()
+
+    steps:
+      - name: Send email on success
+        if: needs.build-and-deploy.result == 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ env.MAIL_USERNAME }}
+          password: ${{ env.MAIL_PASSWORD }}
+          subject: ✅ PopPang BE 배포 성공
+          body: |
+            🎉 PopPang BE 배포 완료
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Actor: ${{ github.actor }}
+
+            Commit: ${{ github.sha }}
+
+            CI URL
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          to: indextrown@gmail.com
+          from: PopPang CI <${{ env.MAIL_USERNAME }}>
+
+      - name: Send email on failure
+        if: needs.build-and-deploy.result != 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ env.MAIL_USERNAME }}
+          password: ${{ env.MAIL_PASSWORD }}
+          subject: ❌ PopPang BE 배포 실패
+          body: |
+            ❌ PopPang BE 배포 실패
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Actor: ${{ github.actor }}
+
+            확인 필요
+
+            CI URL
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          to: indextrown@gmail.com
+          from: PopPang CI <${{ env.MAIL_USERNAME }}>
