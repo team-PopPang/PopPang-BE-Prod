@@ -1,0 +1,49 @@
+name: PopPang BE Build Test
+
+on:
+  # PR이 열릴 때마다 실행 (main 브랜치 대상)
+  pull_request:
+    branches:
+      - main
+  
+  workflow_dispatch:
+
+env:
+  PRIVATE_BASE_URL: https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE
+  GH_PRIVATE_TOKEN: ${{ secrets.GH_PRIVATE_TOKEN }}
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      # private config 다운로드
+      - name: Download private configs
+        run: |
+          mkdir -p src/main/resources
+
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          -o src/main/resources/application.yml \
+          $PRIVATE_BASE_URL/src/main/resources/application.yml
+
+          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          -o src/main/resources/application-prod.yml \
+          $PRIVATE_BASE_URL/src/main/resources/application-prod.yml
+
+      # build + test
+      - name: Build & Test
+        run: ./gradlew clean build --no-daemon
+        
