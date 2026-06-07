@@ -28,7 +28,7 @@ env:
   SSH_HOST: ${{ secrets.SERVER_HOST }}
   SERVER_USER: ${{ secrets.SERVER_USER }}
   SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
-  GH_PRIVATE_TOKEN: ${{ secrets.GH_PRIVATE_TOKEN }}
+  PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
   MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
   MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
 
@@ -70,23 +70,23 @@ jobs:
         run: |
           mkdir -p src/main/resources/auth
           
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $PERSONAL_ACCESS_TOKEN" \
             -o src/main/resources/auth/AuthKey_382T2TB4RW.p8 \
             $PRIVATE_BASE_URL/src/main/resources/auth/AuthKey_382T2TB4RW.p8
           
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $PERSONAL_ACCESS_TOKEN" \
             -o src/main/resources/application.yml \
             $PRIVATE_BASE_URL/src/main/resources/application.yml
           
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $PERSONAL_ACCESS_TOKEN" \
             -o src/main/resources/application-dev.yml \
             $PRIVATE_BASE_URL/src/main/resources/application-dev.yml
           
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $PERSONAL_ACCESS_TOKEN" \
             -o src/main/resources/application-local.yml \
             $PRIVATE_BASE_URL/src/main/resources/application-local.yml
           
-          curl -f -H "Authorization: Bearer $GH_PRIVATE_TOKEN" \
+          curl -f -H "Authorization: Bearer $PERSONAL_ACCESS_TOKEN" \
             -o src/main/resources/application-prod.yml \
             $PRIVATE_BASE_URL/src/main/resources/application-prod.yml
 
