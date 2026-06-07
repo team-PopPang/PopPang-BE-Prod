@@ -14,5 +14,7 @@ branches:
     prefix: test/
   - label: '📃 docs'
     prefix: docs/
+  - label: '🤖 ci'
+    prefix: ci/
 autoCloseIssue: true
 commentMessage: 'Branch ${branchName} created for issue: ${issue.title}'
