@@ -33,5 +33,10 @@
     "name": "📃 docs",
     "color": "1D76DB",
     "description": "문서 작성 및 수정 관련 이슈(README.md 등)"
+  },
+  {
+    "name": "🤖 ci",
+    "color": "5319E7",
+    "description": "CI/CD 및 GitHub Actions 관련 작업"
   }
 ]
