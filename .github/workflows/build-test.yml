@@ -10,7 +10,7 @@ on:
 
 env:
   PRIVATE_BASE_URL: https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE
-  GH_PRIVATE_TOKEN: ${{ secrets.GH_PRIVATE_TOKEN }}
+  GH_PRIVATE_TOKEN: ${{ secrets.GITHUB_ACCESS_TOKEN }}
 
 jobs:
   build-test:
