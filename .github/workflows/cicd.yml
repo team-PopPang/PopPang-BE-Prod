@@ -7,9 +7,9 @@ on:
 
   workflow_dispatch:
 
-  schedule:
-    # UTC 22:00 = KST 07:00
-    - cron: "0 22 * * *"
+  # schedule:
+  #   # UTC 22:00 = KST 07:00
+  #   - cron: "0 22 * * *"
 
 env:
   # ===== App 설정 =====
