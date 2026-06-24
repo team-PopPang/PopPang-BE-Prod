@@ -9,16 +9,18 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.LocalDate;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "popup_count_boost")
-public class PopupCountBoost extends BaseEntity {
+public class PopupCountBoost extends BaseEntity implements Persistable<Long> {
 
   @Id
   @Column(name = "popup_id")
@@ -41,6 +43,18 @@ public class PopupCountBoost extends BaseEntity {
   public PopupCountBoost(Popup popup) {
     this.popup = popup;
     this.popupId = popup.getId();
+  }
+
+  @Override
+  @Transient
+  public Long getId() {
+    return popupId;
+  }
+
+  @Override
+  @Transient
+  public boolean isNew() {
+    return getCreatedAt() == null;
   }
 
   public boolean wasBoostedOn(LocalDate date) {

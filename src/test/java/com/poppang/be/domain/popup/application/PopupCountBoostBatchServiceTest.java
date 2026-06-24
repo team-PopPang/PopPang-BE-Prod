@@ -30,6 +30,16 @@ class PopupCountBoostBatchServiceTest {
   @InjectMocks private PopupCountBoostBatchService popupCountBoostBatchService;
 
   @Test
+  void newPopupCountBoostIsNewBeforePersistence() {
+    Popup popup = Popup.builder().id(1L).build();
+
+    PopupCountBoost boost = new PopupCountBoost(popup);
+
+    assertThat(boost.getId()).isEqualTo(1L);
+    assertThat(boost.isNew()).isTrue();
+  }
+
+  @Test
   void boostAllPopupsCreatesBoostForPopup() {
     LocalDate boostedDate = LocalDate.of(2026, 6, 3);
     Popup popup = Popup.builder().id(1L).build();
