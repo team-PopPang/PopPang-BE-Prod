@@ -55,10 +55,10 @@ public class Popup extends BaseEntity {
   @Column(name = "geocoding_query", nullable = true)
   private String geocodingQuery;
 
-  @Column(name = "insta_post_id", nullable = false, length = 255, unique = true)
+  @Column(name = "insta_post_id", nullable = true, length = 255, unique = true)
   private String instaPostId;
 
-  @Column(name = "insta_post_url", nullable = false, length = 255)
+  @Column(name = "insta_post_url", nullable = true, length = 255)
   private String instaPostUrl;
 
   @Column(name = "caption_summary", nullable = false, columnDefinition = "TEXT")

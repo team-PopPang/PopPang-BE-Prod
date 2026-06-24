@@ -1,6 +1,7 @@
 package com.poppang.be.domain.users.infrastructure;
 
 import com.poppang.be.domain.users.entity.Users;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,8 @@ public interface UsersRepository extends JpaRepository<Users, Long> {
   Optional<Users> findByUuidAndDeletedFalse(String uuid);
 
   Optional<Users> findByUuid(String userUuid);
+
+  List<Users> findByUuidIn(Collection<String> uuids);
 
   @Query(
       value =

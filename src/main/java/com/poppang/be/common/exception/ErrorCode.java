@@ -36,6 +36,13 @@ public enum ErrorCode {
   INVALID_RECOMMEND_ID(HttpStatus.BAD_REQUEST, 4304, "유효하지 않은 recommendId가 포함되어 있습니다."),
   POPUP_RECOMMEND_NOT_FOUND(HttpStatus.NOT_FOUND, 4305, "해당 팝업에는 추천 값이 존재하지 않습니다."),
   INVALID_SUBMITTER_USER_UUID(HttpStatus.BAD_REQUEST, 4306, "제보자 UUID는 필수입니다."),
+  INVALID_POPUP_SUBMISSION_REQUEST(HttpStatus.BAD_REQUEST, 4307, "팝업 제보 요청값이 올바르지 않습니다."),
+  INVALID_ADMIN_USER_UUID(HttpStatus.BAD_REQUEST, 4308, "관리자 UUID는 필수입니다."),
+  INVALID_POPUP_SUBMISSION_STATUS(HttpStatus.BAD_REQUEST, 4309, "지원하지 않는 제보 상태입니다."),
+  POPUP_SUBMISSION_NOT_FOUND(HttpStatus.NOT_FOUND, 4310, "팝업 제보를 찾을 수 없습니다."),
+  INVALID_POPUP_SUBMISSION_UPDATE_STATUS(
+      HttpStatus.BAD_REQUEST, 4311, "처리할 제보 상태는 APPROVED 또는 REJECTED만 가능합니다."),
+  POPUP_SUBMISSION_ALREADY_PROCESSED(HttpStatus.CONFLICT, 4312, "이미 처리된 팝업 제보입니다."),
 
   // ==================================================
   // 5000 ~ 5099 : Auth / JWT (인증)

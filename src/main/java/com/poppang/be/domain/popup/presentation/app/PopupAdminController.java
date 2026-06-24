@@ -1,9 +1,11 @@
 package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupAdminService;
-import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionCreateRequestDto;
+import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionAdminUpdateRequestDto;
 import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionStatusUpdateRequestDto;
-import com.poppang.be.domain.popup.dto.app.response.PopPopupSubmissionResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminDetailResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminListResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminUpdateResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -62,24 +64,79 @@ public class PopupAdminController {
     return ResponseEntity.ok().build();
   }
 
-  @Operation(summary = "팝업스토어 제보 등록", description = "사용자가 팝업스토어 정보를 제보합니다.")
-  @PostMapping("/popup-submissions")
-  public ResponseEntity<Void> createPopupSubmission(
-      @RequestBody PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto) {
-    popupAdminService.createPopupSubmission(popupSubmissionCreateRequestDto);
+  @Operation(
+      summary = "[관리자] 팝업 제보 리스트 조회",
+      description =
+          """
+          관리자가 팝업 제보 리스트를 조회합니다.
 
-    return ResponseEntity.ok().build();
+          쿼리 파라미터:
+          - uuid: 관리자 확인용 user uuid
+          - status: 전체/대기/승인/반려, 기본값 전체
+
+          조회 조건:
+          - 요청한 uuid의 사용자가 ADMIN 권한이어야 합니다.
+          - 종료일(endDate)이 오늘 이후인 제보만 조회합니다.
+          - status 응답값은 PENDING/APPROVED/REJECTED enum 문자열입니다.
+          """)
+  @GetMapping("/popup-submissions")
+  public ResponseEntity<List<PopupSubmissionAdminListResponseDto>> getPopupSubmissions(
+      @RequestParam(required = false) String uuid,
+      @RequestParam(defaultValue = "전체") String status) {
+    List<PopupSubmissionAdminListResponseDto> popupSubmissionResponseDtoList =
+        popupAdminService.getPopupSubmissions(uuid, status);
+
+    return ResponseEntity.ok(popupSubmissionResponseDtoList);
   }
 
   @Operation(
-      summary = "팝업스토어 제보 목록 조회 (PENDING)",
-      description = "관리자가 승인 대기(PENDING) 상태의 제보 목록을 조회합니다.")
-  @GetMapping("popup-submissions")
-  public ResponseEntity<List<PopPopupSubmissionResponseDto>> getPendingSubmissions() {
-    List<PopPopupSubmissionResponseDto> popupSubmissionResponseDtoList =
-        popupAdminService.getPendingSubmissions();
+      summary = "[관리자] 팝업 제보 상세 조회",
+      description =
+          """
+          관리자가 팝업 제보 상세 정보를 조회합니다.
 
-    return ResponseEntity.ok(popupSubmissionResponseDtoList);
+          쿼리 파라미터:
+          - uuid: 관리자 확인용 user uuid
+
+          조회 조건:
+          - 요청한 uuid의 사용자가 ADMIN 권한이어야 합니다.
+          - popupSubmissionId는 팝업 제보 리스트에서 받은 popup_submission.id입니다.
+          - 종료일(endDate)과 status 조건 없이 id로 단건 조회합니다.
+          - 사용자가 입력하지 않은 선택값은 null로 응답합니다.
+          """)
+  @GetMapping("/popup-submissions/{popupSubmissionId}")
+  public ResponseEntity<PopupSubmissionAdminDetailResponseDto> getPopupSubmissionDetail(
+      @PathVariable Long popupSubmissionId, @RequestParam(required = false) String uuid) {
+    PopupSubmissionAdminDetailResponseDto popupSubmissionResponseDto =
+        popupAdminService.getPopupSubmissionDetail(uuid, popupSubmissionId);
+
+    return ResponseEntity.ok(popupSubmissionResponseDto);
+  }
+
+  @Operation(
+      summary = "[관리자] 팝업 제보 승인/반려",
+      description =
+          """
+          관리자가 팝업 제보를 승인하거나 반려합니다.
+
+          쿼리 파라미터:
+          - uuid: 관리자 확인용 user uuid
+
+          처리 방식:
+          - APPROVED: 요청 본문의 최종 운영 등록값으로 popup, popup_image, popup_recommend를 저장합니다.
+          - REJECTED: popup_submission.status만 REJECTED로 변경합니다.
+          - popup_submission의 원본 제보 필드는 수정하지 않습니다.
+          """)
+  @PutMapping("/popup-submissions/{popupSubmissionId}")
+  public ResponseEntity<PopupSubmissionAdminUpdateResponseDto> updatePopupSubmission(
+      @PathVariable Long popupSubmissionId,
+      @RequestParam(required = false) String uuid,
+      @RequestBody PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto) {
+    PopupSubmissionAdminUpdateResponseDto popupSubmissionAdminUpdateResponseDto =
+        popupAdminService.updatePopupSubmission(
+            uuid, popupSubmissionId, popupSubmissionAdminUpdateRequestDto);
+
+    return ResponseEntity.ok(popupSubmissionAdminUpdateResponseDto);
   }
 
   @Operation(
