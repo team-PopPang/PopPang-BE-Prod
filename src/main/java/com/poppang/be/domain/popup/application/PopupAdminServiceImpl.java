@@ -2,8 +2,8 @@ package com.poppang.be.domain.popup.application;
 
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
+import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionAdminImageRequestDto;
 import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionAdminUpdateRequestDto;
-import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionImageRequestDto;
 import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionStatusUpdateRequestDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminDetailResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminListResponseDto;
@@ -31,6 +31,7 @@ import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,6 +40,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -54,6 +56,14 @@ public class PopupAdminServiceImpl implements PopupAdminService {
   private final PopupSubmissionImageRepository popupSubmissionImageRepository;
   private final PopupSubmissionRecommendRepository popupSubmissionRecommendRepository;
   private final RecommendRepository recommendRepository;
+  private final PopupSubmissionImageStorage popupSubmissionImageStorage;
+
+  private enum PopupSubmissionAdminImageSourceType {
+    EXISTING,
+    UPLOAD
+  }
+
+  private record ResolvedPopupImage(String imageUrl, int sortOrder, int originalIndex) {}
 
   @Override
   @Transactional
@@ -142,7 +152,8 @@ public class PopupAdminServiceImpl implements PopupAdminService {
   public PopupSubmissionAdminUpdateResponseDto updatePopupSubmission(
       String adminUuid,
       Long popupSubmissionId,
-      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto) {
+      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto,
+      List<MultipartFile> images) {
     validateAdmin(adminUuid);
 
     PopupSubmissionStatus updateStatus =
@@ -162,14 +173,27 @@ public class PopupAdminServiceImpl implements PopupAdminService {
       return PopupSubmissionAdminUpdateResponseDto.from(null);
     }
 
-    validatePopupSubmissionApprovalRequest(popupSubmissionAdminUpdateRequestDto);
+    validatePopupSubmissionApprovalRequest(popupSubmissionAdminUpdateRequestDto, images);
+    List<Recommend> recommendList =
+        getRecommendList(popupSubmissionAdminUpdateRequestDto.getRecommendIdList());
 
-    Popup popup = savePopupFromSubmissionUpdateRequest(popupSubmissionAdminUpdateRequestDto);
-    savePopupImages(popup, popupSubmissionAdminUpdateRequestDto.getImageList());
-    savePopupRecommends(popup, popupSubmissionAdminUpdateRequestDto.getRecommendIdList());
+    List<String> storedImageUrlPathList = new ArrayList<>();
+    try {
+      List<ResolvedPopupImage> imageList =
+          resolvePopupImages(
+              popupSubmissionAdminUpdateRequestDto.getImageList(), images, storedImageUrlPathList);
 
-    popupSubmission.updateStatus(PopupSubmissionStatus.APPROVED);
-    return PopupSubmissionAdminUpdateResponseDto.from(popup.getUuid());
+      Popup popup = savePopupFromSubmissionUpdateRequest(popupSubmissionAdminUpdateRequestDto);
+      savePopupImages(popup, imageList);
+      savePopupRecommends(popup, recommendList);
+
+      popupSubmission.updateStatus(PopupSubmissionStatus.APPROVED);
+      popupSubmissionRepository.flush();
+      return PopupSubmissionAdminUpdateResponseDto.from(popup.getUuid());
+    } catch (RuntimeException e) {
+      popupSubmissionImageStorage.deleteAll(storedImageUrlPathList);
+      throw e;
+    }
   }
 
   private PopupSubmissionStatus parsePopupSubmissionUpdateStatus(
@@ -192,7 +216,8 @@ public class PopupAdminServiceImpl implements PopupAdminService {
   }
 
   private void validatePopupSubmissionApprovalRequest(
-      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto) {
+      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto,
+      List<MultipartFile> images) {
     if (popupSubmissionAdminUpdateRequestDto == null
         || isBlank(popupSubmissionAdminUpdateRequestDto.getName())
         || popupSubmissionAdminUpdateRequestDto.getStartDate() == null
@@ -211,12 +236,7 @@ public class PopupAdminServiceImpl implements PopupAdminService {
       throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
     }
 
-    for (PopupSubmissionImageRequestDto image :
-        popupSubmissionAdminUpdateRequestDto.getImageList()) {
-      if (image == null || isBlank(image.getImageUrl())) {
-        throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
-      }
-    }
+    validatePopupImagesRequest(popupSubmissionAdminUpdateRequestDto.getImageList(), images);
 
     for (Long recommendId : popupSubmissionAdminUpdateRequestDto.getRecommendIdList()) {
       if (recommendId == null) {
@@ -250,7 +270,7 @@ public class PopupAdminServiceImpl implements PopupAdminService {
             .activated(true)
             .build();
 
-    return popupRepository.save(popup);
+    return popupRepository.saveAndFlush(popup);
   }
 
   private MediaType parseMediaType(String mediaType) {
@@ -265,22 +285,117 @@ public class PopupAdminServiceImpl implements PopupAdminService {
     }
   }
 
-  private void savePopupImages(Popup popup, List<PopupSubmissionImageRequestDto> imageRequestList) {
-    List<PopupImage> imageList = new ArrayList<>();
+  private void validatePopupImagesRequest(
+      List<PopupSubmissionAdminImageRequestDto> imageRequestList, List<MultipartFile> images) {
+    for (PopupSubmissionAdminImageRequestDto image : imageRequestList) {
+      if (image == null) {
+        throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+      }
+
+      PopupSubmissionAdminImageSourceType sourceType = parseImageSourceType(image.getSourceType());
+      if (sourceType == PopupSubmissionAdminImageSourceType.EXISTING) {
+        if (isBlank(image.getImageUrl())) {
+          throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+        }
+        continue;
+      }
+
+      if (images == null
+          || images.isEmpty()
+          || image.getFileIndex() == null
+          || image.getFileIndex() < 0
+          || image.getFileIndex() >= images.size()) {
+        throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+      }
+
+      MultipartFile uploadImage = images.get(image.getFileIndex());
+      if (uploadImage == null || uploadImage.isEmpty()) {
+        throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+      }
+    }
+  }
+
+  private PopupSubmissionAdminImageSourceType parseImageSourceType(String sourceType) {
+    if (isBlank(sourceType)) {
+      throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+    }
+
+    try {
+      return PopupSubmissionAdminImageSourceType.valueOf(sourceType.trim());
+    } catch (IllegalArgumentException e) {
+      throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+    }
+  }
+
+  private List<ResolvedPopupImage> resolvePopupImages(
+      List<PopupSubmissionAdminImageRequestDto> imageRequestList,
+      List<MultipartFile> images,
+      List<String> storedImageUrlPathList) {
+    Map<Integer, String> uploadImageUrlByFileIndex =
+        storeUploadImages(imageRequestList, images, storedImageUrlPathList);
+
+    List<ResolvedPopupImage> resolvedImageList = new ArrayList<>();
     for (int i = 0; i < imageRequestList.size(); i++) {
-      PopupSubmissionImageRequestDto image = imageRequestList.get(i);
+      PopupSubmissionAdminImageRequestDto image = imageRequestList.get(i);
+      PopupSubmissionAdminImageSourceType sourceType = parseImageSourceType(image.getSourceType());
+      String imageUrl =
+          sourceType == PopupSubmissionAdminImageSourceType.EXISTING
+              ? image.getImageUrl()
+              : uploadImageUrlByFileIndex.get(image.getFileIndex());
+      int sortOrder = image.getSortOrder() != null ? image.getSortOrder() : i;
+
+      resolvedImageList.add(new ResolvedPopupImage(imageUrl, sortOrder, i));
+    }
+
+    resolvedImageList.sort(
+        Comparator.comparingInt(ResolvedPopupImage::sortOrder)
+            .thenComparingInt(ResolvedPopupImage::originalIndex));
+    return resolvedImageList;
+  }
+
+  private Map<Integer, String> storeUploadImages(
+      List<PopupSubmissionAdminImageRequestDto> imageRequestList,
+      List<MultipartFile> images,
+      List<String> storedImageUrlPathList) {
+    Set<Integer> uploadFileIndexSet = new LinkedHashSet<>();
+    for (PopupSubmissionAdminImageRequestDto image : imageRequestList) {
+      if (parseImageSourceType(image.getSourceType())
+          == PopupSubmissionAdminImageSourceType.UPLOAD) {
+        uploadFileIndexSet.add(image.getFileIndex());
+      }
+    }
+
+    if (uploadFileIndexSet.isEmpty()) {
+      return Map.of();
+    }
+
+    List<Integer> uploadFileIndexList = new ArrayList<>(uploadFileIndexSet);
+    List<MultipartFile> uploadImageList = uploadFileIndexList.stream().map(images::get).toList();
+    List<String> uploadedImageUrlPathList = popupSubmissionImageStorage.storeAll(uploadImageList);
+    storedImageUrlPathList.addAll(uploadedImageUrlPathList);
+
+    Map<Integer, String> uploadImageUrlByFileIndex = new HashMap<>();
+    for (int i = 0; i < uploadFileIndexList.size(); i++) {
+      uploadImageUrlByFileIndex.put(uploadFileIndexList.get(i), uploadedImageUrlPathList.get(i));
+    }
+    return uploadImageUrlByFileIndex;
+  }
+
+  private void savePopupImages(Popup popup, List<ResolvedPopupImage> imageRequestList) {
+    List<PopupImage> imageList = new ArrayList<>();
+    for (ResolvedPopupImage image : imageRequestList) {
       imageList.add(
           PopupImage.builder()
               .popup(popup)
-              .imageUrl(image.getImageUrl())
-              .sortOrder(image.getSortOrder() != null ? image.getSortOrder() : i)
+              .imageUrl(image.imageUrl())
+              .sortOrder(image.sortOrder())
               .build());
     }
 
-    popupImageRepository.saveAll(imageList);
+    popupImageRepository.saveAllAndFlush(imageList);
   }
 
-  private void savePopupRecommends(Popup popup, List<Long> recommendIdList) {
+  private List<Recommend> getRecommendList(List<Long> recommendIdList) {
     Set<Long> recommendIdSet = new LinkedHashSet<>(recommendIdList);
     List<Recommend> recommendList = recommendRepository.findAllById(recommendIdSet);
     if (recommendList.size() != recommendIdSet.size()) {
@@ -292,17 +407,25 @@ public class PopupAdminServiceImpl implements PopupAdminService {
       recommendById.put(recommend.getId(), recommend);
     }
 
-    List<PopupRecommend> popupRecommendList = new ArrayList<>();
+    List<Recommend> sortedRecommendList = new ArrayList<>();
     for (Long recommendId : recommendIdSet) {
       Recommend recommend = recommendById.get(recommendId);
       if (recommend == null) {
         throw new BaseException(ErrorCode.INVALID_RECOMMEND_ID);
       }
 
+      sortedRecommendList.add(recommend);
+    }
+    return sortedRecommendList;
+  }
+
+  private void savePopupRecommends(Popup popup, List<Recommend> recommendList) {
+    List<PopupRecommend> popupRecommendList = new ArrayList<>();
+    for (Recommend recommend : recommendList) {
       popupRecommendList.add(PopupRecommend.builder().popup(popup).recommend(recommend).build());
     }
 
-    popupRecommendRepository.saveAll(popupRecommendList);
+    popupRecommendRepository.saveAllAndFlush(popupRecommendList);
   }
 
   private void validateAdmin(String adminUuid) {

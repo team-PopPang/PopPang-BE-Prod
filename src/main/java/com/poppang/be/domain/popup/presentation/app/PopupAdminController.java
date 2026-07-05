@@ -10,9 +10,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "[ADMIN]", description = "관리자 전용 API")
 @RestController
@@ -122,19 +124,34 @@ public class PopupAdminController {
           쿼리 파라미터:
           - uuid: 관리자 확인용 user uuid
 
+          요청 형식:
+          - Content-Type: multipart/form-data
+          - request: application/json 파트
+          - images: 새로 업로드할 이미지 파일 파트, 필요한 경우 같은 이름으로 반복 전송
+
           처리 방식:
-          - APPROVED: 요청 본문의 최종 운영 등록값으로 popup, popup_image, popup_recommend를 저장합니다.
+          - APPROVED: request JSON의 최종 운영 등록값으로 popup, popup_image, popup_recommend를 저장합니다.
+          - APPROVED 이미지 처리:
+            - sourceType=EXISTING: imageUrl 값을 그대로 popup_image.image_url에 저장합니다.
+            - sourceType=UPLOAD: fileIndex 위치의 images 파일을 저장하고 반환 URL을 popup_image.image_url에 저장합니다.
+            - imageList에서 제외한 기존 이미지는 운영 popup_image에 저장하지 않습니다.
+            - sortOrder가 없으면 imageList 순서대로 0부터 부여합니다.
           - REJECTED: popup_submission.status만 REJECTED로 변경합니다.
+          - REJECTED: request JSON만 필요하며 images 파트는 없어도 됩니다.
           - popup_submission의 원본 제보 필드는 수정하지 않습니다.
           """)
-  @PutMapping("/popup-submissions/{popupSubmissionId}")
+  @PutMapping(
+      value = "/popup-submissions/{popupSubmissionId}",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<PopupSubmissionAdminUpdateResponseDto> updatePopupSubmission(
       @PathVariable Long popupSubmissionId,
       @RequestParam(required = false) String uuid,
-      @RequestBody PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto) {
+      @RequestPart(value = "request", required = false)
+          PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto,
+      @RequestPart(value = "images", required = false) List<MultipartFile> images) {
     PopupSubmissionAdminUpdateResponseDto popupSubmissionAdminUpdateResponseDto =
         popupAdminService.updatePopupSubmission(
-            uuid, popupSubmissionId, popupSubmissionAdminUpdateRequestDto);
+            uuid, popupSubmissionId, popupSubmissionAdminUpdateRequestDto, images);
 
     return ResponseEntity.ok(popupSubmissionAdminUpdateResponseDto);
   }

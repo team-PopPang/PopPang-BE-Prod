@@ -6,6 +6,7 @@ import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminDetailRe
 import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminListResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupSubmissionAdminUpdateResponseDto;
 import java.util.List;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface PopupAdminService {
 
@@ -21,7 +22,8 @@ public interface PopupAdminService {
   PopupSubmissionAdminUpdateResponseDto updatePopupSubmission(
       String adminUuid,
       Long popupSubmissionId,
-      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto);
+      PopupSubmissionAdminUpdateRequestDto popupSubmissionAdminUpdateRequestDto,
+      List<MultipartFile> images);
 
   void updateSubmissionStatus(
       Long submissionId,

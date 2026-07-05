@@ -33,6 +33,6 @@ public class PopupSubmissionAdminUpdateRequestDto {
   private String instaPostUrl;
   private String instaPostId;
   private String geocodingQuery;
-  private List<PopupSubmissionImageRequestDto> imageList;
+  private List<PopupSubmissionAdminImageRequestDto> imageList;
   private List<Long> recommendIdList;
 }
