@@ -3,7 +3,6 @@ package com.poppang.be.domain.popup.application;
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionCreateRequestDto;
-import com.poppang.be.domain.popup.dto.app.request.PopupSubmissionImageRequestDto;
 import com.poppang.be.domain.popup.entity.PopupSubmission;
 import com.poppang.be.domain.popup.entity.PopupSubmissionImage;
 import com.poppang.be.domain.popup.entity.PopupSubmissionRecommend;
@@ -14,12 +13,15 @@ import com.poppang.be.domain.recommend.entity.Recommend;
 import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -30,12 +32,13 @@ public class PopupSubmissionServiceImpl implements PopupSubmissionService {
   private final PopupSubmissionImageRepository popupSubmissionImageRepository;
   private final PopupSubmissionRecommendRepository popupSubmissionRecommendRepository;
   private final RecommendRepository recommendRepository;
+  private final PopupSubmissionImageStorage popupSubmissionImageStorage;
 
   @Override
   @Transactional
   public void createPopupSubmission(
-      PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto) {
-    validatePopupSubmissionCreateRequest(popupSubmissionCreateRequestDto);
+      PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto, List<MultipartFile> images) {
+    validatePopupSubmissionCreateRequest(popupSubmissionCreateRequestDto, images);
 
     String userUuid = popupSubmissionCreateRequestDto.getUserUuid();
 
@@ -43,16 +46,23 @@ public class PopupSubmissionServiceImpl implements PopupSubmissionService {
         .findByUuidAndDeletedFalse(userUuid)
         .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
-    PopupSubmission popupSubmission = popupSubmissionCreateRequestDto.toEntity();
-    popupSubmissionRepository.save(popupSubmission);
+    List<Recommend> recommendList =
+        getRecommendList(popupSubmissionCreateRequestDto.getRecommendIdList());
+    List<String> imageUrlPathList = popupSubmissionImageStorage.storeAll(images);
 
-    savePopupSubmissionImages(popupSubmission, popupSubmissionCreateRequestDto.getImageList());
-    savePopupSubmissionRecommends(
-        popupSubmission, popupSubmissionCreateRequestDto.getRecommendIdList());
+    try {
+      PopupSubmission popupSubmission =
+          popupSubmissionRepository.saveAndFlush(popupSubmissionCreateRequestDto.toEntity());
+      savePopupSubmissionImages(popupSubmission, imageUrlPathList);
+      savePopupSubmissionRecommends(popupSubmission, recommendList);
+    } catch (RuntimeException e) {
+      popupSubmissionImageStorage.deleteAll(imageUrlPathList);
+      throw e;
+    }
   }
 
   private void validatePopupSubmissionCreateRequest(
-      PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto) {
+      PopupSubmissionCreateRequestDto popupSubmissionCreateRequestDto, List<MultipartFile> images) {
     if (popupSubmissionCreateRequestDto == null
         || isBlank(popupSubmissionCreateRequestDto.getUserUuid())
         || isBlank(popupSubmissionCreateRequestDto.getName())
@@ -61,15 +71,15 @@ public class PopupSubmissionServiceImpl implements PopupSubmissionService {
         || isBlank(popupSubmissionCreateRequestDto.getRoadAddress())
         || isBlank(popupSubmissionCreateRequestDto.getRegion())
         || isBlank(popupSubmissionCreateRequestDto.getDescription())
-        || popupSubmissionCreateRequestDto.getImageList() == null
-        || popupSubmissionCreateRequestDto.getImageList().isEmpty()
+        || images == null
+        || images.isEmpty()
         || popupSubmissionCreateRequestDto.getRecommendIdList() == null
         || popupSubmissionCreateRequestDto.getRecommendIdList().isEmpty()) {
       throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
     }
 
-    for (PopupSubmissionImageRequestDto image : popupSubmissionCreateRequestDto.getImageList()) {
-      if (image == null || isBlank(image.getImageUrl())) {
+    for (MultipartFile image : images) {
+      if (image == null || image.isEmpty()) {
         throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
       }
     }
@@ -82,29 +92,46 @@ public class PopupSubmissionServiceImpl implements PopupSubmissionService {
   }
 
   private void savePopupSubmissionImages(
-      PopupSubmission popupSubmission, List<PopupSubmissionImageRequestDto> imageRequestList) {
+      PopupSubmission popupSubmission, List<String> imageUrlPathList) {
     List<PopupSubmissionImage> imageList = new ArrayList<>();
-    for (int i = 0; i < imageRequestList.size(); i++) {
-      PopupSubmissionImageRequestDto image = imageRequestList.get(i);
+    for (int i = 0; i < imageUrlPathList.size(); i++) {
       imageList.add(
           PopupSubmissionImage.builder()
               .popupSubmission(popupSubmission)
-              .imageUrl(image.getImageUrl())
-              .sortOrder(image.getSortOrder() != null ? image.getSortOrder() : i)
+              .imageUrl(imageUrlPathList.get(i))
+              .sortOrder(i)
               .build());
     }
 
-    popupSubmissionImageRepository.saveAll(imageList);
+    popupSubmissionImageRepository.saveAllAndFlush(imageList);
   }
 
-  private void savePopupSubmissionRecommends(
-      PopupSubmission popupSubmission, List<Long> recommendIdList) {
-    Set<Long> recommendIdSet = new HashSet<>(recommendIdList);
+  private List<Recommend> getRecommendList(List<Long> recommendIdList) {
+    Set<Long> recommendIdSet = new LinkedHashSet<>(recommendIdList);
     List<Recommend> recommendList = recommendRepository.findAllById(recommendIdSet);
     if (recommendList.size() != recommendIdSet.size()) {
       throw new BaseException(ErrorCode.INVALID_RECOMMEND_ID);
     }
 
+    Map<Long, Recommend> recommendById = new HashMap<>();
+    for (Recommend recommend : recommendList) {
+      recommendById.put(recommend.getId(), recommend);
+    }
+
+    List<Recommend> sortedRecommendList = new ArrayList<>();
+    for (Long recommendId : recommendIdSet) {
+      Recommend recommend = recommendById.get(recommendId);
+      if (recommend == null) {
+        throw new BaseException(ErrorCode.INVALID_RECOMMEND_ID);
+      }
+      sortedRecommendList.add(recommend);
+    }
+
+    return sortedRecommendList;
+  }
+
+  private void savePopupSubmissionRecommends(
+      PopupSubmission popupSubmission, List<Recommend> recommendList) {
     List<PopupSubmissionRecommend> popupSubmissionRecommendList = new ArrayList<>();
     for (Recommend recommend : recommendList) {
       popupSubmissionRecommendList.add(
@@ -114,7 +141,7 @@ public class PopupSubmissionServiceImpl implements PopupSubmissionService {
               .build());
     }
 
-    popupSubmissionRecommendRepository.saveAll(popupSubmissionRecommendList);
+    popupSubmissionRecommendRepository.saveAllAndFlush(popupSubmissionRecommendList);
   }
 
   private boolean isBlank(String value) {
