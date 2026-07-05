@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-이 파일은 이 저장소에서 작업하는 Claude Code 에이전트를 위한 운영 지침서다. 알아내기 어려운 컨벤션·함정 위주로 정리한다. 배포 상세 절차는 루트 [`.AGENTS.md`](./.AGENTS.md)(배포 런북) 참조.
+이 파일은 이 저장소에서 작업하는 Claude Code 에이전트를 위한 운영 지침서다. 알아내기 어려운 컨벤션·함정 위주로 정리한다. 배포 상세 절차는 루트 [`DEPLOYMENT.md`](./DEPLOYMENT.md)(배포 런북) 참조.
 
 ## 프로젝트 개요
 
@@ -109,7 +109,7 @@ domain/<도메인>/
 
 ## 배포 & 시크릿
 
-- **수동 `makefile` 배포** (Docker, `linux/amd64` 강제). 상세/롤백은 [`.AGENTS.md`](./.AGENTS.md) 런북 참조.
+- **수동 `makefile` 배포** (Docker, `linux/amd64` 강제). 상세/롤백은 [`DEPLOYMENT.md`](./DEPLOYMENT.md) 런북 참조.
   - `make getKey` — private repo(`team-PopPang/PopPang-Private`, branch `BE`)에서 `application-prod.yml`과 Apple `.p8`를 `GITHUB_ACCESS_TOKEN`(루트 `.env`)으로 다운로드.
   - `make prod-deploy VERSION=x.y.z` — bootJar → `docker buildx`(amd64) → tar → `scp poppang-server` → 원격 재기동. **`VERSION`을 항상 명시**(makefile 기본값은 오래됨, 기존 태그 덮어쓰기 금지).
   - 외부 포트 **4002 → 컨테이너 8080**. 헬스체크: `curl -i http://poppang.co.kr:4002/actuator/health` → `{"status":"UP"}`.
