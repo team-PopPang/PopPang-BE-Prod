@@ -10,9 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface PopupAdminService {
 
-  void deactivatePopup(String userUuid, String popupUuid);
-
-  void deactivatePopupV2(String popupUuid);
+  void deactivatePopup(String adminUuid, String popupUuid);
 
   List<PopupSubmissionAdminListResponseDto> getPopupSubmissions(String adminUuid, String status);
 

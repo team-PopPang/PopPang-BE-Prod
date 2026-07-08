@@ -67,28 +67,9 @@ public class PopupAdminServiceImpl implements PopupAdminService {
 
   @Override
   @Transactional
-  public void deactivatePopup(String userUuid, String popupUuid) {
+  public void deactivatePopup(String adminUuid, String popupUuid) {
+    validateAdmin(adminUuid);
 
-    Users user =
-        usersRepository
-            .findByUuid(userUuid)
-            .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
-
-    Popup popup =
-        popupRepository
-            .findByUuid(popupUuid)
-            .orElseThrow(() -> new BaseException(ErrorCode.POPUP_NOT_FOUND));
-
-    if (user.getRole() != Role.ADMIN) {
-      throw new BaseException(ErrorCode.ACCESS_DENIED);
-    }
-
-    popup.deactivate();
-  }
-
-  @Override
-  @Transactional
-  public void deactivatePopupV2(String popupUuid) {
     Popup popup =
         popupRepository
             .findByUuid(popupUuid)

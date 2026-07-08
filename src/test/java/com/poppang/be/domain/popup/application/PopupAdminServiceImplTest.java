@@ -72,6 +72,63 @@ class PopupAdminServiceImplTest {
   @InjectMocks private PopupAdminServiceImpl popupAdminService;
 
   @Test
+  void deactivatePopupDeactivatesPopupWhenAdmin() {
+    Popup popup = Popup.builder().uuid(POPUP_UUID).activated(true).build();
+    when(usersRepository.findByUuid(ADMIN_UUID)).thenReturn(Optional.of(adminUser()));
+    when(popupRepository.findByUuid(POPUP_UUID)).thenReturn(Optional.of(popup));
+
+    popupAdminService.deactivatePopup(ADMIN_UUID, POPUP_UUID);
+
+    assertThat(ReflectionTestUtils.getField(popup, "activated")).isEqualTo(false);
+  }
+
+  @Test
+  void deactivatePopupThrowsWhenAdminUuidIsBlank() {
+    assertThatThrownBy(() -> popupAdminService.deactivatePopup(" ", POPUP_UUID))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_ADMIN_USER_UUID);
+
+    verifyNoInteractions(usersRepository, popupRepository);
+  }
+
+  @Test
+  void deactivatePopupThrowsWhenAdminUserNotFound() {
+    when(usersRepository.findByUuid(ADMIN_UUID)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> popupAdminService.deactivatePopup(ADMIN_UUID, POPUP_UUID))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+    verifyNoInteractions(popupRepository);
+  }
+
+  @Test
+  void deactivatePopupThrowsWhenUserIsNotAdmin() {
+    Users member = Users.builder().uuid("member-uuid").role(Role.MEMBER).build();
+    when(usersRepository.findByUuid("member-uuid")).thenReturn(Optional.of(member));
+
+    assertThatThrownBy(() -> popupAdminService.deactivatePopup("member-uuid", POPUP_UUID))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.ACCESS_DENIED);
+
+    verifyNoInteractions(popupRepository);
+  }
+
+  @Test
+  void deactivatePopupThrowsWhenPopupNotFound() {
+    when(usersRepository.findByUuid(ADMIN_UUID)).thenReturn(Optional.of(adminUser()));
+    when(popupRepository.findByUuid(POPUP_UUID)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> popupAdminService.deactivatePopup(ADMIN_UUID, POPUP_UUID))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.POPUP_NOT_FOUND);
+  }
+
+  @Test
   void getPopupSubmissionsThrowsWhenAdminUuidIsBlank() {
     assertThatThrownBy(() -> popupAdminService.getPopupSubmissions(" ", "PENDING"))
         .isInstanceOf(BaseException.class)
@@ -302,10 +359,13 @@ class PopupAdminServiceImplTest {
   }
 
   private void mockAdminAndPopupSubmission(PopupSubmission popupSubmission) {
-    Users admin = Users.builder().uuid(ADMIN_UUID).role(Role.ADMIN).build();
-    when(usersRepository.findByUuid(ADMIN_UUID)).thenReturn(Optional.of(admin));
+    when(usersRepository.findByUuid(ADMIN_UUID)).thenReturn(Optional.of(adminUser()));
     when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(popupSubmission));
+  }
+
+  private Users adminUser() {
+    return Users.builder().uuid(ADMIN_UUID).role(Role.ADMIN).build();
   }
 
   private void mockRecommendList() {
