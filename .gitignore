@@ -69,3 +69,6 @@ AuthKey_382T2TB4RW.p8
 *.tar.gz
 *.zip
 *.jar
+
+### Visual brainstorming companion ###
+.superpowers/
