@@ -37,7 +37,8 @@ make getKey
 make prod-deploy VERSION=x.y.z
 ```
 
-- `src/main/resources/application*.yml`과 `src/main/resources/auth/*.p8`는 `.gitignore` 대상이다. 클린 클론에는 실행 설정이 없을 수 있다.
+- `src/main/resources/application*.yml`과 현재 Apple key 파일 `src/main/resources/auth/AuthKey_382T2TB4RW.p8`는 `.gitignore` 대상이다. 클린 클론에는 실행 설정이 없을 수 있다.
+- Apple key ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나만 대상으로 하며 `*.p8` 와일드카드가 아니다. 다른 파일명의 교체 키는 생성·다운로드·스테이징·사용 전에 해당 경로를 `.gitignore`에 추가하고 `git check-ignore -v <path>`로 적용을 확인한다.
 - 테스트/로컬 실행에는 DB, Redis, `jwt.secret`, `jwt.access-token-exp-minutes`, `jwt.refresh-token-exp-days`, `jwt.issuer` 등 private config가 필요하다. 예전 문서처럼 `JWT_SECRET` 하나만 주입한다고 충분하다고 가정하지 않는다.
 - GitHub Actions에는 PR용 `build-test.yml`(`./gradlew clean build`)과 `main` push용 `cicd.yml`(bootJar, Docker build, 원격 deploy)이 존재한다. 로컬 `makefile` 수동 배포도 병행된다.
 - `cicd.yml`은 현재 `APP_NAME: poppang-dev`로 이미지를 만들면서 `deploy-prod.sh`를 호출한다. 운영 배포로 신뢰하기 전에 의도와 대상 서버를 반드시 확인한다.
@@ -136,7 +137,7 @@ domain/<domain>/
 
 - 배포 상세 절차는 [`DEPLOYMENT.md`](./DEPLOYMENT.md)를 따른다.
 - 로컬 `makefile`은 `APP_NAME=poppang-prod`, 기본 `VERSION=1.2.3`이다. 배포 시 항상 `VERSION=x.y.z`를 명시한다.
-- `make getKey`는 private repo(`team-PopPang/PopPang-Private`, branch `BE`)에서 Apple `.p8`와 `application-prod.yml`을 받지만, `application.yml`은 받지 않는다.
+- `make getKey`는 private repo(`team-PopPang/PopPang-Private`, branch `BE`)에서 Apple `AuthKey_382T2TB4RW.p8`와 `application-prod.yml`을 받지만, `application.yml`은 받지 않는다.
 - GitHub Actions는 private config를 별도로 다운로드해 빌드/배포한다. workflow secret 이름은 로컬 `.env`의 `GITHUB_ACCESS_TOKEN`과 다르다.
 - `make getKey`의 `curl -s`는 404 응답도 파일로 저장할 수 있다. 갱신 전후 `curl -f`와 파일 sanity check를 수행한다.
 - Dockerfile은 `build/libs/*.jar`만 이미지에 복사하지만, JAR 안에는 빌드 시점의 private config와 Apple key가 포함될 수 있다. `.dockerignore`가 현재 없으므로 Docker build context 노출도 주의한다.
@@ -146,7 +147,7 @@ domain/<domain>/
 
 - 푸시 발송은 이 백엔드에 없다. `firebase-admin`, `FirebaseMessaging`, APNs 호출이 없다. FCM 토큰은 `Users.fcm_token`에 저장만 한다.
 - 키워드 매칭/푸시는 외부 cron/worker가 `GET /api/v1/user/with-alert-keyword/a` 또는 `/b`를 폴링해 수행하는 구조다. 대상 조건은 `is_deleted=0 AND is_alerted=1`이다.
-- `auth/*.p8`는 푸시 인증 키가 아니라 Apple 로그인 client secret 서명용이다.
+- `src/main/resources/auth/AuthKey_382T2TB4RW.p8`는 푸시 인증 키가 아니라 Apple 로그인 client secret 서명용이다.
 - 개인화 추천은 `recommend` 도메인이 아니라 `PopupServiceImpl`/`PopupUserServiceImpl` 쪽에 있다. `recommend` 도메인은 카테고리 마스터 조회 성격이다.
 - 조회수/좋아요수 노출에는 `PopupCountBoost` 가산값을 포함해야 한다. `PopupCountBoostScheduler`는 매일 KST 03:00에 랜덤 가산을 수행한다.
 - 조회수 increment는 Redis `popup:view:{popupUuid}:delta`에 70초 TTL로 누적되고, `PopupTotalViewCountFlushScheduler`가 60초마다 DB에 flush한다. DB만 직접 보면 최근 증가분이 빠질 수 있다.

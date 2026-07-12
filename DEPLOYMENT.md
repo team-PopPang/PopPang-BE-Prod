@@ -56,7 +56,8 @@ GitHub Actions가 받는 파일:
 
 - 로컬 `make getKey`는 현재 `application.yml`을 받지 않는다. 클린 클론에서 공통 `application.yml`이 없으면 로컬 실행/빌드 전 별도 확보가 필요할 수 있다.
 - `make getKey` 내부 `curl -s`는 HTTP 실패 응답을 파일로 저장할 수 있다. 아래 sanity check를 먼저 수행한다.
-- `application*.yml`, `.p8`, `.env`는 `.gitignore` 대상이므로 커밋하면 안 된다.
+- `application*.yml`, 현재 Apple key 파일 `src/main/resources/auth/AuthKey_382T2TB4RW.p8`, `.env`는 `.gitignore` 대상이므로 커밋하면 안 된다.
+- Apple key ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나만 대상으로 하며 `*.p8` 와일드카드가 아니다. 다른 파일명의 교체 키는 생성·다운로드·스테이징·사용 전에 해당 경로를 `.gitignore`에 추가하고 `git check-ignore -v <path>`로 적용을 확인한다.
 
 ## Safe Private Config Refresh
 
@@ -86,7 +87,7 @@ test -s src/main/resources/auth/AuthKey_382T2TB4RW.p8
 sed -n '1,20p' src/main/resources/application-prod.yml | sed -E 's/(: ).+$/\1***MASKED***/'
 ```
 
-`application-prod.yml` 또는 `.p8` 내용이 `404`, `Not Found`, HTML 응답으로 시작하면 배포하지 말고 정상 파일을 복구한다.
+`application-prod.yml` 또는 `AuthKey_382T2TB4RW.p8` 내용이 `404`, `Not Found`, HTML 응답으로 시작하면 배포하지 말고 정상 파일을 복구한다.
 
 ## Local Pre-Deploy Checks
 
@@ -212,7 +213,7 @@ curl -i http://poppang.co.kr:4002/actuator/health
 
 ## Known Operational Risks
 
-- `.dockerignore`가 없다. Docker build context에 `.env`, private config, `.p8`, tar 산출물이 포함되지 않도록 주의한다.
+- `.dockerignore`가 없다. Docker build context에 `.env`, private config, Apple key 파일, tar 산출물이 포함되지 않도록 주의한다.
 - Dockerfile은 JAR만 복사하지만, 빌드된 JAR 안에 private config와 Apple key가 포함될 수 있다.
 - 원격 `deploy-prod.sh`가 저장소에 없어 런북만으로 container run 옵션을 검증할 수 없다.
 - 로컬 makefile과 GitHub Actions가 받는 private config 파일 목록이 다르다.
