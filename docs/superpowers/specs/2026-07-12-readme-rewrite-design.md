@@ -65,13 +65,13 @@ PopPang은 사용자가 관심 있는 팝업 스토어를 조회하고, 찜과 �
 - SpringDoc OpenAPI, Actuator, Jakarta Mail
 - Spotless, google-java-format 1.17.0
 
-패키지 트리는 `common`과 `domain`의 최상위 책임 및 일곱 개 도메인만 보여준다. `popup`의 app/web 분리, `auth`의 provider별 구조처럼 이해에 필요한 예외만 덧붙인다. 엔티티와 repository 전체 목록은 싣지 않는다.
+패키지 트리는 `common`과 `domain`의 최상위 책임 및 일곱 개 도메인만 보여준다. `common/enums`를 포함하고, `popup`의 app/web 분리, `auth`의 provider별 구조처럼 이해에 필요한 예외만 덧붙인다. 엔티티와 repository 전체 목록은 싣지 않는다.
 
 ### 실행과 설정
 
-클린 클론에는 ignored private config가 없을 수 있음을 먼저 알린다. `application*.yml`, Apple `.p8`, `.env`의 실제 값이나 복사 가능한 비밀값 예시는 README에 넣지 않는다.
+클린 클론에는 ignored private config가 없을 수 있음을 먼저 알린다. `application*.yml`, Apple `src/main/resources/auth/AuthKey_382T2TB4RW.p8`, `.env`의 실제 값이나 복사 가능한 비밀값 예시는 README에 넣지 않는다. 현재 Apple key ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나에만 적용되고 `*.p8` 와일드카드가 아니므로, 다른 이름의 교체 키를 사용하기 전에 `.gitignore`에서 ignore 여부를 확인하고 필요하면 규칙을 먼저 갱신하도록 경고한다.
 
-기본 실행에는 MySQL, Redis와 JWT의 secret, access-token 만료, refresh-token 만료, issuer 설정이 필요하다고 설명한다. 소셜 로그인과 신규 가입 메일 등 해당 기능을 검증하려면 OAuth provider, Apple key, SMTP 설정도 필요하다고 구분한다. 단일 `JWT_SECRET`만으로 충분하다고 안내하지 않는다.
+기본 실행에는 MySQL, Redis와 JWT의 secret, access-token 만료, refresh-token 만료, issuer 설정이 필요하다고 설명한다. `EmailService`는 항상 Bean으로 등록되고 `poppang.mail.from`, `poppang.mail.password`, `poppang.mail.admins`를 기본값 없이 주입하므로 application context를 시작하려면 세 property key가 모두 존재해야 한다. 실제 메일 발송에는 유효한 SMTP 인증값과 관리자 수신 주소가 필요하지만, 안전한 local profile에서 세 key의 값을 모두 비워 두면 서비스의 설정 검사 후 발송을 건너뛴다고 구분한다. 소셜 로그인 검증에는 OAuth provider와 Apple key 설정이 추가로 필요하다. 단일 `JWT_SECRET`만으로 충분하다고 안내하지 않는다.
 
 기본 profile이 `prod`이므로 로컬 실행 명령에는 반드시 `local` profile을 명시한다.
 
@@ -89,7 +89,7 @@ PopPang은 사용자가 관심 있는 팝업 스토어를 조회하고, 찜과 �
 ./gradlew spotlessCheck
 ```
 
-테스트와 빌드도 private DB, Redis, JWT 설정이 필요할 수 있음을 경고한다. 안전한 local/test 설정을 확인하지 않은 상태에서 운영 자원에 연결될 수 있는 명령을 실행하지 않도록 안내한다.
+테스트와 빌드도 private DB, Redis, JWT 설정과 필수 mail property key가 필요할 수 있음을 경고한다. 안전한 local/test 설정을 확인하지 않은 상태에서 운영 자원에 연결될 수 있는 명령을 실행하지 않도록 안내한다.
 
 ### API와 운영 문서
 
@@ -120,7 +120,9 @@ README가 예방해야 할 대표 실패는 다음과 같다.
 
 - private config가 없는 클린 클론에서 빌드나 실행이 실패함
 - local profile을 생략해 기본 prod profile로 실행함
-- DB, Redis 또는 OAuth 설정 일부만 구성해 application context가 뜨지 않음
+- 다른 이름의 Apple `.p8` 파일이 자동으로 ignore된다고 오해해 key 파일을 추적함
+- DB, Redis, JWT 또는 필수 `poppang.mail.*` property key 일부만 구성해 application context가 뜨지 않음
+- 안전한 local profile에서 mail key를 빈 값으로 정의할 수 있다는 점과 실제 SMTP 발송에 유효한 인증값이 필요하다는 점을 혼동함
 - 기본 `/swagger-ui/index.html`을 열어 문서가 없다고 오해함
 - `make`를 일반 빌드 명령으로 오해해 배포까지 실행함
 - 이 백엔드가 푸시 발송까지 담당한다고 오해함
@@ -134,12 +136,15 @@ README 수정 후 다음을 확인한다.
 - 모든 상대 링크가 실제 파일을 가리키는지 확인
 - 기술 버전과 명령을 `build.gradle`, Gradle wrapper, workflow와 대조
 - 주요 경로를 controller annotation과 대조
+- `common/enums` 패키지가 존재하는지 확인
+- `AuthKey_382T2TB4RW.p8`은 ignore되고 대표 교체 파일명은 ignore되지 않는지 `git check-ignore`로 확인
+- `EmailService`의 세 `poppang.mail.*` `@Value` 주입 key를 확인
 - 비밀값이나 환경별 URL이 포함되지 않았는지 확인
 - 미완성 표시, 낡은 로드맵, 고정 Swagger URL, 직접 푸시 발송 설명이 남지 않았는지 검색
 - Markdown 코드 블록과 표가 정상적으로 닫혔는지 확인
 - `git diff --check`로 공백 오류 확인
 
-README만 변경하므로 애플리케이션 테스트 통과를 완료 조건으로 삼지는 않는다. 다만 문서에 적은 Gradle 명령이 실제 task와 일치하는지는 정적으로 검증한다.
+문서만 변경하지만 문서에 적은 Gradle 명령과 현재 프로젝트 상태를 확인하기 위해 `./gradlew test`를 1회 실행한다. 또한 각 명령이 실제 task와 일치하는지 정적으로 검증한다.
 
 ## 비목표
 

@@ -46,6 +46,7 @@ src/main/java/com/poppang/be
 ├── common
 │   ├── config          # Spring, Redis 등 공통 설정
 │   ├── entity          # BaseEntity
+│   ├── enums           # 공통 역할 enum
 │   ├── exception       # ErrorCode, BaseException, 전역 예외 처리
 │   ├── jwt             # JWT 생성·검증
 │   ├── mail            # SMTP 메일 발송
@@ -84,8 +85,9 @@ mapper/             배치 조회 기반 응답 조립
 - MySQL
 - Redis
 - 저장소의 private config에 접근할 권한
-- 소셜 로그인 검증 시 각 OAuth provider 설정과 Apple `.p8` 키
-- 신규 가입 메일 검증 시 SMTP 설정
+- 소셜 로그인 검증 시 각 OAuth provider 설정과 Apple `AuthKey_382T2TB4RW.p8` 키
+- 애플리케이션 시작용 `poppang.mail.*` property key
+- 실제 신규 가입 메일 발송 검증 시 유효한 SMTP 설정
 
 ### 2. 저장소 받기
 
@@ -99,8 +101,10 @@ cd PopPang-BE-Prod
 다음 파일은 `.gitignore` 대상이므로 클린 클론에 없을 수 있습니다.
 
 - `src/main/resources/application*.yml`
-- `src/main/resources/auth/*.p8`
+- `src/main/resources/auth/AuthKey_382T2TB4RW.p8`
 - `.env`
+
+Apple 키에 대한 현재 ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나만 대상으로 하며 `*.p8` 와일드카드가 아닙니다. 교체 키를 다른 파일명으로 사용하기 전에 `.gitignore`로 ignore 여부를 확인하고, 필요하면 규칙을 먼저 갱신하세요.
 
 기본 실행에는 MySQL, Redis와 아래 JWT 설정이 필요합니다.
 
@@ -109,7 +113,15 @@ cd PopPang-BE-Prod
 - `jwt.refresh-token-exp-days`
 - `jwt.issuer`
 
-소셜 로그인이나 메일 기능을 검증할 때는 OAuth, Apple key, SMTP 설정도 준비합니다. 비밀값을 README나 커밋, 채팅, 로그에 남기지 마세요. Private config 확보와 갱신 절차는 팀 관리자와 [DEPLOYMENT.md](./DEPLOYMENT.md)를 확인하세요.
+`EmailService`는 항상 Bean으로 등록되고 다음 값을 기본값 없이 주입합니다. 따라서 application context를 시작하려면 세 property key가 모두 존재해야 합니다.
+
+- `poppang.mail.from`
+- `poppang.mail.password`
+- `poppang.mail.admins`
+
+실제 메일 발송에는 유효한 SMTP 인증값과 관리자 수신 주소가 필요합니다. 안전한 `local` profile에서는 세 key를 정의한 뒤 값을 모두 비워 둘 수 있으며, 이 경우 `EmailService`의 설정 검사에서 발송을 건너뜁니다.
+
+소셜 로그인 검증에는 OAuth provider와 Apple key 설정이 추가로 필요합니다. 비밀값을 README나 커밋, 채팅, 로그에 남기지 마세요. Private config 확보와 갱신 절차는 팀 관리자와 [DEPLOYMENT.md](./DEPLOYMENT.md)를 확인하세요.
 
 > [!CAUTION]
 > 기본 Spring profile은 `prod`입니다. 로컬 실행에서는 반드시 `local` profile을 명시하고, 테스트·빌드 전에 DB와 Redis가 안전한 로컬 또는 테스트 자원을 가리키는지 확인하세요.
@@ -137,7 +149,7 @@ cd PopPang-BE-Prod
 ./gradlew spotlessCheck
 ```
 
-`build`와 `test`도 application context를 구성하는 과정에서 private DB, Redis, JWT 설정이 필요할 수 있습니다.
+`build`와 `test`도 application context를 구성하는 과정에서 private DB, Redis, JWT 설정과 필수 mail property key가 필요할 수 있습니다.
 
 ## API 안내
 
