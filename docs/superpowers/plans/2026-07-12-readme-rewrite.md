@@ -1,3 +1,50 @@
+# README Developer Onboarding Rewrite Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the stale root README with an accurate developer-onboarding entry point for the current PopPang backend.
+
+**Architecture:** Keep `README.md` focused on project orientation, safe local startup, high-level architecture, and document routing. Treat `AGENTS.md` as the detailed development source of truth and `DEPLOYMENT.md` as the deployment and operations source of truth, avoiding duplicated runbook content.
+
+**Tech Stack:** Markdown, Java 17, Spring Boot 3.5.6, Gradle Wrapper 8.14.3, shell-based static verification with `rg` and `git diff --check`.
+
+## Global Constraints
+
+- Write the README for a new PopPang backend developer.
+- Keep Korean as the primary language for prose, comments, warnings, and descriptions.
+- Do not include secrets, private configuration values, or copyable credential examples.
+- Do not hard-code a Swagger URL; direct readers to `springdoc.swagger-ui.path` and `springdoc.api-docs.path`.
+- Always show the `local` Spring profile in the local run command because the default profile is `prod`.
+- State that this repository stores FCM tokens and keyword targets but does not send Firebase/APNs push notifications.
+- Do not claim that every API is protected by JWT or that JWT is fully integrated with every social-login response.
+- Keep detailed coding conventions in `AGENTS.md` and deployment procedures in `DEPLOYMENT.md`.
+- Do not modify application code, configuration, CI/CD, or deployment scripts.
+
+---
+
+### Task 1: Replace README with the approved developer-onboarding content
+
+**Files:**
+
+- Modify: `README.md:1`
+- Reference: `docs/superpowers/specs/2026-07-12-readme-rewrite-design.md`
+- Reference: `AGENTS.md`
+- Reference: `DEPLOYMENT.md`
+- Reference: `build.gradle`
+- Reference: `gradle/wrapper/gradle-wrapper.properties`
+- Reference: `.github/workflows/build-test.yml`
+- Reference: `.github/workflows/cicd.yml`
+
+**Interfaces:**
+
+- Consumes: The approved README design and the current repository facts listed above.
+- Produces: A root `README.md` that routes developers to the correct setup, architecture, API, and operations information.
+
+- [ ] **Step 1: Replace the complete README**
+
+Set `README.md` to the following exact content:
+
+````markdown
 # PopPang Backend
 
 > PopPang 모바일 앱과 일부 웹·관리 화면을 위한 Spring Boot REST API 서버입니다.
@@ -188,3 +235,72 @@ cd PopPang-BE-Prod
 
 - [AGENTS.md](./AGENTS.md): 코드 구조, 구현 규칙, 보안, 주요 함정
 - [DEPLOYMENT.md](./DEPLOYMENT.md): 배포, 검증, 롤백, 운영 위험
+````
+
+- [ ] **Step 2: Verify internal file links**
+
+Run:
+
+```bash
+test -f AGENTS.md
+test -f DEPLOYMENT.md
+test -f docs/superpowers/specs/2026-07-12-readme-rewrite-design.md
+```
+
+Expected: all commands exit with status 0 and produce no output.
+
+- [ ] **Step 3: Verify versions, commands, and representative API prefixes against sources**
+
+Run:
+
+```bash
+rg -n "JavaLanguageVersion.of\(17\)|org.springframework.boot.*3.5.6|googleJavaFormat\('1.17.0'\)" build.gradle
+rg -n "gradle-8.14.3-bin.zip" gradle/wrapper/gradle-wrapper.properties
+rg -n "@RequestMapping\(\"/api/v1/(auth|popup|user|favorite|alert-keyword|recommend|admin|popup-submissions)" src/main/java/com/poppang/be/domain
+```
+
+Expected: each command finds the documented version or at least one representative controller prefix.
+
+- [ ] **Step 4: Verify stale or unsafe guidance is absent**
+
+Run:
+
+```bash
+! rg -n "ddl-auto: update|be-0.0.1-SNAPSHOT.jar|localhost:8080/swagger-ui/index.html|추후 개발 예정|고do화" README.md
+rg -n 'spring.profiles.active=local|기본 Spring profile은 `prod`|푸시를 직접 발송하지 않습니다|인자 없이 `make`' README.md
+```
+
+Expected: the first command exits with status 0 because none of the stale phrases are present; the second command finds all four safety statements.
+
+- [ ] **Step 5: Verify Markdown structure and whitespace**
+
+Run:
+
+```bash
+awk '/^```/{count++} END {exit count % 2}' README.md
+git diff --check
+```
+
+Expected: both commands exit with status 0 and produce no output.
+
+- [ ] **Step 6: Review the documentation-only diff**
+
+Run:
+
+```bash
+git diff -- README.md docs/superpowers/plans/2026-07-12-readme-rewrite.md
+git status --short
+```
+
+Expected: the README replacement and this implementation plan are the only uncommitted changes.
+
+- [ ] **Step 7: Commit the completed README rewrite**
+
+Run:
+
+```bash
+git add README.md docs/superpowers/plans/2026-07-12-readme-rewrite.md
+git commit -m "docs: 개발자 온보딩 README 개편"
+```
+
+Expected: one commit containing the README rewrite and implementation plan, with no application-code changes.
