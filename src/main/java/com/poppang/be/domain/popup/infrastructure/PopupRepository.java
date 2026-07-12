@@ -18,10 +18,9 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
   @Query(
       """
 
-                  select p
+            select p
             from Popup p
             where p.activated = true
-              and p.startDate <= CURRENT_DATE
               and p.endDate >= CURRENT_DATE
               and (
                     lower(p.name) like lower(concat('%', :q, '%'))
