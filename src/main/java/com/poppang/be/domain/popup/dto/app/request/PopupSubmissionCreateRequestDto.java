@@ -1,6 +1,7 @@
 package com.poppang.be.domain.popup.dto.app.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.poppang.be.domain.popup.entity.PopupSubmission;
 import com.poppang.be.domain.popup.entity.PopupSubmissionStatus;
 import java.time.LocalDate;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 @Getter
+@JsonIgnoreProperties("imageList")
 public class PopupSubmissionCreateRequestDto {
 
   private String userUuid;
@@ -29,7 +31,6 @@ public class PopupSubmissionCreateRequestDto {
   private String region;
   private String instaPostUrl;
   private String description;
-  private List<PopupSubmissionImageRequestDto> imageList;
   private List<Long> recommendIdList;
 
   public PopupSubmission toEntity() {

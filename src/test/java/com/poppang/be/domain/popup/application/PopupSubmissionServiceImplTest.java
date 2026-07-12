@@ -55,7 +55,7 @@ class PopupSubmissionServiceImplTest {
   @InjectMocks private PopupSubmissionServiceImpl popupSubmissionService;
 
   @Test
-  void createPopupSubmissionSavesMultipartImagesWithoutImageList() {
+  void createPopupSubmissionSavesStoredMultipartImageUrlsInFileOrder() {
     PopupSubmissionCreateRequestDto request = createRequest();
     List<MultipartFile> images = createImages();
     List<String> imageUrlPathList =
@@ -78,6 +78,8 @@ class PopupSubmissionServiceImplTest {
             });
 
     popupSubmissionService.createPopupSubmission(request, images);
+
+    verify(popupSubmissionImageStorage).storeAll(images);
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<Iterable<PopupSubmissionImage>> imageCaptor =
