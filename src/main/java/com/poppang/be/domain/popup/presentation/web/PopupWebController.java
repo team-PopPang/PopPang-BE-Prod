@@ -10,11 +10,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "[WEB] [POPUP]", description = "팝업스토어 관련 API")
 @RestController
-@RequestMapping("/api/v1/web/popup")
+@RequestMapping(value = "/api/v1/web/popup", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class PopupWebController {
 

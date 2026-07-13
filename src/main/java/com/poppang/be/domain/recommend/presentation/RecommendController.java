@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "[RECOMMEND] 공통", description = "추천 관련 API")
 @RestController
-@RequestMapping("/api/v1/recommend")
+@RequestMapping(value = "/api/v1/recommend", produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class RecommendController {
 

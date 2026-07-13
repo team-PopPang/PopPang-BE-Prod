@@ -63,7 +63,7 @@ public class PopupAdminController {
           - 종료일(endDate)이 오늘 이후인 제보만 조회합니다.
           - status 응답값은 PENDING/APPROVED/REJECTED enum 문자열입니다.
           """)
-  @GetMapping("/popup-submissions")
+  @GetMapping(value = "/popup-submissions", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupSubmissionAdminListResponseDto>> getPopupSubmissions(
       @RequestParam(required = false) String uuid,
       @RequestParam(defaultValue = "전체") String status) {
@@ -88,7 +88,9 @@ public class PopupAdminController {
           - 종료일(endDate)과 status 조건 없이 id로 단건 조회합니다.
           - 사용자가 입력하지 않은 선택값은 null로 응답합니다.
           """)
-  @GetMapping("/popup-submissions/{popupSubmissionId}")
+  @GetMapping(
+      value = "/popup-submissions/{popupSubmissionId}",
+      produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<PopupSubmissionAdminDetailResponseDto> getPopupSubmissionDetail(
       @PathVariable Long popupSubmissionId, @RequestParam(required = false) String uuid) {
     PopupSubmissionAdminDetailResponseDto popupSubmissionResponseDto =
@@ -124,7 +126,8 @@ public class PopupAdminController {
           """)
   @PutMapping(
       value = "/popup-submissions/{popupSubmissionId}",
-      consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<PopupSubmissionAdminUpdateResponseDto> updatePopupSubmission(
       @PathVariable Long popupSubmissionId,
       @RequestParam(required = false) String uuid,

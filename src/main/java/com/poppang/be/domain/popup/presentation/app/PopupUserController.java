@@ -9,12 +9,15 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "[POPUP-USER] 회원", description = "회원 유저 팝업 API")
 @RestController
-@RequestMapping("/api/v1/users/{userUuid}/popups")
+@RequestMapping(
+    value = "/api/v1/users/{userUuid}/popups",
+    produces = MediaType.APPLICATION_JSON_VALUE)
 @RequiredArgsConstructor
 public class PopupUserController {
 

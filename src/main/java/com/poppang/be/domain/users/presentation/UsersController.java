@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +23,7 @@ public class UsersController {
   private final UsersService usersService;
 
   @Operation(summary = "유저 정보 조회", description = "userUuid를 기준으로 유저의 기본 정보를 조회합니다.")
-  @GetMapping("/{userUuid}")
+  @GetMapping(value = "/{userUuid}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<GetUserResponseDto> getUserInfo(@PathVariable String userUuid) {
     GetUserResponseDto getUserResponseDto = usersService.getUserInfo(userUuid);
 
@@ -37,7 +38,7 @@ public class UsersController {
                 PATCH 메서드를 사용하여 부분 업데이트를 수행합니다.
                 예를 들어, 알림을 켜려면 `true`, 끄려면 `false`로 요청합니다.
                 """)
-  @PatchMapping("{userUuid}/alert-status")
+  @PatchMapping(value = "{userUuid}/alert-status", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<UpdateAlertStatusResponseDto> updateAlertStatus(
       @PathVariable String userUuid,
       @RequestBody UpdateAlertStatusRequestDto updateAlertStatusRequestDto) {
@@ -48,7 +49,7 @@ public class UsersController {
   }
 
   @Operation(summary = "닉네임 중복 검사", description = "입력된 닉네임이 이미 존재하는지 여부를 반환합니다.")
-  @GetMapping("/nickname/duplicated")
+  @GetMapping(value = "/nickname/duplicated", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<NicknameDuplicateResponseDto> checkNicknameDuplicated(
       @RequestParam String nickname) {
     NicknameDuplicateResponseDto nicknameDuplicateResponseDto =
@@ -97,7 +98,9 @@ public class UsersController {
   @Operation(
       summary = "사용자의 FCM 토큰 중복 여부 확인",
       description = "특정 사용자의 기존 FCM 토큰과 입력받은 FCM 토큰이 동일한지 여부를 확인합니다.")
-  @GetMapping("/{userUuid}/fcm-token/duplicate-check")
+  @GetMapping(
+      value = "/{userUuid}/fcm-token/duplicate-check",
+      produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Boolean> isFcmTokenDuplicated(
       @PathVariable String userUuid, @RequestParam String fcmToken) {
     boolean fcmTokenDuplicated = usersService.isFcmTokenDuplicated(userUuid, fcmToken);
@@ -119,7 +122,7 @@ public class UsersController {
 
   @Tag(name = "[CRON]", description = "CRON 관련 API")
   @Operation(summary = "cron(알림 서비스)에 필요한 유저 정보 + 알림 키워드 a안")
-  @GetMapping("/with-alert-keyword/a")
+  @GetMapping(value = "/with-alert-keyword/a", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<UserWithKeywordListResponseDto>> getUserWithKeywordList() {
     List<UserWithKeywordListResponseDto> userWithKeywordListResponseDtoList =
         usersService.getUserWithKeywordList();
@@ -129,7 +132,7 @@ public class UsersController {
 
   @Tag(name = "[CRON]", description = "CRON 관련 API")
   @Operation(summary = "cron(알림 서비스)에 필요한 유저 정보 + 알림 키워드 b안")
-  @GetMapping("/with-alert-keyword/b")
+  @GetMapping(value = "/with-alert-keyword/b", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<UserWithKeywordListResponseDtoB>> getUserWithKeywordListB() {
     List<UserWithKeywordListResponseDtoB> userWithKeywordListResponseDtoBList =
         usersService.getUserWithKeywordListB();

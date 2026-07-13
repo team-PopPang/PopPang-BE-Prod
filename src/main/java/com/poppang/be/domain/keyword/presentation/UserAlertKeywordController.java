@@ -7,6 +7,7 @@ import com.poppang.be.domain.keyword.dto.response.UserAlertKeywordResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +22,7 @@ public class UserAlertKeywordController {
       summary = "유저 알림 키워드 전체 조회",
       description = "userId를 기준으로 해당 유저가 등록한 알림 키워드 전체를 조회합니다.",
       tags = {"[USER] 알림 키워드 관리"})
-  @GetMapping
+  @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<UserAlertKeywordResponseDto>> getUserAlertKeywords(
       @RequestParam("userUuid") String userUuid) {
     List<UserAlertKeywordResponseDto> userAlertKeywordResponseDtoList =

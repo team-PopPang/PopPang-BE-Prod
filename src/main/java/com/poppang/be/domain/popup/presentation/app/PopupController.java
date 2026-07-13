@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,7 +26,7 @@ public class PopupController {
   private final PopupService popupService;
 
   @Operation(summary = "팝업 전체 조회", description = "모든 팝업스토어 정보를 조회합니다. (비활성화된 팝업 포함)")
-  @GetMapping
+  @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getAllPopupList() {
     List<PopupResponseDto> allPopupList = popupService.getAllPopupList();
 
@@ -33,7 +34,7 @@ public class PopupController {
   }
 
   @Operation(summary = "팝업 단건 조회", description = "popupUuid로 단건 팝업 조회합니다. ")
-  @GetMapping("/{popupUuid}")
+  @GetMapping(value = "/{popupUuid}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<PopupResponseDto> getPopupByUuid(@PathVariable String popupUuid) {
     PopupResponseDto popupResponseDto = popupService.getPopupByUuid(popupUuid);
 
@@ -41,7 +42,7 @@ public class PopupController {
   }
 
   @Operation(summary = "팝업 검색", description = "특정 키워드로 팝업스토어를 검색합니다.")
-  @GetMapping("/search")
+  @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getSearchPopupList(@RequestParam("q") String q) {
     List<PopupResponseDto> searchPopupList = popupService.getSearchPopupList(q);
 
@@ -49,7 +50,7 @@ public class PopupController {
   }
 
   @Operation(summary = "다가오는 팝업 조회 (D-1 ~ D-10)", description = "오늘부터 10일 이내에 시작하는 팝업을 반환합니다.")
-  @GetMapping("/upcoming")
+  @GetMapping(value = "/upcoming", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getUpcomingPopupList(
       @Parameter(description = "며칠 뒤까지 조회 (기본 10)")
           @RequestParam(name = "upcomingDays", required = false)
@@ -74,7 +75,7 @@ public class PopupController {
                     • 유저가 설정한 추천 키워드(UserRecommend)가 없으면 → 전부 랜덤 추천
                     • 이미 추천된 팝업은 중복되지 않도록 제외 처리
                     """)
-  @GetMapping("/{userUuid}/recommend")
+  @GetMapping(value = "/{userUuid}/recommend", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getRecommendPopupList(
       @PathVariable String userUuid) {
     List<PopupResponseDto> recommendPopupList = popupService.getRecommendPopupList(userUuid);
@@ -87,7 +88,7 @@ public class PopupController {
       description =
           "현재 날짜 기준으로 오픈 중(진행 중)인 모든 팝업스토어 정보를 조회합니다. "
               + "시작일(`start_date`)이 오늘 이전이거나 같고, 종료일(`end_date`)이 오늘 이후이거나 같은 팝업만 반환됩니다.")
-  @GetMapping("/inProgress")
+  @GetMapping(value = "/inProgress", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getInProgressPopupList() {
     List<PopupResponseDto> inProgressPopupList = popupService.getInProgressPopupList();
 
@@ -113,7 +114,7 @@ public class PopupController {
       description =
           "DB의 popup.road_address를 분석하여 지역별 구 목록을 반환합니다. "
               + "서울은 '전체'와 실제 'OO구'들을 포함하고, 서울 외 지역은 '전체'만 포함합니다.")
-  @GetMapping("/regions/districts")
+  @GetMapping(value = "/regions/districts", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<RegionDistrictsResponse>> getRegionDistricts() {
     List<RegionDistrictsResponse> regionDistrictsResponseList = popupService.getRegionDistricts();
 
@@ -121,7 +122,7 @@ public class PopupController {
   }
 
   @Hidden
-  @GetMapping("/filtered")
+  @GetMapping(value = "/filtered", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getFilteredPopupList(
       @RequestParam String region,
       @RequestParam(required = false) String district,
@@ -148,7 +149,7 @@ public class PopupController {
                       district가 '전체'일 경우 해당 지역 내 모든 팝업을 조회합니다.
                     - 반환되는 리스트는 진행 중(is_active = true, 날짜 유효)인 팝업만 포함합니다.
                     """)
-  @GetMapping("/filtered/home")
+  @GetMapping(value = "/filtered/home", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getFilteredHomePopupList(
       @RequestParam String region,
       @RequestParam String district,
@@ -175,7 +176,7 @@ public class PopupController {
                     • district는 '전체'로 요청하면 전체 지역을 의미합니다.
                     • latitude, longitude는 가까운순 정렬 시 필수값입니다.
                     """)
-  @GetMapping("/filtered/map")
+  @GetMapping(value = "/filtered/map", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getFilteredMapPopupList(
       @RequestParam String region,
       @RequestParam String district,
@@ -208,7 +209,7 @@ public class PopupController {
                 - 최대 10개
                 - 중복 제거
                 """)
-  @GetMapping("/{popupUuid}/related")
+  @GetMapping(value = "/{popupUuid}/related", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getRelatedPopupList(
       @PathVariable String popupUuid) {
     List<PopupResponseDto> relatedPopupList = popupService.getRelatedPopupList(popupUuid);
@@ -231,7 +232,7 @@ public class PopupController {
                 • 데이터가 10개 미만이면 가능한 만큼만 반환됩니다.
                 • 동일 결과가 매 요청마다 달라질 수 있습니다.
                 """)
-  @GetMapping("/random")
+  @GetMapping(value = "/random", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getRandomPopupList() {
     List<PopupResponseDto> randomPopupList = popupService.getRandomPopupList();
 
@@ -247,7 +248,7 @@ public class PopupController {
         - 지도 상단 Featured / 추천 영역에서 사용됩니다.
         - 현재 활성화된 팝업만 반환합니다.
         """)
-  @GetMapping("/recommendations/{recommendId}")
+  @GetMapping(value = "/recommendations/{recommendId}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupResponseDto>> getRecommendationPopupList(
       @PathVariable Long recommendId) {
     List<PopupResponseDto> recommendationPopupList =

@@ -8,6 +8,7 @@ import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,7 +47,7 @@ public class UserFavoriteController {
       summary = "팝업별 찜 수 조회",
       description = "특정 팝업이 받은 전체 찜 개수를 조회합니다.",
       tags = {"[FAVORITE] 공통"})
-  @GetMapping("/count/{popupUuid}")
+  @GetMapping(value = "/count/{popupUuid}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<FavoriteCountResponseDto> getFavoriteCount(
       @PathVariable("popupUuid") String popupUuid) {
     FavoriteCountResponseDto favoriteCountResponseDto =
@@ -59,7 +60,7 @@ public class UserFavoriteController {
       summary = "유저가 찜한 팝업 목록 조회",
       description = "특정 유저가 찜한 팝업 리스트를 조회합니다.",
       tags = {"[FAVORITE] 공통"})
-  @GetMapping("/popup/{userUuid}")
+  @GetMapping(value = "/popup/{userUuid}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<PopupUserResponseDto>> getFavoritePopupList(
       @PathVariable("userUuid") String userUuid) {
     List<PopupUserResponseDto> userFavoritePopupResponseDtoList =

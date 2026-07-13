@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -65,7 +66,7 @@ public class UserAlertController {
                       PopupUserResponseDto 리스트 형태로 반환합니다.
                     - 각 팝업별로 isFavorited, favoriteCount, viewCount 등 개인화 정보가 포함됩니다.
                     """)
-  @GetMapping("/popups")
+  @GetMapping(value = "/popups", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<UserAlertResponseDto>> getUserAlertPopupList(
       @PathVariable String userUuid) {
     List<UserAlertResponseDto> userAlertPopupList =

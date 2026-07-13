@@ -7,11 +7,12 @@ import com.poppang.be.domain.auth.dto.response.AccessTokenResponseDto;
 import com.poppang.be.domain.auth.dto.response.TokenResponseDto;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/auth")
+@RequestMapping(value = "/api/v1/auth", produces = MediaType.APPLICATION_JSON_VALUE)
 public class TokenController {
 
   private final TokenService tokenService;

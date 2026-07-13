@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,7 +28,7 @@ public class PopupTotalViewController {
   }
 
   @Operation(summary = "팝업 총 조회수 조회", description = "특정 팝업의 누적 조회수를 반환합니다.")
-  @GetMapping("/{popupUuid}/total-view-count")
+  @GetMapping(value = "/{popupUuid}/total-view-count", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<PopupTotalViewCountResponseDto> getTotalViewCount(
       @PathVariable String popupUuid) {
     PopupTotalViewCountResponseDto popupTotalViewCountResponseDto =
@@ -37,7 +38,7 @@ public class PopupTotalViewController {
   }
 
   @Hidden
-  @GetMapping("/{popupUuid}/view-count")
+  @GetMapping(value = "/{popupUuid}/view-count", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<Map<String, Long>> getViewCount(@PathVariable String popupUuid) {
     return ResponseEntity.ok(Map.of("viewCount", popupTotalViewCountService.getDelta(popupUuid)));
   }
