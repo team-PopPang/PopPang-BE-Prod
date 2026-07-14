@@ -2,6 +2,7 @@ package com.poppang.be.domain.popup.infrastructure;
 
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebFavoriteRow;
+import com.poppang.be.domain.popup.infrastructure.projection.PopupWebInProgressRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebRandomRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebUpcomingRow;
 import java.time.LocalDate;
@@ -397,6 +398,32 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
       @Param("startDate") LocalDate startDate,
       @Param("endDate") LocalDate endDate,
       @Param("limit") int limit);
+
+  @Query(
+      value =
+          """
+            SELECT
+                p.uuid AS popupUuid,
+                p.name AS popupName,
+                pi.image_url AS thumbnailUrl,
+                p.region AS region,
+                p.start_date AS startDate,
+                p.end_date AS endDate
+            FROM popup p
+            LEFT JOIN popup_image pi
+              ON pi.popup_id = p.id
+             AND pi.sort_order = 0
+            WHERE p.is_active = 1
+              AND p.start_date <= CURRENT_DATE
+              AND p.end_date >= CURRENT_DATE
+              AND p.uuid IS NOT NULL
+              AND TRIM(p.uuid) <> ''
+              AND p.name IS NOT NULL
+              AND TRIM(p.name) <> ''
+            ORDER BY p.end_date ASC, p.start_date DESC, p.uuid ASC
+            """,
+      nativeQuery = true)
+  List<PopupWebInProgressRow> findInProgressActiveWithThumbnail();
 
   @Query(
       value =

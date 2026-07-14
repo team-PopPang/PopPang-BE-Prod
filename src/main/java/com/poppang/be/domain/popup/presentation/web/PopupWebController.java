@@ -4,6 +4,7 @@ import com.poppang.be.common.response.ApiResponse;
 import com.poppang.be.domain.popup.application.PopupWebService;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebFavoriteResponseDto;
+import com.poppang.be.domain.popup.dto.web.response.PopupWebInProgressResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebRandomResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +38,17 @@ public class PopupWebController {
     List<PopupWebFavoriteResponseDto> favoritePopupList = popupWebService.getFavoritePopupList();
 
     return ApiResponse.ok(favoritePopupList);
+  }
+
+  @Operation(
+      summary = "[WEB] 현재 진행 중인 팝업 목록 조회",
+      description = "현재 날짜를 기준으로 운영 중인 팝업스토어 목록을 조회합니다.")
+  @GetMapping("/in-progress")
+  public ApiResponse<List<PopupWebInProgressResponseDto>> getWebInProgressPopupList() {
+    List<PopupWebInProgressResponseDto> inProgressPopupList =
+        popupWebService.getInProgressPopupList();
+
+    return ApiResponse.ok(inProgressPopupList);
   }
 
   @Operation(summary = "[WEB] 오픈 예정 팝업 목록 조회", description = "아직 시작되지 않은 오픈 예정 팝업스토어 목록을 조회합니다.")

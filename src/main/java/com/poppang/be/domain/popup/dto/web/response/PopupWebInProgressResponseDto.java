@@ -1,0 +1,34 @@
+package com.poppang.be.domain.popup.dto.web.response;
+
+import java.time.LocalDate;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
+public class PopupWebInProgressResponseDto {
+
+  private String popupUuid;
+  private String name;
+  private String thumbnailUrl;
+  private String region;
+  private LocalDate startDate;
+  private LocalDate endDate;
+
+  @Builder
+  public PopupWebInProgressResponseDto(
+      String popupUuid,
+      String name,
+      String thumbnailUrl,
+      String region,
+      LocalDate startDate,
+      LocalDate endDate) {
+    this.popupUuid = popupUuid;
+    this.name = name;
+    this.thumbnailUrl = thumbnailUrl;
+    this.region = region;
+    this.startDate = startDate;
+    this.endDate = endDate;
+  }
+}

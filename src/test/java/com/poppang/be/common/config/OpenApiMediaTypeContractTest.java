@@ -149,7 +149,7 @@ class OpenApiMediaTypeContractTest {
 
     assertThat(wildcardLocations).isEmpty();
     assertThat(unexpectedMediaTypes).isEmpty();
-    assertThat(jsonResponseCount).isEqualTo(44);
+    assertThat(jsonResponseCount).isEqualTo(45);
     assertThat(bodylessResponseCount).isEqualTo(16);
   }
 
@@ -203,14 +203,52 @@ class OpenApiMediaTypeContractTest {
     assertJsonResponse(
         "/api/v1/web/popup/{popupUuid}",
         "#/components/schemas/ApiResponsePopupWebDetailResponseDto");
-    assertJsonResponse("/api/v1/web/popup/favorite", null);
-    assertJsonResponse("/api/v1/web/popup/upcoming", null);
+    assertJsonResponse(
+        "/api/v1/web/popup/favorite",
+        "#/components/schemas/ApiResponseListPopupWebFavoriteResponseDto");
+    assertJsonResponse(
+        "/api/v1/web/popup/in-progress",
+        "#/components/schemas/ApiResponseListPopupWebInProgressResponseDto");
+    assertJsonResponse(
+        "/api/v1/web/popup/upcoming",
+        "#/components/schemas/ApiResponseListPopupWebUpcomingResponseDto");
+  }
+
+  @Test
+  void inProgressWebPopupOpenApiContractIsExact() {
+    JsonNode operation = openApi.path("paths").path("/api/v1/web/popup/in-progress").path("get");
+
+    assertThat(operation.path("tags").isArray()).isTrue();
+    assertThat(operation.path("tags").size()).isEqualTo(1);
+    assertThat(operation.path("tags").path(0).asText()).isEqualTo("[WEB] [POPUP]");
+    assertThat(operation.path("summary").asText()).isEqualTo("[WEB] 현재 진행 중인 팝업 목록 조회");
+    assertThat(operation.path("description").asText())
+        .isEqualTo("현재 날짜를 기준으로 운영 중인 팝업스토어 목록을 조회합니다.");
+    assertThat(operation.path("operationId").asText()).isEqualTo("getWebInProgressPopupList");
+    assertThat(operation.has("parameters")).isFalse();
+    assertThat(operation.has("requestBody")).isFalse();
+
+    JsonNode properties =
+        openApi
+            .path("components")
+            .path("schemas")
+            .path("PopupWebInProgressResponseDto")
+            .path("properties");
+    assertThat(fieldNames(properties))
+        .containsExactly("popupUuid", "name", "thumbnailUrl", "region", "startDate", "endDate");
+    assertStringSchema(properties.path("popupUuid"), null);
+    assertStringSchema(properties.path("name"), null);
+    assertStringSchema(properties.path("thumbnailUrl"), null);
+    assertStringSchema(properties.path("region"), null);
+    assertStringSchema(properties.path("startDate"), "date");
+    assertStringSchema(properties.path("endDate"), "date");
   }
 
   @Test
   void webPopupRuntimeResponsesAreJson() throws Exception {
     given(popupWebService.getRandomPopupList()).willReturn(List.of());
     given(popupWebService.getFavoritePopupList()).willReturn(List.of());
+    given(popupWebService.getInProgressPopupList()).willReturn(List.of());
     given(popupWebService.getUpcomingPopupList()).willReturn(List.of());
     given(popupWebService.getPopupDetail("popup-uuid"))
         .willReturn(PopupWebDetailResponseDto.builder().build());
@@ -219,6 +257,7 @@ class OpenApiMediaTypeContractTest {
         List.of(
             "/api/v1/web/popup/random",
             "/api/v1/web/popup/favorite",
+            "/api/v1/web/popup/in-progress",
             "/api/v1/web/popup/upcoming",
             "/api/v1/web/popup/popup-uuid")) {
       mockMvc
@@ -248,6 +287,15 @@ class OpenApiMediaTypeContractTest {
     List<String> names = new ArrayList<>();
     node.fieldNames().forEachRemaining(names::add);
     return names;
+  }
+
+  private void assertStringSchema(JsonNode schema, String expectedFormat) {
+    assertThat(schema.path("type").asText()).isEqualTo("string");
+    if (expectedFormat == null) {
+      assertThat(schema.has("format")).isFalse();
+    } else {
+      assertThat(schema.path("format").asText()).isEqualTo(expectedFormat);
+    }
   }
 
   @SpringBootConfiguration

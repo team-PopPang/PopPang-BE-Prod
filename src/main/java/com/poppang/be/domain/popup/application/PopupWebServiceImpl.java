@@ -5,6 +5,7 @@ import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebFavoriteResponseDto;
+import com.poppang.be.domain.popup.dto.web.response.PopupWebInProgressResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebRandomResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
@@ -74,6 +75,23 @@ public class PopupWebServiceImpl implements PopupWebService {
             .toList();
 
     return favorietPopupList;
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<PopupWebInProgressResponseDto> getInProgressPopupList() {
+    return popupRepository.findInProgressActiveWithThumbnail().stream()
+        .map(
+            row ->
+                PopupWebInProgressResponseDto.builder()
+                    .popupUuid(row.getPopupUuid())
+                    .name(row.getPopupName())
+                    .thumbnailUrl(row.getThumbnailUrl())
+                    .region(row.getRegion())
+                    .startDate(row.getStartDate())
+                    .endDate(row.getEndDate())
+                    .build())
+        .toList();
   }
 
   @Override
