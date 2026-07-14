@@ -149,7 +149,7 @@ class OpenApiMediaTypeContractTest {
 
     assertThat(wildcardLocations).isEmpty();
     assertThat(unexpectedMediaTypes).isEmpty();
-    assertThat(jsonResponseCount).isEqualTo(45);
+    assertThat(jsonResponseCount).isEqualTo(46);
     assertThat(bodylessResponseCount).isEqualTo(16);
   }
 
@@ -212,6 +212,9 @@ class OpenApiMediaTypeContractTest {
     assertJsonResponse(
         "/api/v1/web/popup/upcoming",
         "#/components/schemas/ApiResponseListPopupWebUpcomingResponseDto");
+    assertJsonResponse(
+        "/api/v1/web/popup/search",
+        "#/components/schemas/ApiResponseListPopupWebSearchResponseDto");
   }
 
   @Test
@@ -245,6 +248,44 @@ class OpenApiMediaTypeContractTest {
   }
 
   @Test
+  void webPopupSearchOpenApiContractIsExact() {
+    JsonNode operation = openApi.path("paths").path("/api/v1/web/popup/search").path("get");
+
+    assertThat(operation.path("tags").isArray()).isTrue();
+    assertThat(operation.path("tags").size()).isEqualTo(1);
+    assertThat(operation.path("tags").path(0).asText()).isEqualTo("[WEB] [POPUP]");
+    assertThat(operation.path("summary").asText()).isEqualTo("[WEB] 팝업 검색");
+    assertThat(operation.path("description").asText())
+        .isEqualTo("검색어를 이용해 웹에 공개된 팝업스토어 목록을 검색합니다.");
+    assertThat(operation.path("operationId").asText()).isEqualTo("getWebSearchPopupList");
+    assertThat(operation.has("requestBody")).isFalse();
+
+    JsonNode parameters = operation.path("parameters");
+    assertThat(parameters.isArray()).isTrue();
+    assertThat(parameters.size()).isEqualTo(1);
+    JsonNode q = parameters.path(0);
+    assertThat(q.path("name").asText()).isEqualTo("q");
+    assertThat(q.path("in").asText()).isEqualTo("query");
+    assertThat(q.path("required").asBoolean()).isTrue();
+    assertThat(q.path("schema").path("type").asText()).isEqualTo("string");
+
+    JsonNode properties =
+        openApi
+            .path("components")
+            .path("schemas")
+            .path("PopupWebSearchResponseDto")
+            .path("properties");
+    assertThat(fieldNames(properties))
+        .containsExactly("popupUuid", "name", "thumbnailUrl", "region", "startDate", "endDate");
+    assertStringSchema(properties.path("popupUuid"), null);
+    assertStringSchema(properties.path("name"), null);
+    assertStringSchema(properties.path("thumbnailUrl"), null);
+    assertStringSchema(properties.path("region"), null);
+    assertStringSchema(properties.path("startDate"), "date");
+    assertStringSchema(properties.path("endDate"), "date");
+  }
+
+  @Test
   void webPopupRuntimeResponsesAreJson() throws Exception {
     given(popupWebService.getRandomPopupList()).willReturn(List.of());
     given(popupWebService.getFavoritePopupList()).willReturn(List.of());
@@ -252,6 +293,7 @@ class OpenApiMediaTypeContractTest {
     given(popupWebService.getUpcomingPopupList()).willReturn(List.of());
     given(popupWebService.getPopupDetail("popup-uuid"))
         .willReturn(PopupWebDetailResponseDto.builder().build());
+    given(popupWebService.getSearchPopupList("성수")).willReturn(List.of());
 
     for (String path :
         List.of(
@@ -265,6 +307,12 @@ class OpenApiMediaTypeContractTest {
           .andExpect(status().isOk())
           .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
     }
+
+    mockMvc
+        .perform(
+            get("/api/v1/web/popup/search").param("q", "성수").accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
   }
 
   private void assertJsonResponse(String path, String expectedSchemaReference) {

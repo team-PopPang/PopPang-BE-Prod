@@ -7,6 +7,7 @@ import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebFavoriteResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebInProgressResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebRandomResponseDto;
+import com.poppang.be.domain.popup.dto.web.response.PopupWebSearchResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
@@ -84,6 +85,28 @@ public class PopupWebServiceImpl implements PopupWebService {
         .map(
             row ->
                 PopupWebInProgressResponseDto.builder()
+                    .popupUuid(row.getPopupUuid())
+                    .name(row.getPopupName())
+                    .thumbnailUrl(row.getThumbnailUrl())
+                    .region(row.getRegion())
+                    .startDate(row.getStartDate())
+                    .endDate(row.getEndDate())
+                    .build())
+        .toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<PopupWebSearchResponseDto> getSearchPopupList(String q) {
+    String term = q == null ? "" : q.trim();
+    if (term.isEmpty()) {
+      throw new BaseException(ErrorCode.INVALID_POPUP_SEARCH_QUERY);
+    }
+
+    return popupRepository.searchWebActiveWithThumbnail(term).stream()
+        .map(
+            row ->
+                PopupWebSearchResponseDto.builder()
                     .popupUuid(row.getPopupUuid())
                     .name(row.getPopupName())
                     .thumbnailUrl(row.getThumbnailUrl())

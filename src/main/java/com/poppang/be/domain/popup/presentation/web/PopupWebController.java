@@ -6,8 +6,10 @@ import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebFavoriteResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebInProgressResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebRandomResponseDto;
+import com.poppang.be.domain.popup.dto.web.response.PopupWebSearchResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +59,19 @@ public class PopupWebController {
     List<PopupWebUpcomingResponseDto> upcomingPopupList = popupWebService.getUpcomingPopupList();
 
     return ApiResponse.ok(upcomingPopupList);
+  }
+
+  @Operation(
+      operationId = "getWebSearchPopupList",
+      summary = "[WEB] 팝업 검색",
+      description = "검색어를 이용해 웹에 공개된 팝업스토어 목록을 검색합니다.")
+  @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ApiResponse<List<PopupWebSearchResponseDto>> getWebSearchPopupList(
+      @Parameter(description = "검색어", required = true) @RequestParam(name = "q", required = false)
+          String q) {
+    List<PopupWebSearchResponseDto> searchPopupList = popupWebService.getSearchPopupList(q);
+
+    return ApiResponse.ok(searchPopupList);
   }
 
   @Operation(summary = "팝업스토어 상세 조회", description = "popupUuid를 이용해 팝업스토어의 상세 정보를 조회합니다.")

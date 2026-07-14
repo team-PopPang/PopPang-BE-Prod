@@ -52,8 +52,75 @@ class PopupRepositoryQueryTest {
         .contains("order by p.end_date asc, p.start_date desc, p.uuid asc");
   }
 
+  @Test
+  void searchWebActiveWithThumbnailSearchesNameRegionAndCaptionSummary() throws Exception {
+    String query = normalize(webSearchQuery().value());
+
+    assertThat(query)
+        .contains("lower(p.name) like lower(concat('%', :q, '%'))")
+        .contains("lower(p.region) like lower(concat('%', :q, '%'))")
+        .contains("lower(p.caption_summary) like lower(concat('%', :q, '%'))");
+  }
+
+  @Test
+  void searchWebActiveWithThumbnailIncludesActiveCurrentAndUpcomingPopups() throws Exception {
+    String query = normalize(webSearchQuery().value());
+
+    assertThat(webSearchQuery().nativeQuery()).isTrue();
+    assertThat(query)
+        .contains("p.is_active = 1")
+        .contains("p.end_date >= current_date")
+        .doesNotContain("p.start_date <= current_date");
+  }
+
+  @Test
+  void searchWebActiveWithThumbnailKeepsImageOptionalAndRejectsBlankIdentityFields()
+      throws Exception {
+    assertThat(normalize(webSearchQuery().value()))
+        .contains("left join popup_image pi")
+        .contains("pi.sort_order = 0")
+        .contains("p.uuid is not null")
+        .contains("trim(p.uuid) <> ''")
+        .contains("p.name is not null")
+        .contains("trim(p.name) <> ''");
+  }
+
+  @Test
+  void searchWebActiveWithThumbnailSelectsLowestPrimaryImageIdPerPopup() throws Exception {
+    assertThat(normalize(webSearchQuery().value()))
+        .containsSubsequence(
+            "left join popup_image pi",
+            "on pi.popup_id = p.id",
+            "and pi.sort_order = 0",
+            "and pi.id = ( select min(primary_image.id) from popup_image primary_image where"
+                + " primary_image.popup_id = p.id and primary_image.sort_order = 0 )",
+            "where p.is_active = 1");
+  }
+
+  @Test
+  void searchWebActiveWithThumbnailUsesStableRelevanceOrder() throws Exception {
+    assertThat(normalize(webSearchQuery().value()))
+        .containsSubsequence(
+            "when lower(p.name) = lower(:q) then 0",
+            "when lower(p.name) like lower(concat(:q, '%')) then 1",
+            "when lower(p.name) like lower(concat('%', :q, '%')) then 2",
+            "when lower(p.region) like lower(concat('%', :q, '%')) then 3",
+            "else 4",
+            "p.start_date desc",
+            "p.uuid asc");
+  }
+
   private Query inProgressQuery() throws Exception {
     Method method = PopupRepository.class.getDeclaredMethod("findInProgressActiveWithThumbnail");
+    Query queryAnnotation = method.getAnnotation(Query.class);
+
+    assertThat(queryAnnotation).isNotNull();
+    return queryAnnotation;
+  }
+
+  private Query webSearchQuery() throws Exception {
+    Method method =
+        PopupRepository.class.getDeclaredMethod("searchWebActiveWithThumbnail", String.class);
     Query queryAnnotation = method.getAnnotation(Query.class);
 
     assertThat(queryAnnotation).isNotNull();

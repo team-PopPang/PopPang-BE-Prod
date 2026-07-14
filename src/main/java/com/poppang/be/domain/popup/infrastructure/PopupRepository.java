@@ -4,6 +4,7 @@ import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebFavoriteRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebInProgressRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebRandomRow;
+import com.poppang.be.domain.popup.infrastructure.projection.PopupWebSearchRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebUpcomingRow;
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +30,51 @@ public interface PopupRepository extends JpaRepository<Popup, Long> {
                   )
             """)
   List<Popup> searchActivatedByKeyword(@Param("q") String q);
+
+  @Query(
+      value =
+          """
+          SELECT
+              p.uuid AS popupUuid,
+              p.name AS popupName,
+              pi.image_url AS thumbnailUrl,
+              p.region AS region,
+              p.start_date AS startDate,
+              p.end_date AS endDate
+          FROM popup p
+          LEFT JOIN popup_image pi
+            ON pi.popup_id = p.id
+           AND pi.sort_order = 0
+           AND pi.id = (
+                SELECT MIN(primary_image.id)
+                FROM popup_image primary_image
+                WHERE primary_image.popup_id = p.id
+                  AND primary_image.sort_order = 0
+           )
+          WHERE p.is_active = 1
+            AND p.end_date >= CURRENT_DATE
+            AND p.uuid IS NOT NULL
+            AND TRIM(p.uuid) <> ''
+            AND p.name IS NOT NULL
+            AND TRIM(p.name) <> ''
+            AND (
+                 LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%'))
+              OR LOWER(p.region) LIKE LOWER(CONCAT('%', :q, '%'))
+              OR LOWER(p.caption_summary) LIKE LOWER(CONCAT('%', :q, '%'))
+            )
+          ORDER BY
+            CASE
+              WHEN LOWER(p.name) = LOWER(:q) THEN 0
+              WHEN LOWER(p.name) LIKE LOWER(CONCAT(:q, '%')) THEN 1
+              WHEN LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) THEN 2
+              WHEN LOWER(p.region) LIKE LOWER(CONCAT('%', :q, '%')) THEN 3
+              ELSE 4
+            END ASC,
+            p.start_date DESC,
+            p.uuid ASC
+          """,
+      nativeQuery = true)
+  List<PopupWebSearchRow> searchWebActiveWithThumbnail(@Param("q") String q);
 
   List<Popup> findByActivatedTrueAndStartDateBetween(LocalDate startDate, LocalDate endDate);
 
