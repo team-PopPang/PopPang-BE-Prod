@@ -81,4 +81,5 @@ public class PopupWebController {
 
     return ApiResponse.ok(popupDetail);
   }
+
 }
