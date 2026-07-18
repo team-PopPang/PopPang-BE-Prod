@@ -24,14 +24,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @WebMvcTest(
     controllers = PopupWebController.class,
-    properties = {"springdoc.api-docs.enabled=false", "springdoc.swagger-ui.enabled=false"})
+    properties = {
+      "spring.config.location=classpath:/application-test.yml",
+      "springdoc.api-docs.enabled=false",
+      "springdoc.swagger-ui.enabled=false"
+    })
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@ActiveProfiles("test")
 class PopupWebControllerTest {
 
   @Autowired private MockMvc mockMvc;
