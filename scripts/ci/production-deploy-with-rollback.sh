@@ -7,7 +7,7 @@ readonly HEALTH_MAX_ATTEMPTS=12
 readonly HEALTH_RETRY_INTERVAL_SECONDS=5
 readonly HEALTH_REQUEST_TIMEOUT_SECONDS=4
 readonly EXPECTED_CONTAINER_NAME="poppang-prod"
-readonly EXPECTED_HEALTH_URL="http://poppang.co.kr:4002/actuator/health"
+readonly EXPECTED_HEALTH_URL="http://localhost:4002/actuator/health"
 
 if [[ "$#" -ne 8 ]]; then
   printf '%s\n' "deployment_result=invalid_arguments manual_recovery=required"

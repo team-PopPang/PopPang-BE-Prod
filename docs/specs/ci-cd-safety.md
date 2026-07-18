@@ -402,9 +402,10 @@ Status: `CONFIRMED`
   `docker save`한다. backup 실패 시 신규 배포 전에 실패·수동 복구 필요로 종료한다. 기존 원격
   `/home/poppang/opt/deploy/deploy-prod.sh`는 수정하지 않고 신규와 rollback 모두 tar와 image name 두
   인자로 같은 script를 호출한다.
-- health endpoint는 `http://poppang.co.kr:4002/actuator/health`로 고정했다. 새 배포와 rollback 각각
-  최대 60초, 최대 12회, 기본 5초 간격으로 확인하고, 각 요청 timeout은 최대 4초이면서 남은 전체
-  시간보다 길지 않게 제한한다. curl 성공 뒤 실제 HTTP code가 2xx이고 `jq`의
+- health endpoint는 원격 운영 서버 내부에서 접근 가능한 `http://localhost:4002/actuator/health`로
+  고정했다. 새 배포와 rollback 각각 최대 60초, 최대 12회, 기본 5초 간격으로 확인하고, 각 요청
+  timeout은 최대 4초이면서 남은 전체 시간보다 길지 않게 제한한다. curl 성공 뒤 실제 HTTP code가
+  2xx이고 `jq`의
   `.status == "UP"` 판정이 참일 때만 healthy다. 응답 본문은 로그에 출력하지 않는다.
 - 실행 없는 deterministic dry run은 PATH에 `docker`, `curl`, `jq`, `sleep`, `rm` stub과 임시
   `deploy-prod.sh`를 주입했다. 실제 SSH, Docker daemon, health endpoint, 운영 서버에 접근하지 않았고
@@ -536,18 +537,17 @@ Status: `CONFIRMED`
 - PR Workflow는 `pull_request(main)`과 기존 `workflow_dispatch`만 사용하며 권한을
   `contents: read`로 명시한다. Main Workflow는 `push(main)`과 `workflow_dispatch`만 사용하고
   `verify -> build-and-deploy -> notify`, `poppang-production-deployment`,
-  `cancel-in-progress: false`, `queue: max`를 유지한다. Main Workflow에는 명시적 `permissions`가 없어
-  repository 기본 `GITHUB_TOKEN` 권한을 상속하며, 실제 기본값은 GitHub 설정을 조회하지 않아
-  미검증이다. 이는 승인 설계의 필수 항목은 아니지만 최소 권한 잔여 위험이다.
+  `cancel-in-progress: false`, `queue: max`를 유지한다. Main Workflow도 `contents: read`만 명시하고,
+  PAT는 private 설정 다운로드 step에만, SSH host·user·key는 각 scp/ssh action 입력에만 전달한다.
 - 실행 가능한 변경 범위에서 실제 token/key signature, literal Bearer token, credential 출력,
   외부 DB·Redis URL, migration·DDL/DML, 광범위한 `rm`·Docker prune를 검색해 발견하지 못했다. 허용된
   삭제는 고유 rollback tar 한 파일의 `rm -f --`뿐이다. 테스트 결과 로그에도 외부 DB·Redis·prod
   profile 연결 marker가 없었다.
 - 운영 image와 container는 `poppang-prod`, tag는 `${GITHUB_SHA::7}`, deploy script는
   `/home/poppang/opt/deploy/deploy-prod.sh`, health endpoint는
-  `http://poppang.co.kr:4002/actuator/health`로 일치한다. Dockerfile은 container port `8080`을 노출하고
-  health URL은 external port `4002`를 사용한다. 실제 `4002 -> 8080` mapping과 active profile `prod`는
-  저장소 밖 원격 `deploy-prod.sh`가 결정하므로 이번 로컬 검증에서는 미검증이다.
+  `http://localhost:4002/actuator/health`로 일치한다. Dockerfile은 container port `8080`을 노출하고
+  health URL은 운영 서버의 localhost port `4002`를 사용한다. 실제 `4002 -> 8080` mapping과 active
+  profile `prod`는 저장소 밖 원격 `deploy-prod.sh`가 결정하므로 이번 로컬 검증에서는 미검증이다.
 - tracked 7개와 untracked 10개, 총 17개 변경 파일을 모두 검토하고 승인된 Chunk 2~7 변경과 정확히
   대조했다. production Java 변경은 `PopupWebController.java` 끝의 빈 줄 한 개 삭제뿐이며 동작 변경은
   없다. unexpected 변경, 삭제 파일, staged 파일, diff whitespace 오류는 없었다. 로컬 private 설정
@@ -642,9 +642,12 @@ GitHub rollout 진행 메모 — 2026-07-18:
 ### Main verification
 
 - 운영 배포 Workflow 안에 별도 `verify` job을 둔다.
+- Workflow 권한은 `contents: read`로 제한한다.
 - `verify`는 private 운영 설정을 다운로드하기 전에 PR CI와 같은 명령을 실행한다.
 - 이미지 생성·전송·배포 job은 `needs: verify`로 연결한다.
 - `verify` 실패 또는 취소 시 운영 설정 다운로드, 이미지 생성, 원격 배포를 실행하지 않는다.
+- `PERSONAL_ACCESS_TOKEN`은 private 설정 다운로드 step에만 전달하고, 서버 host·user·SSH key는 이를
+  사용하는 각 scp/ssh action 입력에만 전달한다.
 
 ## Branch protection
 
@@ -669,7 +672,7 @@ GitHub rollout 진행 메모 — 2026-07-18:
 | container port | `8080` |
 | active profile | `prod` |
 | deploy script | `/home/poppang/opt/deploy/deploy-prod.sh` |
-| health endpoint | `http://poppang.co.kr:4002/actuator/health` |
+| health endpoint | `http://localhost:4002/actuator/health` |
 
 - 이미지 tag는 기존처럼 Git commit short SHA를 사용한다.
 - CD에서만 private repository의 운영 설정과 Apple 로그인 키를 다운로드한다.

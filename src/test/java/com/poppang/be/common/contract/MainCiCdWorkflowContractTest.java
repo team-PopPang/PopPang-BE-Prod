@@ -1,6 +1,7 @@
 package com.poppang.be.common.contract;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,9 +39,71 @@ class MainCiCdWorkflowContractTest {
     assertThat(asList(push.get("branches"), "push branches")).containsExactly("main");
     assertThat(triggers.get("workflow_dispatch")).isNull();
 
+    Map<Object, Object> permissions =
+        asMap(rootValue("permissions"), "Workflow permissions must be explicit");
+    assertThat(permissions).containsOnly(entry("contents", "read"));
+    for (Object jobValue : jobs().values()) {
+      assertThat(asMap(jobValue, "Every job must be a mapping"))
+          .as("Jobs must not override the workflow's read-only permissions")
+          .doesNotContainKey("permissions");
+    }
+
     assertThat(job("verify").get("if"))
         .as("Manual deployments must be rejected unless the selected revision is main")
         .isEqualTo(MAIN_REVISION_GUARD);
+  }
+
+  @Test
+  void scopesProductionCredentialsToOnlyTheStepsThatNeedThem() {
+    Map<Object, Object> buildAndDeploy = job("build-and-deploy");
+    Map<Object, Object> environment =
+        asMap(buildAndDeploy.get("env"), "Production job must declare its environment");
+    assertThat(environment)
+        .containsOnlyKeys(
+            "APP_NAME",
+            "CONTAINER_NAME",
+            "SERVER_DIR",
+            "HEALTH_URL",
+            "ROLLBACK_DIR",
+            "PRIVATE_BASE_URL")
+        .containsEntry("APP_NAME", "poppang-prod")
+        .containsEntry("CONTAINER_NAME", "poppang-prod")
+        .containsEntry("SERVER_DIR", "/home/poppang/opt/deploy")
+        .containsEntry("HEALTH_URL", "http://localhost:4002/actuator/health")
+        .containsEntry("ROLLBACK_DIR", "/home/poppang/opt/deploy/rollback")
+        .containsEntry(
+            "PRIVATE_BASE_URL",
+            "https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE");
+
+    Map<Object, Object> downloadPrivateConfigs = step(buildAndDeploy, "Download private configs");
+    assertThat(asMap(downloadPrivateConfigs.get("env"), "Private download environment"))
+        .containsOnly(entry("PERSONAL_ACCESS_TOKEN", "${{ secrets.PERSONAL_ACCESS_TOKEN }}"));
+
+    int remoteActionCount = 0;
+    for (Object stepValue : asList(buildAndDeploy.get("steps"), "Build and deploy steps")) {
+      Map<Object, Object> productionStep = asMap(stepValue, "Every step must be a mapping");
+      Object action = productionStep.get("uses");
+      if ("appleboy/scp-action@v0.1.7".equals(action)
+          || "appleboy/ssh-action@v1.2.5".equals(action)) {
+        remoteActionCount++;
+        assertThat(asMap(productionStep.get("with"), "Remote action inputs"))
+            .containsEntry("host", "${{ secrets.SERVER_HOST }}")
+            .containsEntry("username", "${{ secrets.SERVER_USER }}")
+            .containsEntry("key", "${{ secrets.SERVER_SSH_KEY }}");
+      } else if (!"Download private configs".equals(productionStep.get("name"))) {
+        assertThat(String.valueOf(productionStep))
+            .as("Unrelated build steps must not receive production credentials")
+            .doesNotContain(
+                "${{ secrets.PERSONAL_ACCESS_TOKEN }}",
+                "${{ secrets.SERVER_HOST }}",
+                "${{ secrets.SERVER_USER }}",
+                "${{ secrets.SERVER_SSH_KEY }}");
+      }
+    }
+    assertThat(remoteActionCount).isEqualTo(3);
+    assertThat(workflowSource)
+        .doesNotContain(
+            "${{ env.SSH_HOST }}", "${{ env.SERVER_USER }}", "${{ env.SERVER_SSH_KEY }}");
   }
 
   @Test

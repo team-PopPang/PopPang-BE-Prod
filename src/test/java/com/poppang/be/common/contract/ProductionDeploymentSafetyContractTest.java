@@ -17,7 +17,7 @@ class ProductionDeploymentSafetyContractTest {
   private static final Path WORKFLOW_PATH = Path.of(".github/workflows/cicd.yml");
   private static final Path DEPLOYMENT_SCRIPT =
       Path.of("scripts/ci/production-deploy-with-rollback.sh");
-  private static final String HEALTH_URL = "http://poppang.co.kr:4002/actuator/health";
+  private static final String HEALTH_URL = "http://localhost:4002/actuator/health";
   private static final String NEW_IMAGE = "poppang-prod:abcdef1";
   private static final String PREVIOUS_IMAGE = "poppang-prod:1234567";
   private static final String COMMIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
@@ -81,6 +81,7 @@ class ProductionDeploymentSafetyContractTest {
 
     assertThat(source)
         .contains(
+            "EXPECTED_HEALTH_URL=\"" + HEALTH_URL + "\"",
             "HEALTH_TIMEOUT_SECONDS=60",
             "HEALTH_MAX_ATTEMPTS=12",
             "HEALTH_RETRY_INTERVAL_SECONDS=5",
@@ -101,6 +102,7 @@ class ProductionDeploymentSafetyContractTest {
             "deployment_result=failed_new_release",
             "manual_recovery=required")
         .doesNotContain(
+            "poppang.co.kr:4002",
             "docker system prune",
             "docker image prune",
             "docker image rm",

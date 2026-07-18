@@ -55,13 +55,13 @@ class V1ApiCompatibilityContractTest {
 
   private static final Set<Endpoint> APPROVED_V1_ENDPOINTS =
       Set.of(
-          // Alert
+          // 알림
           endpoint(POST, "/api/v1/users/{userUuid}/alert"),
           endpoint(DELETE, "/api/v1/users/{userUuid}/alert"),
           endpoint(GET, "/api/v1/users/{userUuid}/alert/popups"),
           endpoint(PATCH, "/api/v1/users/{userUuid}/alert/read"),
 
-          // Auth: all current endpoints are intentionally included even though Swagger hides them.
+          // 인증: Swagger에서 숨겨져 있어도 현재 존재하는 모든 엔드포인트를 의도적으로 포함함.
           endpoint(GET, "/api/v1/auth/kakao/login"),
           endpoint(GET, "/api/v1/auth/apple/login"),
           endpoint(GET, "/api/v1/auth/google/login"),
@@ -75,25 +75,25 @@ class V1ApiCompatibilityContractTest {
           endpoint(POST, "/api/v1/auth/token/test"),
           endpoint(POST, "/api/v1/auth/refresh"),
 
-          // Favorite
+          // 즐겨찾기
           endpoint(POST, "/api/v1/favorite"),
           endpoint(DELETE, "/api/v1/favorite"),
           endpoint(GET, "/api/v1/favorite/count/{popupUuid}"),
           endpoint(GET, "/api/v1/favorite/popup/{userUuid}"),
 
-          // Alert keyword
+          // 알림 키워드
           endpoint(GET, "/api/v1/alert-keyword"),
           endpoint(POST, "/api/v1/alert-keyword"),
           endpoint(DELETE, "/api/v1/alert-keyword"),
 
-          // Admin
+          // 관리자
           endpoint(PATCH, "/api/v1/admin/popup/{popupUuid}/deactivate"),
           endpoint(GET, "/api/v1/admin/popup-submissions"),
           endpoint(GET, "/api/v1/admin/popup-submissions/{popupSubmissionId}"),
           endpoint(PUT, "/api/v1/admin/popup-submissions/{popupSubmissionId}"),
           endpoint(PATCH, "/api/v1/admin/popup-submissions/{submissionId}/status"),
 
-          // Anonymous popup
+          // 비회원 팝업
           endpoint(GET, "/api/v1/popup"),
           endpoint(POST, "/api/v1/popup"),
           endpoint(GET, "/api/v1/popup/{popupUuid}"),
@@ -114,7 +114,7 @@ class V1ApiCompatibilityContractTest {
           endpoint(GET, "/api/v1/popup/{popupUuid}/total-view-count"),
           endpoint(GET, "/api/v1/popup/{popupUuid}/view-count"),
 
-          // User popup
+          // 회원 팝업
           endpoint(GET, "/api/v1/users/{userUuid}/popups"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/{popupUuid}"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/upcoming"),
@@ -127,7 +127,7 @@ class V1ApiCompatibilityContractTest {
           endpoint(GET, "/api/v1/users/{userUuid}/popups/random"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/recommendations/{recommendId}"),
 
-          // Web popup
+          // 웹 팝업
           endpoint(GET, "/api/v1/web/popup/random"),
           endpoint(GET, "/api/v1/web/popup/favorite"),
           endpoint(GET, "/api/v1/web/popup/in-progress"),
@@ -135,12 +135,12 @@ class V1ApiCompatibilityContractTest {
           endpoint(GET, "/api/v1/web/popup/search"),
           endpoint(GET, "/api/v1/web/popup/{popupUuid}"),
 
-          // Recommend
+          // 추천
           endpoint(GET, "/api/v1/recommend"),
           endpoint(GET, "/api/v1/recommend/featured"),
           endpoint(GET, "/api/v1/recommend/web"),
 
-          // User
+          // 사용자
           endpoint(GET, "/api/v1/user/{userUuid}"),
           endpoint(PATCH, "/api/v1/user/{userUuid}/alert-status"),
           endpoint(GET, "/api/v1/user/nickname/duplicated"),
