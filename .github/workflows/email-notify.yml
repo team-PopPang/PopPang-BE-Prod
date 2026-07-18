@@ -22,6 +22,9 @@ on:
   pull_request_review:
     types: [submitted]  # ✅ 전체 PR에 대한 리뷰 제출 (💡 지금 추가한 부분)
 
+permissions:
+  contents: read
+
 jobs:
   notify_by_email:
     runs-on: ubuntu-latest
@@ -29,73 +32,109 @@ jobs:
     steps:
       - name: Set Custom Event Name and Build Body
         id: set_event_name
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PULL_REQUEST_MERGED: ${{ github.event.pull_request.merged }}
+          PULL_REQUEST_TITLE: ${{ github.event.pull_request.title }}
+          PULL_REQUEST_URL: ${{ github.event.pull_request.html_url }}
+          ISSUE_PULL_REQUEST_JSON: ${{ toJson(github.event.issue.pull_request) }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+          COMMENT_PATH: ${{ github.event.comment.path }}
+          COMMENT_LINE: ${{ github.event.comment.line }}
+          REVIEW_BODY: ${{ github.event.review.body }}
+          REVIEW_URL: ${{ github.event.review.html_url }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
         run: |
+          set -euo pipefail
+
           EVENT_LABEL=""
           BODY=""
+          TITLE=""
+          LINK=""
+          COMMENT=""
+          FILE=""
+          LINE=""
 
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            if [[ "${{ github.event.action }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+          write_outputs() {
+            local event_label="$1"
+            local body="$2"
+            local output_delimiter
+
+            while true; do
+              output_delimiter="POPPANG_BODY_${GITHUB_RUN_ID:-0}_${GITHUB_RUN_ATTEMPT:-0}_${RANDOM}_${RANDOM}_${RANDOM}_${RANDOM}"
+              [[ "$body" != *"$output_delimiter"* ]] && break
+            done
+
+            {
+              printf 'event_label=%s\n' "$event_label"
+              printf 'body<<%s\n' "$output_delimiter"
+              printf '%s\n' "$body"
+              printf '%s\n' "$output_delimiter"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          if [[ "${EVENT_NAME:-}" == "pull_request" ]]; then
+            if [[ "${EVENT_ACTION:-}" == "closed" && "${PULL_REQUEST_MERGED:-}" == "true" ]]; then
               EVENT_LABEL="PR 병합"
             else
               EVENT_LABEL="PR 생성"
             fi
-            TITLE="${{ github.event.pull_request.title }}"
-            LINK="${{ github.event.pull_request.html_url }}"
+            TITLE="${PULL_REQUEST_TITLE:-}"
+            LINK="${PULL_REQUEST_URL:-}"
 
-          elif [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            if [[ "${{ toJson(github.event.issue.pull_request) }}" != "null" ]]; then
+          elif [[ "${EVENT_NAME:-}" == "issue_comment" ]]; then
+            if [[ "${ISSUE_PULL_REQUEST_JSON:-null}" != "null" ]]; then
               EVENT_LABEL="PR 댓글"
-              TITLE="${{ github.event.issue.title }}"
-              LINK="${{ github.event.comment.html_url }}"
-              COMMENT="${{ github.event.comment.body }}"
-              FILE="${{ github.event.comment.path }}"
-              LINE="${{ github.event.comment.line }}"
+              TITLE="${ISSUE_TITLE:-}"
+              LINK="${COMMENT_URL:-}"
+              COMMENT="${COMMENT_BODY:-}"
+              FILE="${COMMENT_PATH:-}"
+              LINE="${COMMENT_LINE:-}"
             else
-              echo "event_label=무시됨" >> $GITHUB_OUTPUT
-              echo "body=이슈 댓글이므로 알림 제외됨" >> $GITHUB_OUTPUT
+              write_outputs "무시됨" "이슈 댓글이므로 알림 제외됨"
               exit 0
             fi
 
-          elif [[ "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
+          elif [[ "${EVENT_NAME:-}" == "pull_request_review_comment" ]]; then
             EVENT_LABEL="PR 코드리뷰 댓글"
-            TITLE="${{ github.event.pull_request.title }}"
-            LINK="${{ github.event.comment.html_url }}"
-            COMMENT="${{ github.event.comment.body }}"
-            FILE="${{ github.event.comment.path }}"
-            LINE="${{ github.event.comment.line }}"
+            TITLE="${PULL_REQUEST_TITLE:-}"
+            LINK="${COMMENT_URL:-}"
+            COMMENT="${COMMENT_BODY:-}"
+            FILE="${COMMENT_PATH:-}"
+            LINE="${COMMENT_LINE:-}"
 
-          elif [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
+          elif [[ "${EVENT_NAME:-}" == "pull_request_review" ]]; then
             EVENT_LABEL="PR 리뷰 제출"
-            TITLE="${{ github.event.pull_request.title }}"
-            LINK="${{ github.event.review.html_url }}"
-            COMMENT="${{ github.event.review.body }}"
+            TITLE="${PULL_REQUEST_TITLE:-}"
+            LINK="${REVIEW_URL:-}"
+            COMMENT="${REVIEW_BODY:-}"
 
-          elif [[ "${{ github.event_name }}" == "issues" ]]; then
+          elif [[ "${EVENT_NAME:-}" == "issues" ]]; then
             EVENT_LABEL="이슈 생성"
-            TITLE="${{ github.event.issue.title }}"
-            LINK="${{ github.event.issue.html_url }}"
+            TITLE="${ISSUE_TITLE:-}"
+            LINK="${ISSUE_URL:-}"
 
           else
-            echo "event_label=무시됨" >> $GITHUB_OUTPUT
-            echo "body=지원되지 않는 이벤트입니다." >> $GITHUB_OUTPUT
+            write_outputs "무시됨" "지원되지 않는 이벤트입니다."
             exit 0
           fi
 
-          echo "event_label=$EVENT_LABEL" >> $GITHUB_OUTPUT
-
           BODY+="📌 이벤트 종류: $EVENT_LABEL"$'\n'
-          BODY+="📁 리포지토리: ${{ github.repository }}"$'\n'
-          BODY+="🛠️ 액션: ${{ github.event.action || 'N/A' }}"$'\n'
+          BODY+="📁 리포지토리: ${REPOSITORY:-N/A}"$'\n'
+          BODY+="🛠️ 액션: ${EVENT_ACTION:-N/A}"$'\n'
           BODY+="📝 제목: ${TITLE:-N/A}"$'\n'
-          BODY+="🙋 작성자: ${{ github.actor }}"$'\n'
+          BODY+="🙋 작성자: ${ACTOR:-N/A}"$'\n'
           [[ -n "$LINK" ]] && BODY+="🔗 링크: $LINK"$'\n'
           [[ -n "$COMMENT" ]] && BODY+="🗨️ 댓글 내용: $COMMENT"$'\n'
           [[ -n "$FILE" ]] && BODY+="📄 파일: $FILE"$'\n'
           [[ -n "$LINE" ]] && BODY+="📌 위치: Line $LINE"$'\n'
 
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$BODY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          write_outputs "$EVENT_LABEL" "$BODY"
 
       - name: Send Email Notification
         if: steps.set_event_name.outputs.event_label != '무시됨'

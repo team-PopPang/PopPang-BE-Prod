@@ -609,6 +609,14 @@ GitHub rollout 진행 메모 — 2026-07-18:
   `GH_TOKEN`과 `GITHUB_TOKEN`을 제거한 뒤에도 `gh auth status -h github.com`이 invalid token으로
   실패하므로 Codex의 keyring 접근은 별도 미검증 항목으로 남긴다. 이는 로컬 commit을 막지 않지만,
   push와 PR은 별도 승인 및 사용 가능한 인증 환경을 확인하기 전까지 수행하지 않는다.
+- PR #5의 Email Notifications 실행 `29646436753`은 기존 `email-notify.yml`이 CodeRabbit 리뷰 본문을
+  Bash `run` 블록에 직접 삽입해 백틱·코드 블록을 명령으로 해석하면서 exit code 127로 실패했고 이메일
+  단계가 건너뛰어진 blocker를 확인했다. 이 Workflow는 기존 파일로 commit `2d6d76c`의 변경 대상은
+  아니었다.
+- focused 보안 계약 테스트로 command substitution의 sentinel 생성을 RED에서 재현한 뒤, 모든 GitHub
+  이벤트 값을 step-level `env`와 인용된 Bash 변수로 전달하고 충돌 방지 multiline delimiter 및
+  `contents: read`를 적용해 GREEN을 확인했다. 실제 GitHub runner 재확인은 새 commit·push 승인 이후의
+  미검증 항목이며 Chunk 9 상태는 `IN_PROGRESS`로 유지한다.
 
 ## CI contract
 
