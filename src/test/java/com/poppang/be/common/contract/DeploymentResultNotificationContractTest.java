@@ -18,6 +18,8 @@ class DeploymentResultNotificationContractTest {
   private static final Path REPORT_SCRIPT = Path.of("scripts/ci/report-deployment-result.sh");
   private static final String COMMIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
   private static final String IMAGE_NAME = "poppang-prod:abcdef1";
+  private static final String APPROVED_SEND_MAIL_ACTION =
+      "dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7";
 
   @TempDir Path tempDir;
 
@@ -69,7 +71,7 @@ class DeploymentResultNotificationContractTest {
     assertThat(notificationSteps).hasSize(2);
     for (Object stepValue : notificationSteps) {
       Map<Object, Object> notificationStep = asMap(stepValue, "Notification step");
-      assertThat(notificationStep.get("uses")).isEqualTo("dawidd6/action-send-mail@v3");
+      assertThat(notificationStep.get("uses")).isEqualTo(APPROVED_SEND_MAIL_ACTION);
       assertThat(notificationStep.get("continue-on-error"))
           .as("Email delivery is auxiliary and must be non-blocking")
           .isEqualTo(true);

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.entry;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,9 @@ import org.yaml.snakeyaml.Yaml;
 class EmailNotificationWorkflowSecurityContractTest {
 
   private static final Path WORKFLOW_PATH = Path.of(".github/workflows/email-notify.yml");
+  private static final Path MAIN_WORKFLOW_PATH = Path.of(".github/workflows/cicd.yml");
+  private static final String APPROVED_SEND_MAIL_ACTION =
+      "dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7";
   private static final Pattern DIRECT_GITHUB_EXPRESSION =
       Pattern.compile("\\$\\{\\{\\s*(?:github\\.|toJson\\(github\\.)");
 
@@ -51,13 +55,47 @@ class EmailNotificationWorkflowSecurityContractTest {
 
     assertThat(asMap(rootValue("permissions"), "Workflow permissions must be explicit"))
         .containsOnly(entry("contents", "read"));
+    for (Object jobValue : asMap(rootValue("jobs"), "Workflow must declare jobs").values()) {
+      assertThat(asMap(jobValue, "Every job must be a mapping"))
+          .as("Jobs must not override the workflow's read-only permissions")
+          .doesNotContainKey("permissions");
+    }
 
-    Map<Object, Object> sendEmail = usesStep("dawidd6/action-send-mail@v3");
+    Map<Object, Object> sendEmail = usesStep(APPROVED_SEND_MAIL_ACTION);
+    assertThat(sendEmail.get("if")).isEqualTo("steps.set_event_name.outputs.event_label != '무시됨'");
     Map<Object, Object> inputs = asMap(sendEmail.get("with"), "Email inputs must be configured");
     assertThat(inputs)
         .containsEntry("username", "${{ secrets.MAIL_USERNAME }}")
         .containsEntry("password", "${{ secrets.MAIL_PASSWORD }}")
         .containsEntry("to", "indextrown@gmail.com");
+  }
+
+  @Test
+  void pinsEverySendMailUseInEmailAndMainWorkflowsToTheSameImmutableCommit() throws IOException {
+    List<String> sendMailActions = new ArrayList<>();
+    for (Path workflowPath : List.of(WORKFLOW_PATH, MAIN_WORKFLOW_PATH)) {
+      Map<Object, Object> parsedWorkflow =
+          asMap(new Yaml().load(Files.readString(workflowPath)), "Workflow must be valid YAML");
+      Map<Object, Object> jobs = asMap(parsedWorkflow.get("jobs"), "Workflow must declare jobs");
+      for (Object jobValue : jobs.values()) {
+        Map<Object, Object> job = asMap(jobValue, "Every job must be a mapping");
+        Object stepsValue = job.get("steps");
+        if (!(stepsValue instanceof List<?>)) {
+          continue;
+        }
+        for (Object stepValue : asList(stepsValue, "Job steps must be a list")) {
+          Object action = asMap(stepValue, "Every step must be a mapping").get("uses");
+          if (action != null && String.valueOf(action).startsWith("dawidd6/action-send-mail@")) {
+            sendMailActions.add(String.valueOf(action));
+          }
+        }
+      }
+    }
+
+    assertThat(sendMailActions)
+        .as("All three mail steps must use the same approved immutable commit")
+        .hasSize(3)
+        .allMatch(APPROVED_SEND_MAIL_ACTION::equals);
   }
 
   @Test
@@ -172,6 +210,21 @@ class EmailNotificationWorkflowSecurityContractTest {
     assertThat(output).doesNotContain("body<<EOF\n");
     assertThat(readMultilineOutput(result.githubOutput(), "body")).contains(payload);
     assertThat(result.log()).doesNotContain(payload, "should-not-run");
+  }
+
+  @Test
+  void closedUnmergedPullRequestIsIgnoredInsteadOfReportedAsCreated() throws Exception {
+    Map<String, String> values = eventValues("pull_request", "");
+    values.put("EVENT_ACTION", "closed");
+    values.put("PULL_REQUEST_MERGED", "false");
+
+    ShellResult result = runBodyStep("pull_request-closed-unmerged", values);
+
+    assertThat(result.exitCode()).as(result.log()).isZero();
+    assertThat(Files.readString(result.githubOutput())).contains("event_label=무시됨\n");
+    assertThat(readMultilineOutput(result.githubOutput(), "body"))
+        .contains("병합되지 않고 닫힌 PR이므로 알림 제외됨")
+        .doesNotContain("PR 생성");
   }
 
   private ShellResult runBodyStep(String eventName, String body) throws Exception {

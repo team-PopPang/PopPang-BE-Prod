@@ -207,7 +207,7 @@ jobs:
       - name: Send email on success
         if: needs.build-and-deploy.result == 'success'
         continue-on-error: true
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7
         with:
           server_address: smtp.gmail.com
           server_port: 465
@@ -232,7 +232,7 @@ jobs:
       - name: Send email on failure
         if: needs.build-and-deploy.result != 'success'
         continue-on-error: true
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7
         with:
           server_address: smtp.gmail.com
           server_port: 465

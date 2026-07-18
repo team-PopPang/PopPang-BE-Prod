@@ -79,10 +79,13 @@ jobs:
           }
 
           if [[ "${EVENT_NAME:-}" == "pull_request" ]]; then
-            if [[ "${EVENT_ACTION:-}" == "closed" && "${PULL_REQUEST_MERGED:-}" == "true" ]]; then
+            if [[ "${EVENT_ACTION:-}" == "opened" ]]; then
+              EVENT_LABEL="PR 생성"
+            elif [[ "${EVENT_ACTION:-}" == "closed" && "${PULL_REQUEST_MERGED:-}" == "true" ]]; then
               EVENT_LABEL="PR 병합"
             else
-              EVENT_LABEL="PR 생성"
+              write_outputs "무시됨" "병합되지 않고 닫힌 PR이므로 알림 제외됨"
+              exit 0
             fi
             TITLE="${PULL_REQUEST_TITLE:-}"
             LINK="${PULL_REQUEST_URL:-}"
@@ -138,7 +141,7 @@ jobs:
 
       - name: Send Email Notification
         if: steps.set_event_name.outputs.event_label != '무시됨'
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7
         with:
           server_address: smtp.gmail.com
           server_port: 465
