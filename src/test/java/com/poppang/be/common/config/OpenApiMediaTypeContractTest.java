@@ -56,17 +56,20 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(
     classes = OpenApiMediaTypeContractTest.TestApplication.class,
     properties = {
+      "spring.config.location=classpath:/application-test.yml",
       "springdoc.api-docs.enabled=true",
       "springdoc.api-docs.path=/v3/api-docs",
       "springdoc.swagger-ui.enabled=false"
     })
 @AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OpenApiMediaTypeContractTest {
 

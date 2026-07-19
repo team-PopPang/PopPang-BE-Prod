@@ -77,4 +77,21 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'test'
+    systemProperty 'spring.config.location', 'classpath:/application-test.yml'
+
+    doFirst {
+        def requestedProfiles = [
+            System.getProperty('spring.profiles.active'),
+            System.getProperty('spring.profiles.include'),
+            System.getenv('SPRING_PROFILES_ACTIVE'),
+            System.getenv('SPRING_PROFILES_INCLUDE')
+        ].findAll { it != null }
+            .collectMany { it.split(',') as List }
+            .collect { it.trim() }
+
+        if (requestedProfiles.any { it.equalsIgnoreCase('prod') }) {
+            throw new GradleException('The test task must not run with the prod profile.')
+        }
+    }
 }
