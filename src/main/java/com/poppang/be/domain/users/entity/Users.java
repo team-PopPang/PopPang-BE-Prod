@@ -21,7 +21,7 @@ public class Users extends BaseEntity {
   @Column(name = "id", nullable = false, updatable = false)
   private Long id;
 
-  @Column(name = "uid", nullable = true, unique = true, length = 255)
+  @Column(name = "uid", nullable = true, length = 255)
   private String uid;
 
   @Column(name = "uuid", nullable = false, length = 36)
@@ -40,6 +40,10 @@ public class Users extends BaseEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "role", nullable = true, length = 20)
   private Role role;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "signup_status", nullable = true, length = 20)
+  private SignupStatus signupStatus;
 
   @Column(name = "is_alerted", nullable = true)
   private boolean alerted = false;
@@ -66,6 +70,7 @@ public class Users extends BaseEntity {
       String email,
       String nickname,
       Role role,
+      SignupStatus signupStatus,
       boolean alerted,
       String fcmToken,
       boolean deleted) {
@@ -76,6 +81,7 @@ public class Users extends BaseEntity {
     this.email = email;
     this.nickname = nickname;
     this.role = role;
+    this.signupStatus = signupStatus == null ? SignupStatus.PENDING : signupStatus;
     this.alerted = alerted;
     this.fcmToken = fcmToken;
     this.deleted = deleted;
@@ -86,6 +92,17 @@ public class Users extends BaseEntity {
     this.nickname = signupRequestDto.getNickname();
     this.alerted = signupRequestDto.isAlerted();
     this.fcmToken = signupRequestDto.getFcmToken();
+    this.signupStatus = SignupStatus.COMPLETED;
+  }
+
+  public void completeSignup() {
+    this.signupStatus = SignupStatus.COMPLETED;
+  }
+
+  public void startSignup() {
+    if (this.signupStatus != SignupStatus.COMPLETED) {
+      this.signupStatus = SignupStatus.PENDING;
+    }
   }
 
   public void changeNickname(ChangeNicknameRequestDto changeNicknameRequestDto) {

@@ -1,11 +1,16 @@
 package com.poppang.be.domain.users.infrastructure;
 
+import com.poppang.be.domain.users.entity.Provider;
+import com.poppang.be.domain.users.entity.SignupStatus;
 import com.poppang.be.domain.users.entity.Users;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -13,11 +18,19 @@ public interface UsersRepository extends JpaRepository<Users, Long> {
 
   Optional<Users> findByUid(String uid);
 
+  Optional<Users> findByProviderAndUid(Provider provider, String uid);
+
   boolean existsByNickname(String nickname);
 
   Optional<Users> findByUuidAndDeletedFalse(String uuid);
 
+  Optional<Users> findByUuidAndDeletedFalseAndSignupStatus(String uuid, SignupStatus signupStatus);
+
   Optional<Users> findByUuid(String userUuid);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select u from Users u where u.uuid = :uuid")
+  Optional<Users> findByUuidForUpdate(@Param("uuid") String uuid);
 
   List<Users> findByUuidIn(Collection<String> uuids);
 

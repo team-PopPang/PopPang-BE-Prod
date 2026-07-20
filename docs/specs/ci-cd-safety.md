@@ -734,10 +734,17 @@ GitHub rollout 진행 메모 — 2026-07-18:
 ## JWT v2 compatibility and rollout
 
 - 20개 청크를 한 PR에 넣지 않는다.
-- 청크 하나 또는 작은 도메인 묶음 단위로 PR을 만들고 CI 통과 후 `main`에 병합한다.
-- `main` 병합 후 자동 production 배포를 허용한다.
+- 정확한 production 단위는 JWT 구현 체크리스트의
+  [deployment wave map](../superpowers/plans/2026-07-15-jwt-v2-migration.md#merge-and-production-deployment-wave-map)을
+  따른다. 청크 하나 또는 provider·read/write 경계로 더 나눈 작은 단위만 PR로 만든다.
+- `main` 병합은 자동 production 배포를 시작하므로 push 승인과 별도로 각 wave의 merge·배포
+  승인을 받는다. 직전 wave의 smoke와 관찰이 끝나기 전에는 다음 wave를 병합하지 않는다.
+- 진행 보고마다 `현재 배포 청크 n/16`, `운영 배포 완료 m/16`과 `지금 배포하면 안 됩니다` 또는
+  `지금 배포할 단계입니다 — 별도 승인 필요` 판단을 명시한다.
 - 앱 클라이언트가 해당 v2 endpoint로 전환하기 전까지 신규 v2 API는 사용되지 않는다는 전제로
   점진적으로 배포한다.
+- Entity/JPA/schema 영향이 예상되면 코드 수정 전에 DDL·호환성·lock·backup·rollback을 보고하고
+  별도 승인을 받는다. schema 영향이 없더라도 Entity 파일 변경은 `DDL: N/A` 근거와 함께 승인받는다.
 - 기존 v1 controller, path, method, parameter, body, response, status, media type과 익명 접근 동작을
   변경하지 않는다.
 - v1 제거는 iOS와 Android의 endpoint별 v2 전환이 확인된 뒤 별도 작업으로 수행한다.
