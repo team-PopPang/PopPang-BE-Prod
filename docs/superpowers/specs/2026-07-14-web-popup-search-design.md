@@ -1,10 +1,16 @@
-# 공개 Web 팝업 검색 API 설계
+# 공개 Web 팝업 조회 API 설계
+
+## 상태
+
+IMPLEMENTED
 
 ## 목적
 
-PopPang 웹 프론트가 인증이나 사용자 UUID 없이 팝업을 검색할 수 있도록
-`GET /api/v1/web/popup/search?q={검색어}`를 추가한다. 기존 비회원·회원 검색 API와
-기존 Web API의 URL, 요청, 응답, 동작은 변경하지 않는다.
+PopPang 웹 프론트가 인증이나 사용자 UUID 없이 팝업을 검색하고 홈 카드 목록을 필터링할 수
+있도록 공개 Web 팝업 조회 계약을 제공한다. 검색은
+`GET /api/v1/web/popup/search?q={검색어}`를 사용하고, 홈 필터는 기존
+`GET /api/v1/web/popup/in-progress`의 선택적 Query parameter로 제공한다. 기존 비회원·회원
+검색 및 `filtered/home` API 계약은 변경하지 않는다.
 
 ## 현재 동작
 
@@ -260,6 +266,58 @@ GET /api/v1/web/popup/search?q=성수
 - 200 응답의 media type과 wrapper schema를 검증한다.
 - DTO 필드명과 날짜 format을 검증한다.
 - 기존 OpenAPI 기준선과 비교하여 신규 path와 schema 외의 변경이 없는지 확인한다.
+
+## 진행 중 Web 홈 필터 계약
+
+기존 경로를 다음과 같이 확장한다. `home/filtered`, `filtered/home` 등 별도 Web 경로는
+추가하지 않는다.
+
+```http
+GET /api/v1/web/popup/in-progress?region=서울&district=성동구&sort=NEWEST
+Accept: application/json
+```
+
+- `region`, `district`, `sort`는 모두 선택적 Query parameter다.
+- `sort`는 `MOST_FAVORITED`, `MOST_VIEWED`, `NEWEST`, `CLOSING_SOON`만 허용한다.
+- `district`를 생략하거나 `전체`로 보내면 해당 지역 전체를 조회한다.
+- 유효한 `district`만 있고 `region`이 없으면
+  `REGION_REQUIRED_FOR_DISTRICT`로 HTTP 400을 반환한다.
+- 지원하지 않는 `sort`는 기존 `INVALID_SORT_STANDARD`로 HTTP 400을 반환한다.
+- 필터 호출에서 `sort`를 생략하면 `CLOSING_SOON`을 기본 정렬로 사용한다.
+- 세 Query parameter가 모두 없으면 기존 `findInProgressActiveWithThumbnail` 조회와 정렬을
+  그대로 사용한다.
+- 필터를 적용한 결과는 `is_active = true`이고
+  `start_date <= CURRENT_DATE <= end_date`인 팝업만 포함한다.
+- 인증, 사용자 UUID, 쿠키, 세션 및 사용자별 데이터는 사용하지 않는다.
+
+응답은 기존 Web 목록과 같은 `ApiResponse<List<PopupWebInProgressResponseDto>>`다. 카드에는
+`popupUuid`, `name`, `thumbnailUrl`, `region`, `startDate`, `endDate`만 포함하고, 대표 이미지는
+`sort_order = 0`인 첫 이미지를 사용한다. 이미지가 없으면 `thumbnailUrl`은 `null`이다.
+
+지역 정규화와 네 정렬별 Repository 선택은 공통 application service에서 한 번만 수행한다.
+기존 비회원 `GET /api/v1/popup/filtered/home`과 회원
+`GET /api/v1/users/{userUuid}/popups/filtered/home`도 같은 공통 조회 service에 위임하되 URL,
+parameter 이름, 응답 DTO 및 사용자별 데이터 조립은 그대로 유지한다.
+
+```text
+GET /api/v1/web/popup/in-progress?region=서울&district=전체&sort=MOST_VIEWED
+  → PopupWebController#getWebInProgressPopupList
+  → PopupWebService#getInProgressPopupList
+  → Web 요청 조합 및 sort 검증
+  → 공통 홈 필터 service: 지역 정규화 및 기존 정렬별 Repository 조회
+  → Web 카드 mapper: 대표 이미지 배치 조회 및 경량 DTO 조립
+  → ApiResponse.ok(...)
+```
+
+다음 회귀 및 계약을 자동 테스트한다.
+
+- 무파라미터 호출이 기존 전용 조회와 Web envelope/DTO를 유지한다.
+- 지역 전체, 지역과 구, `district=전체`를 정규화해 조회한다.
+- 네 정렬 기준이 각각 기존 Repository 조회를 사용한다.
+- 잘못된 정렬값과 `district` 단독 요청이 Web 오류 envelope의 HTTP 400을 반환한다.
+- 모든 정렬 쿼리가 비활성, 종료 및 오픈 예정 팝업을 제외하는 조건을 유지한다.
+- OpenAPI가 세 선택 parameter, 네 enum 값, 정렬 의미, 진행 중 조건 및
+  `ApiResponseListPopupWebInProgressResponseDto` 응답 schema를 노출한다.
 
 ### 전체 검증
 

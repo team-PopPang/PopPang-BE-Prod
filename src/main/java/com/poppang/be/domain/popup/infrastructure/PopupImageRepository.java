@@ -12,5 +12,8 @@ public interface PopupImageRepository extends JpaRepository<PopupImage, Long> {
 
   List<PopupImage> findAllByPopup_IdInOrderByPopup_IdAscSortOrderAsc(List<Long> popupIdList);
 
+  List<PopupImage> findAllByPopup_IdInAndSortOrderOrderByPopup_IdAscIdAsc(
+      List<Long> popupIdList, int sortOrder);
+
   List<PopupImage> findAllByPopup_IdOrderByPopup_IdAscSortOrderAsc(Long popupId);
 }

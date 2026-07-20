@@ -17,6 +17,9 @@ public interface PopupWebService {
 
   List<PopupWebInProgressResponseDto> getInProgressPopupList();
 
+  List<PopupWebInProgressResponseDto> getInProgressPopupList(
+      String region, String district, String sort);
+
   List<PopupWebSearchResponseDto> getSearchPopupList(String q);
 
   List<PopupWebUpcomingResponseDto> getUpcomingPopupList();

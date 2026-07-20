@@ -11,10 +11,12 @@ import com.poppang.be.domain.popup.dto.web.response.PopupWebSearchResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
+import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupTotalViewCountRepository;
+import com.poppang.be.domain.popup.mapper.PopupWebInProgressResponseDtoMapper;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -22,6 +24,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +37,8 @@ public class PopupWebServiceImpl implements PopupWebService {
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
   private final UserFavoriteRepository userFavoriteRepository;
   private final PopupCountBoostService popupCountBoostService;
+  private final PopupHomeFilterService popupHomeFilterService;
+  private final PopupWebInProgressResponseDtoMapper popupWebInProgressResponseDtoMapper;
 
   private static final int RANDOM_LIMIT = 5;
   private static final int FAVORITE_LIMIT = 5;
@@ -93,6 +98,35 @@ public class PopupWebServiceImpl implements PopupWebService {
                     .endDate(row.getEndDate())
                     .build())
         .toList();
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<PopupWebInProgressResponseDto> getInProgressPopupList(
+      String region, String district, String sort) {
+    if (region == null && district == null && sort == null) {
+      return getInProgressPopupList();
+    }
+    if (StringUtils.hasText(district) && !StringUtils.hasText(region)) {
+      throw new BaseException(ErrorCode.REGION_REQUIRED_FOR_DISTRICT);
+    }
+
+    HomeSortStandard homeSortStandard = parseHomeSortStandard(sort);
+    List<Popup> popupList =
+        popupHomeFilterService.getFilteredPopupList(region, district, homeSortStandard);
+    return popupWebInProgressResponseDtoMapper.toResponseDtoList(popupList);
+  }
+
+  private HomeSortStandard parseHomeSortStandard(String sort) {
+    if (!StringUtils.hasText(sort)) {
+      return HomeSortStandard.CLOSING_SOON;
+    }
+
+    try {
+      return HomeSortStandard.valueOf(sort.trim());
+    } catch (IllegalArgumentException exception) {
+      throw new BaseException(ErrorCode.INVALID_SORT_STANDARD);
+    }
   }
 
   @Override

@@ -229,10 +229,22 @@ class OpenApiMediaTypeContractTest {
     assertThat(operation.path("tags").path(0).asText()).isEqualTo("[WEB] [POPUP]");
     assertThat(operation.path("summary").asText()).isEqualTo("[WEB] 현재 진행 중인 팝업 목록 조회");
     assertThat(operation.path("description").asText())
-        .isEqualTo("현재 날짜를 기준으로 운영 중인 팝업스토어 목록을 조회합니다.");
+        .contains("진행 중(is_active = true, 시작일 ≤ 오늘 ≤ 종료일)인 팝업만 반환합니다.")
+        .contains("MOST_FAVORITED(찜 많은 순)")
+        .contains("MOST_VIEWED(조회수 많은 순)")
+        .contains("NEWEST(최근 오픈 순)")
+        .contains("CLOSING_SOON(마감 임박 순)");
     assertThat(operation.path("operationId").asText()).isEqualTo("getWebInProgressPopupList");
-    assertThat(operation.has("parameters")).isFalse();
     assertThat(operation.has("requestBody")).isFalse();
+
+    JsonNode parameters = operation.path("parameters");
+    assertThat(parameters.isArray()).isTrue();
+    assertThat(parameters.size()).isEqualTo(3);
+    assertOptionalStringQueryParameter(parameters.path(0), "region");
+    assertOptionalStringQueryParameter(parameters.path(1), "district");
+    assertOptionalStringQueryParameter(parameters.path(2), "sort");
+    assertThat(arrayTextValues(parameters.path(2).path("schema").path("enum")))
+        .containsExactly("MOST_FAVORITED", "MOST_VIEWED", "NEWEST", "CLOSING_SOON");
 
     JsonNode properties =
         openApi
@@ -292,7 +304,7 @@ class OpenApiMediaTypeContractTest {
   void webPopupRuntimeResponsesAreJson() throws Exception {
     given(popupWebService.getRandomPopupList()).willReturn(List.of());
     given(popupWebService.getFavoritePopupList()).willReturn(List.of());
-    given(popupWebService.getInProgressPopupList()).willReturn(List.of());
+    given(popupWebService.getInProgressPopupList(null, null, null)).willReturn(List.of());
     given(popupWebService.getUpcomingPopupList()).willReturn(List.of());
     given(popupWebService.getPopupDetail("popup-uuid"))
         .willReturn(PopupWebDetailResponseDto.builder().build());
@@ -334,10 +346,23 @@ class OpenApiMediaTypeContractTest {
     }
   }
 
+  private void assertOptionalStringQueryParameter(JsonNode parameter, String name) {
+    assertThat(parameter.path("name").asText()).isEqualTo(name);
+    assertThat(parameter.path("in").asText()).isEqualTo("query");
+    assertThat(parameter.path("required").asBoolean()).isFalse();
+    assertThat(parameter.path("schema").path("type").asText()).isEqualTo("string");
+  }
+
   private List<String> fieldNames(JsonNode node) {
     List<String> names = new ArrayList<>();
     node.fieldNames().forEachRemaining(names::add);
     return names;
+  }
+
+  private List<String> arrayTextValues(JsonNode node) {
+    List<String> values = new ArrayList<>();
+    node.forEach(value -> values.add(value.asText()));
+    return values;
   }
 
   private void assertStringSchema(JsonNode schema, String expectedFormat) {

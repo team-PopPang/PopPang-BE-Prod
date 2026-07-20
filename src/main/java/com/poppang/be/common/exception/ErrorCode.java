@@ -44,6 +44,7 @@ public enum ErrorCode {
       HttpStatus.BAD_REQUEST, 4311, "처리할 제보 상태는 APPROVED 또는 REJECTED만 가능합니다."),
   POPUP_SUBMISSION_ALREADY_PROCESSED(HttpStatus.CONFLICT, 4312, "이미 처리된 팝업 제보입니다."),
   INVALID_POPUP_SEARCH_QUERY(HttpStatus.BAD_REQUEST, 4313, "검색어는 필수입니다."),
+  REGION_REQUIRED_FOR_DISTRICT(HttpStatus.BAD_REQUEST, 4314, "구를 조회하려면 지역이 필요합니다."),
 
   // ==================================================
   // 5000 ~ 5099 : Auth / JWT (인증)

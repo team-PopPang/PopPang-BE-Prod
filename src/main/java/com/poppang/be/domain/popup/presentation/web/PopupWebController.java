@@ -10,6 +10,7 @@ import com.poppang.be.domain.popup.dto.web.response.PopupWebSearchResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebUpcomingResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -43,12 +44,37 @@ public class PopupWebController {
   }
 
   @Operation(
+      operationId = "getWebInProgressPopupList",
       summary = "[WEB] 현재 진행 중인 팝업 목록 조회",
-      description = "현재 날짜를 기준으로 운영 중인 팝업스토어 목록을 조회합니다.")
+      description =
+          """
+          현재 날짜를 기준으로 진행 중(is_active = true, 시작일 ≤ 오늘 ≤ 종료일)인 팝업만 반환합니다.
+          지역과 구를 선택적으로 필터링할 수 있으며, district를 생략하거나 '전체'로 지정하면 해당 지역 전체를 조회합니다.
+          정렬 기준은 MOST_FAVORITED(찜 많은 순), MOST_VIEWED(조회수 많은 순), NEWEST(최근 오픈 순), CLOSING_SOON(마감 임박 순)입니다.
+          필터를 사용하면서 sort를 생략하면 CLOSING_SOON을 적용하고, 모든 parameter를 생략하면 기존 목록 정렬을 유지합니다.
+          """)
   @GetMapping("/in-progress")
-  public ApiResponse<List<PopupWebInProgressResponseDto>> getWebInProgressPopupList() {
+  public ApiResponse<List<PopupWebInProgressResponseDto>> getWebInProgressPopupList(
+      @Parameter(description = "지역. 예: 서울", example = "서울")
+          @RequestParam(name = "region", required = false)
+          String region,
+      @Parameter(description = "구. 생략하거나 '전체'이면 해당 지역 전체", example = "성동구")
+          @RequestParam(name = "district", required = false)
+          String district,
+      @Parameter(
+              description = "정렬 기준",
+              schema =
+                  @Schema(
+                      allowableValues = {
+                        "MOST_FAVORITED",
+                        "MOST_VIEWED",
+                        "NEWEST",
+                        "CLOSING_SOON"
+                      }))
+          @RequestParam(name = "sort", required = false)
+          String sort) {
     List<PopupWebInProgressResponseDto> inProgressPopupList =
-        popupWebService.getInProgressPopupList();
+        popupWebService.getInProgressPopupList(region, district, sort);
 
     return ApiResponse.ok(inProgressPopupList);
   }

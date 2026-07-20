@@ -57,7 +57,7 @@ class PopupWebControllerTest {
             .startDate(LocalDate.of(2026, 7, 1))
             .endDate(LocalDate.of(2026, 7, 31))
             .build();
-    given(popupWebService.getInProgressPopupList()).willReturn(List.of(popup));
+    given(popupWebService.getInProgressPopupList(null, null, null)).willReturn(List.of(popup));
 
     mockMvc
         .perform(get("/api/v1/web/popup/in-progress").accept(MediaType.APPLICATION_JSON))
@@ -72,14 +72,17 @@ class PopupWebControllerTest {
         .andExpect(jsonPath("$.data[0].thumbnailUrl").value(popup.getThumbnailUrl()))
         .andExpect(jsonPath("$.data[0].region").value(popup.getRegion()))
         .andExpect(jsonPath("$.data[0].startDate").value("2026-07-01"))
-        .andExpect(jsonPath("$.data[0].endDate").value("2026-07-31"));
+        .andExpect(jsonPath("$.data[0].endDate").value("2026-07-31"))
+        .andExpect(jsonPath("$.data[0].imageUrlList").doesNotExist())
+        .andExpect(jsonPath("$.data[0].address").doesNotExist())
+        .andExpect(jsonPath("$.data[0].viewCount").doesNotExist());
 
-    verify(popupWebService).getInProgressPopupList();
+    verify(popupWebService).getInProgressPopupList(null, null, null);
   }
 
   @Test
   void getInProgressPopupListReturnsEmptyArrayWhenThereAreNoPopups() throws Exception {
-    given(popupWebService.getInProgressPopupList()).willReturn(List.of());
+    given(popupWebService.getInProgressPopupList(null, null, null)).willReturn(List.of());
 
     mockMvc
         .perform(get("/api/v1/web/popup/in-progress").accept(MediaType.APPLICATION_JSON))
@@ -88,7 +91,66 @@ class PopupWebControllerTest {
         .andExpect(jsonPath("$.data").isArray())
         .andExpect(jsonPath("$.data").isEmpty());
 
-    verify(popupWebService).getInProgressPopupList();
+    verify(popupWebService).getInProgressPopupList(null, null, null);
+  }
+
+  @Test
+  void getInProgressPopupListPassesOptionalFiltersAndKeepsWebEnvelope() throws Exception {
+    given(popupWebService.getInProgressPopupList("서울", "성동구", "MOST_VIEWED")).willReturn(List.of());
+
+    mockMvc
+        .perform(
+            get("/api/v1/web/popup/in-progress")
+                .param("region", "서울")
+                .param("district", "성동구")
+                .param("sort", "MOST_VIEWED")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.message").value("요청 성공!"))
+        .andExpect(jsonPath("$.data").isEmpty());
+
+    verify(popupWebService).getInProgressPopupList("서울", "성동구", "MOST_VIEWED");
+  }
+
+  @Test
+  void getInProgressPopupListRejectsUnsupportedSort() throws Exception {
+    given(popupWebService.getInProgressPopupList(null, null, "UNSUPPORTED"))
+        .willThrow(new BaseException(ErrorCode.INVALID_SORT_STANDARD));
+
+    mockMvc
+        .perform(
+            get("/api/v1/web/popup/in-progress")
+                .param("sort", "UNSUPPORTED")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.code").value(4303))
+        .andExpect(jsonPath("$.message").value("지원하지 않는 정렬 기준입니다."));
+
+    verify(popupWebService).getInProgressPopupList(null, null, "UNSUPPORTED");
+  }
+
+  @Test
+  void getInProgressPopupListRejectsDistrictWithoutRegion() throws Exception {
+    given(popupWebService.getInProgressPopupList(null, "성동구", null))
+        .willThrow(new BaseException(ErrorCode.REGION_REQUIRED_FOR_DISTRICT));
+
+    mockMvc
+        .perform(
+            get("/api/v1/web/popup/in-progress")
+                .param("district", "성동구")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.success").value(false))
+        .andExpect(jsonPath("$.code").value(4314))
+        .andExpect(jsonPath("$.message").value("구를 조회하려면 지역이 필요합니다."));
+
+    verify(popupWebService).getInProgressPopupList(null, "성동구", null);
   }
 
   @Test

@@ -3,6 +3,7 @@ package com.poppang.be.domain.popup.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.jpa.repository.Query;
 
@@ -50,6 +51,28 @@ class PopupRepositoryQueryTest {
   void findInProgressActiveWithThumbnailUsesStableClosingSoonOrder() throws Exception {
     assertThat(normalize(inProgressQuery().value()))
         .contains("order by p.end_date asc, p.start_date desc, p.uuid asc");
+  }
+
+  @Test
+  void everyHomeSortQueryExcludesInactiveEndedAndUpcomingPopups() throws Exception {
+    for (String methodName :
+        List.of(
+            "findActiveByNewest",
+            "findActiveByClosingSoon",
+            "findActiveByMostFavorited",
+            "findActiveByMostViewed")) {
+      Method method =
+          PopupRepository.class.getDeclaredMethod(methodName, String.class, String.class);
+      Query queryAnnotation = method.getAnnotation(Query.class);
+
+      assertThat(queryAnnotation).as(methodName).isNotNull();
+      String query = canonical(queryAnnotation.value());
+      assertThat(query)
+          .as(methodName)
+          .containsAnyOf("p.isactive = 1", "p.activated = true")
+          .contains("p.startdate <= currentdate")
+          .contains("p.enddate >= currentdate");
+    }
   }
 
   @Test
@@ -129,5 +152,9 @@ class PopupRepositoryQueryTest {
 
   private String normalize(String query) {
     return query.replaceAll("\\s+", " ").trim().toLowerCase();
+  }
+
+  private String canonical(String query) {
+    return normalize(query).replace("_", "");
   }
 }

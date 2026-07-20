@@ -53,6 +53,7 @@ public class PopupServiceImpl implements PopupService {
   private final UsersRepository usersRepository;
   private final PopupResponseDtoMapper popupResponseDtoMapper;
   private final PopupCountBoostService popupCountBoostService;
+  private final PopupHomeFilterService popupHomeFilterService;
   private final ObjectMapper objectMapper;
 
   @Override
@@ -205,32 +206,9 @@ public class PopupServiceImpl implements PopupService {
   @Override
   public List<PopupResponseDto> getFilteredHomePopupList(
       String region, String district, HomeSortStandard homeSortStandard) {
-    String normalizedRegion = StringNormalizer.normalizeRegion(region);
-    String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
-
-    if (homeSortStandard == HomeSortStandard.NEWEST) {
-      List<Popup> popupList =
-          popupRepository.findActiveByNewest(normalizedRegion, normalizedDistrict);
-
-      return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
-    } else if (homeSortStandard == HomeSortStandard.CLOSING_SOON) {
-      List<Popup> popupList =
-          popupRepository.findActiveByClosingSoon(normalizedRegion, normalizedDistrict);
-
-      return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
-    } else if (homeSortStandard == HomeSortStandard.MOST_FAVORITED) {
-      List<Popup> popupList =
-          popupRepository.findActiveByMostFavorited(normalizedRegion, normalizedDistrict);
-
-      return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
-    } else if (homeSortStandard == HomeSortStandard.MOST_VIEWED) {
-      List<Popup> popupList =
-          popupRepository.findActiveByMostViewed(normalizedRegion, normalizedDistrict);
-
-      return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
-    } else {
-      throw new BaseException(ErrorCode.INVALID_SORT_STANDARD);
-    }
+    List<Popup> popupList =
+        popupHomeFilterService.getFilteredPopupList(region, district, homeSortStandard);
+    return popupResponseDtoMapper.toPopupResponseDtoList(popupList);
   }
 
   @Override

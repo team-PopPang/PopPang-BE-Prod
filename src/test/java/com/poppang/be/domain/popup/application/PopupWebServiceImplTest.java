@@ -11,18 +11,22 @@ import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebInProgressResponseDto;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebSearchResponseDto;
+import com.poppang.be.domain.popup.entity.Popup;
+import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.infrastructure.PopupImageRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupTotalViewCountRepository;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebInProgressRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebSearchRow;
+import com.poppang.be.domain.popup.mapper.PopupWebInProgressResponseDtoMapper;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
@@ -39,6 +43,8 @@ class PopupWebServiceImplTest {
   @Mock private PopupTotalViewCountRepository popupTotalViewCountRepository;
   @Mock private UserFavoriteRepository userFavoriteRepository;
   @Mock private PopupCountBoostService popupCountBoostService;
+  @Mock private PopupHomeFilterService popupHomeFilterService;
+  @Mock private PopupWebInProgressResponseDtoMapper popupWebInProgressResponseDtoMapper;
 
   @InjectMocks private PopupWebServiceImpl popupWebService;
 
@@ -88,6 +94,82 @@ class PopupWebServiceImplTest {
     List<PopupWebInProgressResponseDto> result = popupWebService.getInProgressPopupList();
 
     assertThat(result).isEmpty();
+  }
+
+  @Test
+  void getInProgressPopupListWithoutParametersKeepsLegacyRepositoryPath() {
+    PopupWebInProgressRow row =
+        row(
+            "popup-uuid",
+            "기존 팝업",
+            "thumbnail.jpg",
+            "서울 성동구",
+            LocalDate.of(2026, 7, 1),
+            LocalDate.of(2026, 7, 31));
+    given(popupRepository.findInProgressActiveWithThumbnail()).willReturn(List.of(row));
+
+    List<PopupWebInProgressResponseDto> result =
+        popupWebService.getInProgressPopupList(null, null, null);
+
+    assertThat(result)
+        .extracting(PopupWebInProgressResponseDto::getPopupUuid)
+        .containsExactly("popup-uuid");
+    verify(popupRepository).findInProgressActiveWithThumbnail();
+    verifyNoInteractions(popupHomeFilterService, popupWebInProgressResponseDtoMapper);
+  }
+
+  @ParameterizedTest
+  @EnumSource(HomeSortStandard.class)
+  void getInProgressPopupListUsesEverySupportedSort(HomeSortStandard sort) {
+    Popup popup = Popup.builder().id(1L).uuid("popup-uuid").build();
+    PopupWebInProgressResponseDto response =
+        PopupWebInProgressResponseDto.builder().popupUuid("popup-uuid").build();
+    given(popupHomeFilterService.getFilteredPopupList("서울", null, sort)).willReturn(List.of(popup));
+    given(popupWebInProgressResponseDtoMapper.toResponseDtoList(List.of(popup)))
+        .willReturn(List.of(response));
+
+    List<PopupWebInProgressResponseDto> result =
+        popupWebService.getInProgressPopupList("서울", null, sort.name());
+
+    assertThat(result).containsExactly(response);
+    verify(popupHomeFilterService).getFilteredPopupList("서울", null, sort);
+    verify(popupWebInProgressResponseDtoMapper).toResponseDtoList(List.of(popup));
+  }
+
+  @Test
+  void getInProgressPopupListDefaultsFilteredRequestToClosingSoonAndPassesWholeDistrict() {
+    given(popupHomeFilterService.getFilteredPopupList("서울", "전체", HomeSortStandard.CLOSING_SOON))
+        .willReturn(List.of());
+    given(popupWebInProgressResponseDtoMapper.toResponseDtoList(List.of())).willReturn(List.of());
+
+    List<PopupWebInProgressResponseDto> result =
+        popupWebService.getInProgressPopupList("서울", "전체", null);
+
+    assertThat(result).isEmpty();
+    verify(popupHomeFilterService).getFilteredPopupList("서울", "전체", HomeSortStandard.CLOSING_SOON);
+  }
+
+  @Test
+  void getInProgressPopupListRejectsUnsupportedSort() {
+    assertThatThrownBy(() -> popupWebService.getInProgressPopupList(null, null, "UNSUPPORTED"))
+        .isInstanceOfSatisfying(
+            BaseException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_SORT_STANDARD));
+
+    verifyNoInteractions(popupHomeFilterService, popupWebInProgressResponseDtoMapper);
+  }
+
+  @Test
+  void getInProgressPopupListRejectsDistrictWithoutRegion() {
+    assertThatThrownBy(() -> popupWebService.getInProgressPopupList(null, "성동구", null))
+        .isInstanceOfSatisfying(
+            BaseException.class,
+            exception ->
+                assertThat(exception.getErrorCode())
+                    .isEqualTo(ErrorCode.REGION_REQUIRED_FOR_DISTRICT));
+
+    verifyNoInteractions(popupHomeFilterService, popupWebInProgressResponseDtoMapper);
   }
 
   @Test

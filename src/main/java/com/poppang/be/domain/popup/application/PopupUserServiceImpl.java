@@ -53,6 +53,7 @@ public class PopupUserServiceImpl implements PopupUserService {
   private final UserRecommendRepository userRecommendRepository;
   private final PopupUserResponseDtoMapper popupUserResponseDtoMapper;
   private final PopupCountBoostService popupCountBoostService;
+  private final PopupHomeFilterService popupHomeFilterService;
 
   @Override
   @Transactional(readOnly = true)
@@ -270,37 +271,14 @@ public class PopupUserServiceImpl implements PopupUserService {
             .findByUuid(userUuid)
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
 
-    String normalizedRegion = StringNormalizer.normalizeRegion(region);
-    String normalizedDistrict = StringNormalizer.normalizeDistrict(district);
-
     Set<Long> favoritedPopupIdList =
         userFavoriteRepository.findAllActivatedByUserUuid(userUuid).stream()
             .map(f -> f.getPopup().getId())
             .collect(Collectors.toSet());
 
-    if (homeSortStandard == HomeSortStandard.NEWEST) {
-      List<Popup> popupList =
-          popupRepository.findActiveByNewest(normalizedRegion, normalizedDistrict);
-
-      return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
-    } else if (homeSortStandard == HomeSortStandard.CLOSING_SOON) {
-      List<Popup> popupList =
-          popupRepository.findActiveByClosingSoon(normalizedRegion, normalizedDistrict);
-
-      return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
-    } else if (homeSortStandard == HomeSortStandard.MOST_FAVORITED) {
-      List<Popup> popupList =
-          popupRepository.findActiveByMostFavorited(normalizedRegion, normalizedDistrict);
-
-      return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
-    } else if (homeSortStandard == HomeSortStandard.MOST_VIEWED) {
-      List<Popup> popupList =
-          popupRepository.findActiveByMostViewed(normalizedRegion, normalizedDistrict);
-
-      return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
-    } else {
-      throw new BaseException(ErrorCode.INVALID_SORT_STANDARD);
-    }
+    List<Popup> popupList =
+        popupHomeFilterService.getFilteredPopupList(region, district, homeSortStandard);
+    return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
   }
 
   @Override
