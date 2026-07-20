@@ -53,8 +53,7 @@ class TestContextSafetyContractTest {
     ActiveProfiles activeProfiles = securityTest.getAnnotation(ActiveProfiles.class);
     WebMvcTest webMvcTest = securityTest.getAnnotation(WebMvcTest.class);
     OverrideAutoConfiguration overrideAutoConfiguration =
-        AnnotatedElementUtils.findMergedAnnotation(
-            WebMvcTest.class, OverrideAutoConfiguration.class);
+        AnnotatedElementUtils.findMergedAnnotation(securityTest, OverrideAutoConfiguration.class);
 
     assertThat(activeProfiles).isNotNull();
     assertThat(activeProfiles.value()).containsExactly("test");
