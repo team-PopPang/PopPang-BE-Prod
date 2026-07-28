@@ -25,6 +25,7 @@ public enum ErrorCode {
   USER_NOT_FOUND(HttpStatus.NOT_FOUND, 4201, "유저를 찾을 수 없습니다."),
   DUPLICATE_NICKNAME(HttpStatus.CONFLICT, 4202, "이미 존재하는 닉네임입니다."),
   ACCESS_DENIED(HttpStatus.FORBIDDEN, 4203, "관리자만 사용할 수 있는 기능입니다."),
+  SIGNUP_ALREADY_COMPLETED(HttpStatus.CONFLICT, 4204, "이미 회원가입을 완료한 사용자입니다."),
 
   // ==================================================
   // 4300 ~ 4399 : Popup (팝업)
@@ -54,6 +55,15 @@ public enum ErrorCode {
   UNSUPPORTED_TOKEN(HttpStatus.UNAUTHORIZED, 5003, "지원하지 않는 토큰 형식입니다."),
   MALFORMED_TOKEN(HttpStatus.UNAUTHORIZED, 5004, "손상된 토큰입니다."),
   TOKEN_SIGNATURE_INVALID(HttpStatus.UNAUTHORIZED, 5005, "토큰 서명이 올바르지 않습니다."),
+  AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, 5006, "인증이 필요합니다."),
+  REFRESH_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, 5007, "최신 Refresh Token이 아닙니다."),
+  INSUFFICIENT_AUTHORITY(HttpStatus.FORBIDDEN, 5008, "요청을 처리할 권한이 없습니다."),
+  INVALID_WORKER_API_KEY(HttpStatus.UNAUTHORIZED, 5009, "Worker API Key가 올바르지 않습니다."),
+  ACCOUNT_NOT_ACTIVE(HttpStatus.UNAUTHORIZED, 5010, "활성 상태의 계정이 아닙니다."),
+  INVALID_REFRESH_REQUEST(HttpStatus.BAD_REQUEST, 5011, "Refresh Token 요청이 올바르지 않습니다."),
+  SIGNUP_PROVIDER_MISMATCH(HttpStatus.FORBIDDEN, 5012, "회원가입 provider가 일치하지 않습니다."),
+  AUTH_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, 5013, "인증 저장소를 사용할 수 없습니다."),
+  SIGNUP_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, 5014, "최신 Signup Token이 아닙니다."),
 
   // ==================================================
   // 6000 ~ 6999 : System / Unexpected
