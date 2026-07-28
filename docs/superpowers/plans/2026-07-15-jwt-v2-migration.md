@@ -104,6 +104,49 @@ Users 코드를 `main`에 merge할 수 있다. 실제 이력에서는 구현 청
 smoke, 해당 v2의 token 없음·권한 부족·정상 요청 smoke와 새 5xx/DB·Redis 오류 부재다. 종료 gate를
 확인하기 전에는 다음 wave를 merge하지 않는다.
 
+### Commit, Push, PR, merge and deployment protocol
+
+구현 청크와 운영 배포 wave는 같은 단위가 아니다. 구현 청크마다 독립적으로 검증하고 commit하되,
+Push·PR·merge·운영 배포는 위 표의 wave 경계에서 수행한다. 한 wave에 여러 구현 청크가 있으면 같은
+feature branch에 순서대로 commit하고, wave의 마지막 구현 청크까지 검증된 뒤 PR을 만든다.
+
+GitHub에 쓰기 작업을 하기 전에는 `gh auth status -h github.com`과
+`gh api user --jq .login`으로 활성 계정을 확인한다. 로그인 이름은 반드시 `dev-song42`여야 한다.
+인증 확인이 실패하거나 다른 계정이면 commit 이후의 Push·PR·merge·배포 작업을 즉시 중단하고
+사용자에게 보고한다. 에이전트가 임의로 계정을 전환하거나 다른 계정으로 계속 진행하지 않는다.
+
+각 구현 청크는 다음 순서로 처리한다.
+
+1. `git status`와 diff를 확인하고 기존 사용자 변경과 현재 청크의 범위를 구분한다.
+2. Entity/JPA/schema 영향 가능성을 먼저 판정하고, 영향이 있으면 별도 Entity/DDL 승인을 받을 때까지
+   구현을 시작하지 않는다.
+3. 실패 테스트를 먼저 추가하고 최소 구현 뒤 focused test, v1 contract test, compile과 formatting을
+   실행한다. 외부 DB·Redis 접속 가능성이 있으면 실행하지 않고 차단 항목으로 보고한다.
+4. 검증 결과와 정확한 commit 대상 파일, 예정 commit message를 보고한다.
+5. 사용자의 **현재 commit에 대한 명시적 승인**을 받은 뒤에만 해당 파일을 `git add`하고 commit한다.
+   일반적인 진행 승인이나 이전 commit 승인을 다음 commit 승인으로 재사용하지 않는다.
+6. commit 후 작업 트리와 commit SHA를 확인한다. Push는 commit 승인과 별개이므로 정확한 branch와
+   commit을 보고하고 **별도 Push 승인**을 받은 뒤 실행한다.
+7. Push 뒤 원격 branch가 같은 commit SHA를 가리키는지 확인한다. 같은 PR에 문서나 코드를 추가해야
+   해도 새 변경은 다시 검증하고 새 commit 승인과 새 Push 승인을 각각 받는다.
+
+PR과 운영 배포는 다음 규칙을 따른다.
+
+1. PR은 배포 wave마다 하나를 만들며 base는 `main`, head는 해당 wave의 feature branch로 고정한다.
+2. PR 생성도 외부 상태 변경이므로 사용자에게 제목, base/head, Draft 여부를 보고하고 승인받는다.
+3. 기본값은 CI와 자동 리뷰가 모두 실행되는 **Ready for review**다. 미완성 공유가 목적이고 사용자가
+   명시적으로 요청한 경우에만 Draft로 만들며, Draft에서는 자동 리뷰가 생략될 수 있음을 알린다.
+4. PR 제목에는 `JWT v2 Wave n`과 범위를 표시한다. 본문에는 변경 목적·v1 호환성·Entity/DB 영향,
+   private config gate, 실행한 테스트, 미검증 항목, 배포 smoke와 rollback 계획을 기록한다.
+5. 필수 CI와 리뷰가 모두 통과해도 자동 merge하지 않는다. 결과와 최종 head SHA를 사용자에게
+   보고하고, review 수정이 생기면 수정 commit과 Push에 각각 새 승인을 받는다.
+6. `main` merge가 production 배포를 시작한다는 사실을 다시 알리고, PR·head SHA·CI 결과·설정/DB
+   gate·smoke·rollback 준비를 보고한 뒤 **별도 merge·운영 배포 승인**을 받는다.
+7. merge 뒤 GitHub Actions production deploy, 배포 image SHA, Actuator UP, 대표 v1 익명 smoke,
+   해당 v2의 401/403·정상 요청 smoke와 DB·Redis 오류를 확인한다.
+8. 종료 gate가 실패하면 다음 구현 wave를 시작하지 않고 신규 v2 traffic을 중단한 뒤 승인된 rollback
+   절차를 따른다. 성공이 확인된 뒤에만 `운영 배포 완료 m/7`을 증가시킨다.
+
 ### Mandatory progress report
 
 각 배포 wave를 시작할 때와 구현·검증이 끝날 때 아래 형식으로 사용자에게 보고한다.
@@ -123,17 +166,6 @@ smoke, 해당 v2의 token 없음·권한 부족·정상 요청 smoke와 새 5xx/
 `main` merge, Actions production deploy, health와 smoke 확인이 모두 끝났을 때만 증가시킨다.
 배포할 단계가 되면 `main merge가 운영 배포를 시작한다`고 다시 알리고 commit, push, merge·배포
 승인을 각각 받는다. gate가 남아 있으면 반드시 `지금 배포하면 안 됩니다`라고 명시한다.
-
-각 청크는 다음 순서를 반복한다.
-
-1. 변경 예정 파일에 Entity/JPA/schema 영향이 있는지 먼저 판정한다.
-2. 영향이 있으면 아래 Entity/DDL 승인 gate를 완료할 때까지 코드 수정을 시작하지 않는다.
-3. 해당 청크의 실패 테스트를 먼저 추가한다.
-4. v2 adapter와 필요한 최소 공통 변경만 구현한다.
-5. focused test와 v1 contract test를 실행한다.
-6. 변경 파일과 결과를 사용자에게 보고한다.
-7. commit이 필요하면 파일 목록과 메시지를 제시하고 별도 승인을 기다린다.
-8. push, PR merge와 그에 따른 운영 배포는 각각 현재 wave의 새 승인을 받는다.
 
 ## Pre-implementation gates
 
