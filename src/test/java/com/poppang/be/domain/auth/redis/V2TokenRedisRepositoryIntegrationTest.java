@@ -2,7 +2,6 @@ package com.poppang.be.domain.auth.redis;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.poppang.be.common.jwt.JwtFingerprint;
 import com.poppang.be.common.jwt.JwtTokenType;
@@ -31,6 +30,7 @@ class V2TokenRedisRepositoryIntegrationTest {
 
   private static final int CONCURRENT_REQUESTS = 16;
   private static final String REDIS_VERSION_ENV = "POPPANG_TEST_REDIS_VERSION";
+  private static final String DEFAULT_REDIS_VERSION = "7.2.12";
 
   private static GenericContainer<?> redis;
   private static LettuceConnectionFactory connectionFactory;
@@ -40,10 +40,12 @@ class V2TokenRedisRepositoryIntegrationTest {
 
   @BeforeAll
   static void startDisposableRedis() {
-    String redisVersion = System.getenv(REDIS_VERSION_ENV);
-    assumeTrue(
-        redisVersion != null && redisVersion.matches("[0-9]+\\.[0-9]+(\\.[0-9]+)?"),
-        "운영 Redis version 확인 후 POPPANG_TEST_REDIS_VERSION을 지정해야 합니다.");
+    String configuredRedisVersion = System.getenv(REDIS_VERSION_ENV);
+    String redisVersion =
+        configuredRedisVersion == null || configuredRedisVersion.isBlank()
+            ? DEFAULT_REDIS_VERSION
+            : configuredRedisVersion;
+    assertThat(redisVersion).matches("[0-9]+\\.[0-9]+(\\.[0-9]+)?");
 
     redis =
         new GenericContainer<>(DockerImageName.parse("redis:" + redisVersion))
