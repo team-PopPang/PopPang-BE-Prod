@@ -37,8 +37,8 @@ Redis가 담당한다.
 ## Execution chunk map
 
 74개 v2 mapping을 한 번에 구현하지 않는다. 아래 청크는 구현·검토·commit 승인 단위다. 실제
-운영 반영은 뒤의 deployment wave가 이 청크를 더 작은 production-safe 단위로 매핑한다. 일부
-v2가 먼저 배포되어도 모바일·worker traffic은 필요한 서버 wave가 모두 안정화되기 전까지
+운영 반영은 뒤의 7개 deployment wave가 연관된 구현 청크를 production-safe release 단위로 묶는다.
+일부 v2가 먼저 배포되어도 모바일·worker traffic은 필요한 서버 wave가 모두 안정화되기 전까지
 전환하지 않는다.
 
 | 청크 | 범위 | v2 API 수 | 완료 기준 |
@@ -72,34 +72,27 @@ v2가 먼저 배포되어도 모바일·worker traffic은 필요한 서버 wave�
 앞 wave가 운영에서 안정화되기 전에는 다음 wave를 `main`에 merge하지 않는다. 여러 wave를 한
 PR로 합치려면 사용자에게 범위와 위험을 다시 보고하고 별도 승인을 받는다.
 
-| 배포 청크 | 구현 청크 | 범위 | v2 API 수 | merge 전 필수 gate |
+| 배포 wave | 구현 청크 | 범위 | v2 API 수 | merge 전 필수 gate |
 |---:|---:|---|---:|---|
-| 1/16 | 0 | v1 inventory·익명 호환 기준선 | 0 | 계약 테스트 통과, runtime 동작 변경 없음 |
-| 2/16 | 1 | SignupStatus·Users identity 기반 | 0 | DB-E1 적용·검증, v1 signup 상태 전이, binary 호환 |
-| 3/16 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | private config, legacy JWT 비침해, 실제 Redis 테스트 |
-| 4/16 | 4 | v1/v2/internal SecurityFilterChain | 0 | v1·health·문서·정적 경로 회귀와 401/403 계약 |
-| 5/16 | 5~6 | Refresh·logout·Kakao login/signup | 5 | strict rotation, v1 Kakao 회귀, 첫 v2 수직 흐름 |
-| 6/16 | 7 | Google·Apple login/signup | 6 | 두 provider의 v1/v2 회귀와 credential 검증 |
-| 7/16 | 8 | 사용자 self-service | 6 | principal 본인 한정, soft-delete와 token 무효화 |
-| 8/16 | 9~10 | 찜·알림 키워드·알림함 | 10 | caller UUID 제거와 타 사용자 접근 거절 |
-| 9/16 | 11 | 일반 popup 핵심 조회 | 7 | v1 결과 회귀와 TOKEN_ACCESS 기본 정책 |
-| 10/16 | 12~13 | popup 필터·추천·조회수·recommend master | 11 | filter/count/featured 계약과 v1 회귀 |
-| 11/16 | 14 | 개인화 popup 핵심 조회 | 6 | principal 기반 찜·개인화 결과 검증 |
-| 12/16 | 15 | 개인화 고급 조회·popup 제보 | 6 | read와 submission write 회귀, principal 제보자 |
-| 13/16 | 16 | 공개 Web API | 7 | GET/HEAD permitAll 전용, write API 부재 |
-| 14/16 | 17 | Admin 조회·상태 변경 | 5 | 모든 mapping의 현재 ROLE_ADMIN 검증 |
-| 15/16 | 18 | worker polling·crawler·alert | 5 | API Key·caller·target 분리, ETL smoke 계획 |
-| 16/16 | 19 | OpenAPI·관측·matrix·전체 안정화 | 0 | spotlessCheck, clean test/build, 전체 v1/v2 회귀 |
+| 1/7 | 0~1 | v1 호환 기준선·SignupStatus·Users identity 기반 | 0 | 계약 테스트, DB-E1 적용·검증, v1 signup 상태 전이 |
+| 2/7 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | private config, legacy JWT 비침해, 실제 Redis 테스트 |
+| 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 17 | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
+| 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | caller UUID 제거와 타 사용자 접근 거절 |
+| 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | v1 결과 회귀와 filter/count/featured 계약 |
+| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 19 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
+| 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
 
-DB-E1은 2/16의 선행 수동 DB gate이며 16개 서버 배포 청크 숫자에는 포함하지 않는다. 대상
-DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 적용·검증한 뒤에만 2/16을
-`main`에 merge할 수 있다.
+DB-E1은 1/7의 선행 수동 DB gate이며 서버 배포 wave 숫자에는 포함하지 않는다. 대상
+DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 적용·검증한 뒤에만 관련
+Users 코드를 `main`에 merge할 수 있다. 실제 이력에서는 구현 청크 0과 1을 각각 별도 배포했으며,
+두 배포를 합쳐 완료된 1/7 기반 wave로 기록한다. 따라서 배포 wave 수는 release 진행 단위이고,
+장애 대응이나 이미 완료된 선행 분할로 실제 production deploy 실행 횟수와 다를 수 있다.
 
-1/16~16/16은 서버를 작게 배포하기 위한 순서이며 모바일이나 worker를 곧바로 해당 청크로
+1/7~7/7은 서버를 안전한 release 단위로 배포하기 위한 순서이며 모바일이나 worker를 곧바로 해당 wave로
 전환한다는 뜻이 아니다. iOS/AOS/ETL 전환은 필요한 서버 wave가 모두 안정화된 뒤 별도 승인과 일정으로
 진행한다. 새 v2 endpoint가 일부 배포되어도 기존 v1은 계속 동일하게 동작해야 한다.
 
-모든 API wave는 해당 endpoint의 OpenAPI 보안 표기와 저카디널리티 관측을 함께 포함한다. 16/16은
+모든 API wave는 해당 endpoint의 OpenAPI 보안 표기와 저카디널리티 관측을 함께 포함한다. 7/7은
 이를 처음 추가하는 wave가 아니라 전체 누락과 migration matrix를 최종 검증하는 wave다.
 
 모든 wave의 공통 진입 gate는 직전 배포 healthy·관찰 완료, focused test와 v1 contract test,
@@ -111,35 +104,68 @@ DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 
 smoke, 해당 v2의 token 없음·권한 부족·정상 요청 smoke와 새 5xx/DB·Redis 오류 부재다. 종료 gate를
 확인하기 전에는 다음 wave를 merge하지 않는다.
 
+### Commit, Push, PR, merge and deployment protocol
+
+구현 청크와 운영 배포 wave는 같은 단위가 아니다. 구현 청크마다 독립적으로 검증하고 commit하되,
+Push·PR·merge·운영 배포는 위 표의 wave 경계에서 수행한다. 한 wave에 여러 구현 청크가 있으면 같은
+feature branch에 순서대로 commit하고, wave의 마지막 구현 청크까지 검증된 뒤 PR을 만든다.
+
+GitHub에 쓰기 작업을 하기 전에는 `gh auth status -h github.com`과
+`gh api user --jq .login`으로 활성 계정을 확인한다. 로그인 이름은 반드시 `dev-song42`여야 한다.
+인증 확인이 실패하거나 다른 계정이면 commit 이후의 Push·PR·merge·배포 작업을 즉시 중단하고
+사용자에게 보고한다. 에이전트가 임의로 계정을 전환하거나 다른 계정으로 계속 진행하지 않는다.
+
+각 구현 청크는 다음 순서로 처리한다.
+
+1. `git status`와 diff를 확인하고 기존 사용자 변경과 현재 청크의 범위를 구분한다.
+2. Entity/JPA/schema 영향 가능성을 먼저 판정하고, 영향이 있으면 별도 Entity/DDL 승인을 받을 때까지
+   구현을 시작하지 않는다.
+3. 실패 테스트를 먼저 추가하고 최소 구현 뒤 focused test, v1 contract test, compile과 formatting을
+   실행한다. 외부 DB·Redis 접속 가능성이 있으면 실행하지 않고 차단 항목으로 보고한다.
+4. 검증 결과와 정확한 commit 대상 파일, 예정 commit message를 보고한다.
+5. 사용자의 **현재 commit에 대한 명시적 승인**을 받은 뒤에만 해당 파일을 `git add`하고 commit한다.
+   일반적인 진행 승인이나 이전 commit 승인을 다음 commit 승인으로 재사용하지 않는다.
+6. commit 후 작업 트리와 commit SHA를 확인한다. Push는 commit 승인과 별개이므로 정확한 branch와
+   commit을 보고하고 **별도 Push 승인**을 받은 뒤 실행한다.
+7. Push 뒤 원격 branch가 같은 commit SHA를 가리키는지 확인한다. 같은 PR에 문서나 코드를 추가해야
+   해도 새 변경은 다시 검증하고 새 commit 승인과 새 Push 승인을 각각 받는다.
+
+PR과 운영 배포는 다음 규칙을 따른다.
+
+1. PR은 배포 wave마다 하나를 만들며 base는 `main`, head는 해당 wave의 feature branch로 고정한다.
+2. PR 생성도 외부 상태 변경이므로 사용자에게 제목, base/head, Draft 여부를 보고하고 승인받는다.
+3. 기본값은 CI와 자동 리뷰가 모두 실행되는 **Ready for review**다. 미완성 공유가 목적이고 사용자가
+   명시적으로 요청한 경우에만 Draft로 만들며, Draft에서는 자동 리뷰가 생략될 수 있음을 알린다.
+4. PR 제목에는 `JWT v2 Wave n`과 범위를 표시한다. 본문에는 변경 목적·v1 호환성·Entity/DB 영향,
+   private config gate, 실행한 테스트, 미검증 항목, 배포 smoke와 rollback 계획을 기록한다.
+5. 필수 CI와 리뷰가 모두 통과해도 자동 merge하지 않는다. 결과와 최종 head SHA를 사용자에게
+   보고하고, review 수정이 생기면 수정 commit과 Push에 각각 새 승인을 받는다.
+6. `main` merge가 production 배포를 시작한다는 사실을 다시 알리고, PR·head SHA·CI 결과·설정/DB
+   gate·smoke·rollback 준비를 보고한 뒤 **별도 merge·운영 배포 승인**을 받는다.
+7. merge 뒤 GitHub Actions production deploy, 배포 image SHA, Actuator UP, 대표 v1 익명 smoke,
+   해당 v2의 401/403·정상 요청 smoke와 DB·Redis 오류를 확인한다.
+8. 종료 gate가 실패하면 다음 구현 wave를 시작하지 않고 신규 v2 traffic을 중단한 뒤 승인된 rollback
+   절차를 따른다. 성공이 확인된 뒤에만 `운영 배포 완료 m/7`을 증가시킨다.
+
 ### Mandatory progress report
 
-각 배포 청크를 시작할 때와 구현·검증이 끝날 때 아래 형식으로 사용자에게 보고한다.
+각 배포 wave를 시작할 때와 구현·검증이 끝날 때 아래 형식으로 사용자에게 보고한다.
 
 ~~~text
-현재 배포 청크: n/16 — 범위
+현재 구현 청크: x/20 — 범위
+현재 배포 wave: n/7 — 범위
 구현 상태: 시작 전 | 구현 중 | 구현 완료
 검증 상태: 미실행 | 일부 통과 | 전체 통과
-운영 배포 완료: m/16
+운영 배포 완료: m/7
 배포 판단: 지금 배포하면 안 됩니다 | 지금 배포할 단계입니다 — 별도 승인 필요 | 배포 완료
 차단 항목: 없음 또는 구체적인 gate
 다음 작업: 한 문장
 ~~~
 
-`구현 완료 n/16`을 `운영 배포 완료 n/16`으로 표현하지 않는다. `운영 배포 완료` 숫자는
+`구현 청크 완료 x/20`을 `운영 배포 완료 n/7`로 표현하지 않는다. `운영 배포 완료` 숫자는
 `main` merge, Actions production deploy, health와 smoke 확인이 모두 끝났을 때만 증가시킨다.
 배포할 단계가 되면 `main merge가 운영 배포를 시작한다`고 다시 알리고 commit, push, merge·배포
 승인을 각각 받는다. gate가 남아 있으면 반드시 `지금 배포하면 안 됩니다`라고 명시한다.
-
-각 청크는 다음 순서를 반복한다.
-
-1. 변경 예정 파일에 Entity/JPA/schema 영향이 있는지 먼저 판정한다.
-2. 영향이 있으면 아래 Entity/DDL 승인 gate를 완료할 때까지 코드 수정을 시작하지 않는다.
-3. 해당 청크의 실패 테스트를 먼저 추가한다.
-4. v2 adapter와 필요한 최소 공통 변경만 구현한다.
-5. focused test와 v1 contract test를 실행한다.
-6. 변경 파일과 결과를 사용자에게 보고한다.
-7. commit이 필요하면 파일 목록과 메시지를 제시하고 별도 승인을 기다린다.
-8. push, PR merge와 그에 따른 운영 배포는 각각 현재 wave의 새 승인을 받는다.
 
 ## Pre-implementation gates
 
@@ -180,10 +206,10 @@ no-return gate까지 분리한다. Entity 파일만 바뀌고 schema 영향이 �
 외부 DB 접속을 하지 않는다. 일반적인 `진행해줘`나 이전 wave의 승인은 Entity/DDL 승인으로
 간주하지 않는다. DDL 문서 작성 승인과 실제 DB 실행 승인은 서로 별개다.
 
-현재 2/16은 `Users.signup_status` mapping을 포함하므로 운영 DB에 DB-E1이 승인·적용·검증되기 전에는
-auto-deploy되는 `main`에 merge할 수 없다. 로컬 복원 DB 연습 완료는 운영 적용 승인으로 간주하지
-않는다. 현재 기록된 운영 schema에는 nullable column이 이미 있으므로 DB-E1은 column 추가가 아니라
-NULL row backfill `UPDATE`와 default `ALTER`다. 실행 전 실제 대상 schema를 다시 확인한다.
+1/7의 구현 청크 1은 `Users.signup_status` mapping을 포함하므로 운영 DB에 DB-E1이 승인·적용·검증되기
+전에는 auto-deploy되는 `main`에 merge할 수 없었다. 로컬 복원 DB 연습 완료만으로 운영 적용을
+승인하지 않았으며, 운영 적용은 별도 승인과 수동 검증을 거쳐 완료했다. 당시 nullable column이 이미
+존재해 DB-E1은 column 추가가 아니라 NULL row backfill `UPDATE`와 default `ALTER`로 수행됐다.
 
 ---
 
@@ -282,7 +308,7 @@ expand 적용은 완료됐다. 로컬 복원 DB에서는 users 303건, NULL 0건
 운영 `poppang_prod_db`에서는 users 307건, NULL 0건, PENDING 122건, COMPLETED 185건, nickname
 기준 불일치 0건과 nullable enum/default PENDING을 확인했다. 두 환경 모두
 `03-users-contract.sql`은 실행하지 않았다. 운영 MySQL 8.0.43과 로컬 MySQL 9.2.0의 버전 차이는
-사용자 결정으로 수용했고, 2/16 code의 v1 DTO signup 상태 전이 차단 항목도 해결됐다. 구·신규
+사용자 결정으로 수용했고, 구현 청크 1의 v1 DTO signup 상태 전이 차단 항목도 해결됐다. 구·신규
 binary의 실제 DB 연결 호환성과 운영 ALTER 당시 metadata lock 영향은 확인되지 않은 위험으로
 남기며, production merge 전 코드 검증과 해당 위험의 수용 여부를 별도로 판단한다.
 
@@ -304,13 +330,17 @@ binary의 실제 DB 연결 호환성과 운영 ALTER 당시 metadata lock 영향
 
 **Steps:**
 
-- [ ] `SIGNUP` type과 `iss`, token별 `aud`, `sub`, `iat`, `exp`, `jti`, Access/Refresh 공통 `sid`를
+- [x] `SIGNUP` type과 `iss`, token별 `aud`, `sub`, `iat`, `exp`, `jti`, Access/Refresh 공통 `sid`를
       구현한다.
-- [ ] Access 15분, Refresh 30일 sliding, Signup 15분을 properties로 받는다.
-- [ ] parser가 signature/issuer/audience/algorithm/type을 한 번 검증하고 `VerifiedJwt`를 반환하게 한다.
-- [ ] `assertAccessToken`의 raw RuntimeException을 제거하고 모든 JWT 오류를 ErrorCode로 정규화한다.
-- [ ] HS256 secret 길이와 필수 property를 시작 시 검증하고 secret 자체는 로그에 남기지 않는다.
-- [ ] 고정 Clock으로 claim과 만료를 테스트하고 none/다른 algorithm, 잘못된 aud/typ를 각각 거절한다.
+- [x] Access 15분, Refresh 30일 sliding, Signup 15분을 properties로 받는다.
+- [x] parser가 signature/issuer/audience/algorithm/type을 한 번 검증하고 `VerifiedJwt`를 반환하게 한다.
+- [x] `assertAccessToken`의 raw RuntimeException을 제거하고 모든 JWT 오류를 ErrorCode로 정규화한다.
+- [x] HS256 secret 길이와 필수 property를 시작 시 검증하고 secret 자체는 로그에 남기지 않는다.
+- [x] 고정 Clock으로 claim과 만료를 테스트하고 none/다른 algorithm, 잘못된 aud/typ를 각각 거절한다.
+
+2026-07-21 기준 JWT focused test와 v1 호환 회귀 test는 통과했다. 운영 배포 전 private config의
+신규 audience·Signup TTL 항목과 기존 secret의 256-bit 조건 충족 여부는 값 노출 없이 별도로
+확인해야 한다.
 
 **Verification:**
 
@@ -336,14 +366,18 @@ binary의 실제 DB 연결 호환성과 운영 ALTER 당시 metadata lock 영향
 
 **Steps:**
 
-- [ ] production과 같은 Redis major를 사용하는 Testcontainers test dependency를 추가한다.
-- [ ] `auth:v2:refresh:{userUuid}`와 `auth:v2:signup:{userUuid}`에 token 원문 대신 SHA-256 hash,
+- [x] production과 같은 Redis version을 사용하는 Testcontainers test dependency를 추가한다.
+- [x] `auth:v2:refresh:{userUuid}`와 `auth:v2:signup:{userUuid}`에 token 원문 대신 SHA-256 hash,
       jti, sid/issuedAt을 저장한다.
-- [ ] 저장과 TTL을 하나의 원자 명령으로 처리한다.
-- [ ] refresh compare-and-replace, logout compare-delete, signup compare-delete를 Lua로 원자화한다.
-- [ ] 같은 token 동시 rotation/consume에서 정확히 하나만 성공하는 실제 Redis 통합 테스트를 작성한다.
-- [ ] Redis timeout과 연결 실패를 mismatch와 구분해 `AUTH_STORE_UNAVAILABLE`로 변환한다.
-- [ ] timeout 뒤 자동 재시도를 하지 않고 TTL과 key prefix가 설계값과 일치하는지 검증한다.
+- [x] 저장과 TTL을 하나의 원자 명령으로 처리한다.
+- [x] refresh compare-and-replace, logout compare-delete, signup compare-delete를 Lua로 원자화한다.
+- [x] 같은 token 동시 rotation/consume에서 정확히 하나만 성공하는 실제 Redis 통합 테스트를 작성한다.
+- [x] Redis timeout과 연결 실패를 mismatch와 구분해 `AUTH_STORE_UNAVAILABLE`로 변환한다.
+- [x] timeout 뒤 자동 재시도를 하지 않고 TTL과 key prefix가 설계값과 일치하는지 검증한다.
+
+2026-07-21 사용자 확인으로 운영 Redis가 `7.2.12`임을 식별했다. 운영 Redis에는 접속하지 않고
+`POPPANG_TEST_REDIS_VERSION=7.2.12`로 동일 버전의 폐기 가능한 Testcontainers Redis를 실행해
+TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4개를 모두 통과했다.
 
 **Verification:**
 
@@ -642,15 +676,16 @@ binary의 실제 DB 연결 호환성과 운영 ALTER 당시 metadata lock 영향
 
 ## Deployment and migration sequence
 
-1. 1/16을 별도 PR로 merge·배포해 v1 기준선만 먼저 고정한다.
+1. 1/7의 구현 청크 0을 별도 PR로 merge·배포해 v1 기준선을 먼저 고정한다.
 2. 로컬 복원 DB에서 audit/expand SQL 결과를 확인한다. DB-E1은 사용자 결정에 따라 로컬 MySQL
    9.2.0 결과를 사용하며 운영과 같은 major의 재연습은 생략한다.
 3. DB-E1의 대상 DB, backup, DDL, lock 영향과 rollback을 보고하고 별도 승인을 받는다.
-4. 승인된 expand SQL을 적용·검증하고 v1 signup 상태 전이를 보완한 뒤에만 2/16을 별도 PR로
-   merge·배포한다.
+4. 승인된 expand SQL을 적용·검증하고 v1 signup 상태 전이를 보완한 구현 청크 1을 별도 PR로
+   merge·배포한다. 두 선행 배포를 합쳐 1/7 기반 wave 완료로 기록한다.
 5. private config에 JWT audience/TTL, worker API Key, rate limit 값을 별도 승인으로 준비한다.
-6. 3/16~16/16을 위 표 순서대로 각각 검증·merge·운영 배포하고, 매 청크 뒤 v1 smoke와 해당 v2 smoke를
-   수행한다. smoke 실패 시 다음 wave를 중단하고 직전 검증 image로 rollback한다.
+6. 2/7~7/7을 위 표 순서대로 각각 검증·merge·운영 배포하고, 구현 청크마다 commit 후보를 만들되
+   운영 배포는 wave 경계에서만 수행한다. 각 wave 뒤 v1 smoke와 해당 v2 smoke를 실행하고, 실패하면
+   다음 wave를 중단한 뒤 직전 검증 image로 rollback한다.
 7. 필요한 서버 wave가 모두 안정화된 뒤 iOS와 Android를 v2로 전환하고 version별 전환율과 v1
    route 호출을 관찰한다.
 8. 외부 ETL/notification worker를 API Key와 v2 internal 경로로 전환한다.
