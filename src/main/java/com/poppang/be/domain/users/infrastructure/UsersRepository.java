@@ -20,6 +20,8 @@ public interface UsersRepository extends JpaRepository<Users, Long> {
 
   Optional<Users> findByProviderAndUid(Provider provider, String uid);
 
+  boolean existsByUidAndProviderNot(String uid, Provider provider);
+
   boolean existsByNickname(String nickname);
 
   Optional<Users> findByUuidAndDeletedFalse(String uuid);

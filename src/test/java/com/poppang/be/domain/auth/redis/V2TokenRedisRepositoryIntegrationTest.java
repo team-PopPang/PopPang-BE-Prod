@@ -3,9 +3,14 @@ package com.poppang.be.domain.auth.redis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.poppang.be.common.exception.BaseException;
+import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.jwt.JwtFingerprint;
 import com.poppang.be.common.jwt.JwtTokenType;
 import com.poppang.be.common.jwt.VerifiedJwt;
+import com.poppang.be.common.ratelimit.V2AuthRateLimitProperties;
+import com.poppang.be.common.ratelimit.V2AuthRateLimitScope;
+import com.poppang.be.common.ratelimit.V2AuthRateLimiter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -37,6 +42,7 @@ class V2TokenRedisRepositoryIntegrationTest {
   private static RedisTemplate<String, String> redisTemplate;
   private static V2RefreshTokenRedisRepository refreshRepository;
   private static V2SignupTokenRedisRepository signupRepository;
+  private static V2AuthRateLimiter authRateLimiter;
 
   @BeforeAll
   static void startDisposableRedis() {
@@ -66,6 +72,8 @@ class V2TokenRedisRepositoryIntegrationTest {
 
     refreshRepository = new V2RefreshTokenRedisRepository(redisTemplate);
     signupRepository = new V2SignupTokenRedisRepository(redisTemplate);
+    authRateLimiter =
+        new V2AuthRateLimiter(redisTemplate, new V2AuthRateLimitProperties(null, null, null));
   }
 
   @AfterAll
@@ -163,6 +171,32 @@ class V2TokenRedisRepositoryIntegrationTest {
   }
 
   @Test
+  void concurrentLoginRateLimitAllowsExactlyTenRequestsAndStoresOnlyAHash() throws Exception {
+    String clientIp = "203.0.113." + System.nanoTime();
+
+    List<Boolean> results =
+        runConcurrently(
+            index -> {
+              try {
+                authRateLimiter.check(V2AuthRateLimitScope.LOGIN, clientIp);
+                return true;
+              } catch (BaseException exception) {
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.RATE_LIMIT_EXCEEDED);
+                return false;
+              }
+            });
+
+    assertThat(results.stream().filter(Boolean::booleanValue).count()).isEqualTo(10);
+    String key = "auth:v2:rate:login:" + JwtFingerprint.sha256(clientIp);
+    assertThat(key).doesNotContain(clientIp);
+    assertThat(redisTemplate.opsForValue().get(key)).isEqualTo("16");
+    assertThat(redisTemplate.getExpire(key, MILLISECONDS))
+        .isNotNull()
+        .isPositive()
+        .isLessThanOrEqualTo(60_000L);
+  }
+
+  @Test
   void logoutDeletesOnlyTheMatchingCurrentSession() {
     String userUuid = UUID.randomUUID().toString();
     String sessionId = UUID.randomUUID().toString();
@@ -183,6 +217,42 @@ class V2TokenRedisRepositoryIntegrationTest {
         .isFalse();
     assertThat(refreshRepository.deleteIfSessionMatches(userUuid, sessionId)).isTrue();
     assertThat(refreshRepository.deleteIfSessionMatches(userUuid, sessionId)).isFalse();
+  }
+
+  @Test
+  void userDeactivationDeletesRefreshAndSignupKeysWithoutNeedingTokenValues() {
+    String userUuid = UUID.randomUUID().toString();
+    String sessionId = UUID.randomUUID().toString();
+    Instant issuedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    refreshRepository.save(
+        userUuid,
+        record(
+            "refresh-token",
+            verified(
+                JwtTokenType.REFRESH,
+                userUuid,
+                "refresh-jti",
+                sessionId,
+                issuedAt,
+                issuedAt.plusSeconds(120))));
+    signupRepository.save(
+        userUuid,
+        record(
+            "signup-token",
+            verified(
+                JwtTokenType.SIGNUP,
+                userUuid,
+                "signup-jti",
+                null,
+                issuedAt,
+                issuedAt.plusSeconds(120))));
+
+    assertThat(refreshRepository.deleteByUserUuid(userUuid)).isTrue();
+    assertThat(signupRepository.deleteByUserUuid(userUuid)).isTrue();
+    assertThat(refreshRepository.deleteByUserUuid(userUuid)).isFalse();
+    assertThat(signupRepository.deleteByUserUuid(userUuid)).isFalse();
+    assertThat(redisTemplate.hasKey(V2RefreshTokenRedisRepository.KEY_PREFIX + userUuid)).isFalse();
+    assertThat(redisTemplate.hasKey(V2SignupTokenRedisRepository.KEY_PREFIX + userUuid)).isFalse();
   }
 
   private static TokenHashRecord record(String rawToken, VerifiedJwt verifiedJwt) {

@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.jwt.JwtProvider;
-import com.poppang.be.common.security.JwtAuthenticationFilter;
+import com.poppang.be.common.ratelimit.V2AuthRateLimiter;
 import com.poppang.be.common.security.SecurityConfig;
 import com.poppang.be.domain.popup.application.PopupWebService;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
@@ -34,9 +34,10 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     properties = {
       "spring.config.location=classpath:/application-test.yml",
       "springdoc.api-docs.enabled=false",
-      "springdoc.swagger-ui.enabled=false"
+      "springdoc.swagger-ui.enabled=false",
+      "internal.worker.api-key=${random.uuid}${random.uuid}"
     })
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import(SecurityConfig.class)
 @ActiveProfiles("test")
 class PopupWebControllerTest {
 
@@ -45,6 +46,7 @@ class PopupWebControllerTest {
   @MockitoBean private PopupWebService popupWebService;
   @MockitoBean private JwtProvider jwtProvider;
   @MockitoBean private UsersRepository usersRepository;
+  @MockitoBean private V2AuthRateLimiter authRateLimiter;
 
   @Test
   void getInProgressPopupListIsPublicJsonApiWithCommonResponseAndCardFields() throws Exception {

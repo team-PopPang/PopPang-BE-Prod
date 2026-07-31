@@ -9,17 +9,25 @@
 - `docs/superpowers/specs/2026-07-15-signup-token-flow-design.md`
 - 저장소 루트 `AGENTS.md`
 
-**Architecture:** v1과 v2 Controller/DTO/SecurityFilterChain을 분리한다. v1은 승인된 실험용 token
-endpoint 두 개를 제외하고 기존 계약을 유지한다. v2 앱 API는 `TOKEN_ACCESS`, 회원가입은
-`TOKEN_SIGNUP`, 관리자는 `TOKEN_ACCESS + ROLE_ADMIN`, worker는 `SERVICE_WORKER`를 요구한다.
-JWT의 `sub`를 caller identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소비는
-Redis가 담당한다.
+**Architecture:** v1과 v2 Controller/DTO/application/service/provider verifier를 분리한다. v1은
+승인된 실험용 token endpoint 두 개를 제외하고 현재 운영 구현을 동결한다. V2를 위한 공통화나
+리팩터링을 이유로 v1 provider 호출, 조회 조건, service orchestration을 수정하지 않으며 필요한
+중복은 전환 기간에 수용한다. v2 앱 API는 `TOKEN_ACCESS`, 회원가입은 `TOKEN_SIGNUP`, 관리자는
+`TOKEN_ACCESS + ROLE_ADMIN`, worker는 `SERVICE_WORKER`를 요구한다. JWT의 `sub`를 caller
+identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소비는 Redis가 담당한다.
 
 ## Global constraints
 
 - `POST /api/v1/auth/token/test`, `POST /api/v1/auth/refresh`만 삭제한다.
 - 그 밖의 v1 method, path, parameter, status, media type, response schema와 익명 호출은 유지한다.
+- 현재 운영 중인 v1 Controller, DTO, application/service 구현과 provider HTTP 연동 구현은
+  수정하지 않는다. V2 코드가 v1 구현 클래스나 V2용 verifier를 주입해 실행 경로를 바꾸지 않는다.
 - v2 Controller에 v1 mapping을 같이 붙이지 않고 버전별 presentation adapter를 분리한다.
+- v2용 Controller, DTO, application/service, verifier를 새 클래스로 만들고 v1 Service에 새
+  V2 entry point를 추가하지 않는다. 임시 코드 중복은 허용하며 v1 삭제 전에는 공통화하지 않는다.
+- SecurityConfig·ErrorCode·Entity·Repository 같은 공유 기반은 v2 연결에 필요한 최소 additive
+  변경만 허용한다. 기존 v1 메서드·query·저장 의미를 교체하지 않으며 Entity/JPA 영향은 별도
+  승인 gate를 적용한다.
 - v2 request의 caller `userUuid`는 제거하고 검증된 principal을 사용한다. popupUuid,
   recommendId, submissionId, keyword, worker target userUuid는 유지한다.
 - v2 앱 API는 별도 선언을 빠뜨려도 기본 `TOKEN_ACCESS`가 적용되어야 한다.
@@ -33,37 +41,42 @@ Redis가 담당한다.
   않는다.
 - 각 작업 묶음이 통과해도 자동으로 commit하지 않는다. commit 직전에 대상 파일과 예정 메시지를
   사용자에게 알리고 매번 새 승인을 받는다. push와 배포도 별도 승인 없이는 실행하지 않는다.
+- iOS/AOS/ETL이 모두 v2로 전환되고 v1 실호출 0건을 확인해 v1을 삭제한 뒤에만 V2 코드 품질,
+  중복 제거와 아키텍처 리팩터링을 별도 승인·배포 작업으로 수행한다.
+- 각 청크 완료 시 설계 문서의 `v1 → v2 동작 변경 기록`과 마이그레이션 매트릭스에 v1 유지
+  내용, v2 변경, 클라이언트 변경, DB/Entity 영향, 구현·검증 상태를 즉시 갱신한다. 계획만 확정된
+  항목과 실제 구현·테스트가 끝난 항목을 구분한다.
 
 ## Execution chunk map
 
-74개 v2 mapping을 한 번에 구현하지 않는다. 아래 청크는 구현·검토·commit 승인 단위다. 실제
+71개 v2 mapping을 한 번에 구현하지 않는다. 아래 청크는 구현·검토·commit 승인 단위다. 실제
 운영 반영은 뒤의 7개 deployment wave가 연관된 구현 청크를 production-safe release 단위로 묶는다.
 일부 v2가 먼저 배포되어도 모바일·worker traffic은 필요한 서버 wave가 모두 안정화되기 전까지
 전환하지 않는다.
 
-| 청크 | 범위 | v2 API 수 | 완료 기준 |
-|---:|---|---:|---|
-| 0 | v1 endpoint inventory와 익명 호출 기준선 | 0 | 삭제 예외 2개 외 v1 계약 자동 비교 |
-| 1 | Users audit/expand SQL, SignupStatus, identity repository | 0 | 기존 binary 호환 DB 확장 검증 |
-| 2 | Access/Refresh/Signup JWT claim·검증·오류 | 0 | 고정 Clock JWT 단위 테스트 |
-| 3 | Refresh/Signup Redis hash·TTL·원자 연산 | 0 | 실제 Redis 동시성 테스트 |
-| 4 | v1/v2/internal SecurityFilterChain과 두 인증 필터 | 0 | 경로·authority별 401/403 계약 |
-| 5 | Refresh와 logout | 2 | strict rotation·idempotent logout |
-| 6 | provider 공통 검증 추출과 Kakao login/signup | 3 | v1 Kakao 회귀 + v2 수직 흐름 |
-| 7 | Google·Apple login/signup adapter | 6 | 두 provider v1 회귀 + v2 흐름 |
-| 8 | 사용자 조회·알림 동의·닉네임·탈퇴·FCM | 6 | JWT 본인만 변경 가능 |
-| 9 | 찜 4개 + 알림 키워드 3개 | 7 | request의 caller UUID 제거 |
-| 10 | 알림함 조회·삭제·읽음 | 3 | principal 사용자 알림만 처리 |
-| 11 | 일반 popup 핵심 조회 | 7 | 전체·상세·검색·예정·진행·지역·랜덤 회귀 |
-| 12 | 일반 popup 필터·추천 조회 | 6 | filter·related·recommend target 유지 |
-| 13 | 조회수 3개 + app recommend master 2개 | 5 | 기존 count/featured 계약 유지 |
-| 14 | 개인화 popup 핵심 조회 | 6 | JWT 기반 찜 여부와 사용자 결과 |
-| 15 | 개인화 popup 고급 조회 5개 + 제보 1개 | 6 | principal 제보자와 개인화 필터 |
-| 16 | 공개 Web popup 6개 + Web recommend 1개 | 7 | GET/HEAD permitAll 전용 namespace |
-| 17 | Admin popup·제보 API | 5 | 모든 mapping에 현재 ROLE_ADMIN 강제 |
-| 18 | crawler·notification worker internal API | 5 | API Key와 target UUID 분리 |
-| 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | spotlessCheck, clean test/build |
-|  | **합계** | **74** |  |
+| 청크 | 범위 | v2 API 수 | 완료 | 완료 기준 |
+|---:|---|---:|---|---|
+| 0 | v1 endpoint inventory와 익명 호출 기준선 | 0 | ✅ 완료 (2026-07-16) | 삭제 예외 2개 외 v1 계약 자동 비교 |
+| 1 | Users audit/expand SQL, SignupStatus, identity repository | 0 | ✅ 완료 (2026-07-20) | 기존 binary 호환 DB 확장 검증 |
+| 2 | Access/Refresh/Signup JWT claim·검증·오류 | 0 | ✅ 완료 (2026-07-28) | 고정 Clock JWT 단위 테스트 |
+| 3 | Refresh/Signup Redis hash·TTL·원자 연산 | 0 | ✅ 완료 (2026-07-28) | 실제 Redis 동시성 테스트 |
+| 4 | v1/v2/internal SecurityFilterChain과 두 인증 필터 | 0 | ✅ 완료 (2026-07-29) | 경로·authority별 401/403 계약 |
+| 5 | Refresh와 logout | 2 | ✅ 완료 (2026-07-31) | strict rotation·idempotent logout |
+| 6 | V2 provider 검증과 Kakao mobile login/signup | 2 | ✅ 완료 (2026-07-31) | v1 Kakao 구현 격리 + v2 수직 흐름 |
+| 7 | Google·Apple mobile login/signup adapter | 4 | ✅ 완료 (2026-07-31) | 두 provider v1 회귀 + v2 흐름 |
+| 8 | 사용자 조회·알림 동의·닉네임·탈퇴·FCM | 6 | ✅ 완료 (2026-07-31) | JWT 본인만 변경 가능 |
+| 9 | 찜 4개 + 알림 키워드 3개 | 7 | ⬜ 미완료 | request의 caller UUID 제거 |
+| 10 | 알림함 조회·삭제·읽음 | 3 | ⬜ 미완료 | principal 사용자 알림만 처리 |
+| 11 | 일반 popup 핵심 조회 | 7 | ⬜ 미완료 | 전체·상세·검색·예정·진행·지역·랜덤 회귀 |
+| 12 | 일반 popup 필터·추천 조회 | 6 | ⬜ 미완료 | filter·related·recommend target 유지 |
+| 13 | 조회수 3개 + app recommend master 2개 | 5 | ⬜ 미완료 | 기존 count/featured 계약 유지 |
+| 14 | 개인화 popup 핵심 조회 | 6 | ⬜ 미완료 | JWT 기반 찜 여부와 사용자 결과 |
+| 15 | 개인화 popup 고급 조회 5개 + 제보 1개 | 6 | ⬜ 미완료 | principal 제보자와 개인화 필터 |
+| 16 | 공개 Web popup 6개 + Web recommend 1개 | 7 | ⬜ 미완료 | GET/HEAD permitAll 전용 namespace |
+| 17 | Admin popup·제보 API | 5 | ⬜ 미완료 | 모든 mapping에 현재 ROLE_ADMIN 강제 |
+| 18 | crawler·notification worker internal API | 5 | ⬜ 미완료 | API Key와 target UUID 분리 |
+| 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | ⬜ 미완료 | spotlessCheck, clean test/build |
+|  | **합계** | **71** | **9/20 완료** |  |
 
 ## Merge and production deployment wave map
 
@@ -72,15 +85,16 @@ Redis가 담당한다.
 앞 wave가 운영에서 안정화되기 전에는 다음 wave를 `main`에 merge하지 않는다. 여러 wave를 한
 PR로 합치려면 사용자에게 범위와 위험을 다시 보고하고 별도 승인을 받는다.
 
-| 배포 wave | 구현 청크 | 범위 | v2 API 수 | merge 전 필수 gate |
-|---:|---:|---|---:|---|
-| 1/7 | 0~1 | v1 호환 기준선·SignupStatus·Users identity 기반 | 0 | 계약 테스트, DB-E1 적용·검증, v1 signup 상태 전이 |
-| 2/7 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | private config, legacy JWT 비침해, 실제 Redis 테스트 |
-| 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 17 | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
-| 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | caller UUID 제거와 타 사용자 접근 거절 |
-| 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | v1 결과 회귀와 filter/count/featured 계약 |
-| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 19 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
-| 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
+| 배포 wave | 구현 청크 | 범위 | v2 API 수 | 완료 | merge 전 필수 gate |
+|---:|---:|---|---:|---|---|
+| 1/7 | 0~1 | v1 호환 기준선·SignupStatus·Users identity 기반 | 0 | ✅ 완료 (2026-07-20) | 계약 테스트, DB-E1 적용·검증, v1 signup 상태 전이 |
+| 2/7 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | ✅ 완료 (2026-07-28) | private config, legacy JWT 비침해, 실제 Redis 테스트 |
+| 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 14 | ⬜ 미완료 | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
+| 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | ⬜ 미완료 | caller UUID 제거와 타 사용자 접근 거절 |
+| 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | ⬜ 미완료 | v1 결과 회귀와 filter/count/featured 계약 |
+| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 19 | ⬜ 미완료 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
+| 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ⬜ 미완료 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
+|  |  | **합계** | **71** | **2/7 완료** |  |
 
 DB-E1은 1/7의 선행 수동 DB gate이며 서버 배포 wave 숫자에는 포함하지 않는다. 대상
 DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 적용·검증한 뒤에만 관련
@@ -178,6 +192,11 @@ PR과 운영 배포는 다음 규칙을 따른다.
 5. 로그인·signup·refresh rate limit 임계값과 운영 경보 수신 위치
 
 확인 결과가 설계 계약을 바꾸면 구현을 진행하지 말고 설계 문서를 먼저 갱신해 승인받는다.
+
+Rate Limit gate 5는 2026-07-31 사용자 승인으로 해소했다. 기본값은 로그인 10회/분(IP),
+signup 5회/분(검증된 Signup Token subject), refresh 10회/분(검증된 Refresh Token subject)이며,
+별도 private config가 없으면 이 값을 사용한다. 운영 경보 연동은 이번 구현 범위에 포함하지
+않고 429 응답과 Redis key 관찰을 우선 사용한다.
 
 ### Mandatory Entity and DDL approval gate
 
@@ -406,16 +425,16 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 
 **Steps:**
 
-- [ ] 1순위 `/api/v2/internal/**`, 2순위 `/api/v2/**`, 마지막 v1/기타 chain으로 분리한다.
-- [ ] internal은 `SERVICE_WORKER`, v2 admin은 `TOKEN_ACCESS + ROLE_ADMIN`, signup은 정확한 세 POST에
+- [x] 1순위 `/api/v2/internal/**`, 2순위 `/api/v2/**`, 마지막 v1/기타 chain으로 분리한다.
+- [x] internal은 `SERVICE_WORKER`, v2 admin은 `TOKEN_ACCESS + ROLE_ADMIN`, signup은 정확한 세 POST에
       `TOKEN_SIGNUP`, 나머지 v2는 기본 `TOKEN_ACCESS`를 요구한다.
-- [ ] permitAll은 정확한 login/refresh와 GET·HEAD `/api/v2/web/**`에만 적용한다.
-- [ ] v2 filter는 Access/Signup만 SecurityContext로 만들고 Refresh Bearer 사용을 거절한다.
-- [ ] Access 인증마다 DB의 active 상태와 현재 role을 조회한다. PENDING/deleted 사용자는 거절한다.
-- [ ] 401/403을 빈 body가 아닌 `ApiResponse` JSON으로 반환한다.
-- [ ] v1 chain에는 v2/worker filter를 적용하지 않고 header 없는 기존 익명 요청을 유지한다.
-- [ ] filter bean의 Servlet global auto-registration을 명시적으로 비활성화한다.
-- [ ] custom SpringDoc 경로 허용과 기본 Swagger 경로 차단을 기존대로 유지한다.
+- [x] permitAll은 정확한 login/refresh와 GET·HEAD `/api/v2/web/**`에만 적용한다.
+- [x] v2 filter는 Access/Signup만 SecurityContext로 만들고 Refresh Bearer 사용을 거절한다.
+- [x] Access 인증마다 DB의 active 상태와 현재 role을 조회한다. PENDING/deleted 사용자는 거절한다.
+- [x] 401/403을 빈 body가 아닌 `ApiResponse` JSON으로 반환한다.
+- [x] v1 chain에는 v2/worker filter를 적용하지 않고 header 없는 기존 익명 요청을 유지한다.
+- [x] filter bean의 Servlet global auto-registration을 명시적으로 비활성화한다.
+- [x] custom SpringDoc 경로 허용과 기본 Swagger 경로 차단을 기존대로 유지한다.
 
 **Verification:**
 
@@ -423,6 +442,12 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 ./gradlew test --tests com.poppang.be.common.security.SecurityChainContractTest
 ./gradlew test --tests com.poppang.be.common.security.V1SecurityCompatibilityTest
 ```
+
+**Status:** 완료 (2026-07-29). internal/v2/v1/인프라 SecurityFilterChain을 분리하고
+Access·Signup·Refresh·Worker 용도와 현재 사용자 상태·role을 기준으로 401/403 `ApiResponse`
+계약을 고정했다. focused test 47개와 전체 test 186개가 실패·오류·스킵 없이 통과했으며,
+Entity/JPA/DB schema 변경과 외부 DB·Redis 접속은 없다. Wave 3 운영 반영 전
+`internal.worker.api-key` private config와 외부 worker header 적용을 별도 gate로 확인한다.
 
 ---
 
@@ -442,13 +467,13 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 
 **Steps:**
 
-- [ ] 로그인용 Access/Refresh 동시 발급과 strict refresh rotation을 구현한다.
-- [ ] refresh 시 active+COMPLETED 사용자를 확인하고 새 sid가 아니라 같은 session의 새 Access/Refresh를
+- [x] 로그인용 Access/Refresh 동시 발급과 strict refresh rotation을 구현한다.
+- [x] refresh 시 active+COMPLETED 사용자를 확인하고 새 sid가 아니라 같은 session의 새 Access/Refresh를
       원자적으로 교체한다.
-- [ ] logout은 principal userUuid+sid가 Redis 현재 session과 같을 때만 삭제하며 key 없음은 200으로
+- [x] logout은 principal userUuid+sid가 Redis 현재 session과 같을 때만 삭제하며 key 없음은 200으로
       처리한다. Redis 장애와 key 없음은 구분한다.
-- [ ] token 응답에 `Cache-Control: no-store`, `Pragma: no-cache`를 설정한다.
-- [ ] v1 inventory test에서 승인된 두 endpoint만 사라졌는지 확인한다.
+- [x] token 응답에 `Cache-Control: no-store`, `Pragma: no-cache`를 설정한다.
+- [x] v1 inventory test에서 승인된 두 endpoint만 사라졌는지 확인한다.
 
 **Verification:**
 
@@ -457,33 +482,39 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 ./gradlew test --tests com.poppang.be.contract.V1EndpointInventoryContractTest
 ```
 
+**Status:** 구현 청크 5 완료 (2026-07-31). Access/Refresh 동시 발급, 동일 session strict
+rotation, active+COMPLETED 사용자 검증, idempotent logout과 인증 저장소 장애 구분을 구현했다.
+승인된 v1 실험 endpoint 두 개만 제거했으며 관련 테스트를 포함한 전체 test 237개가
+실패·오류·스킵 없이 통과했다. Entity/JPA/DB schema 변경은 없다.
+
 ---
 
-## Task 7: provider 검증 추출과 v1 auth 회귀
+## Task 7: V2 provider 검증과 v1 auth 구현 격리
 
 **Files:**
 
 - Create: `src/main/java/com/poppang/be/domain/auth/application/VerifiedSocialIdentity.java`
-- Create: provider별 credential verifier interface/implementation
-- Modify: Kakao/Google/Apple `*AuthServiceImpl.java`
-- Modify: `src/main/java/com/poppang/be/domain/users/infrastructure/UsersRepository.java`
-- Test: provider별 verifier test와 v1 auth service regression test
+- Create: V2 provider별 credential verifier interface/implementation
+- Do not modify: Kakao/Google/Apple v1 `*AuthServiceImpl.java`
+- Additive only: `src/main/java/com/poppang/be/domain/users/infrastructure/UsersRepository.java`
+- Test: provider별 V2 verifier test와 v1 auth 구현 격리·회귀 test
 
 **Steps:**
 
-- [ ] remote provider credential 검증과 DB 사용자 생성·token 발급 orchestration을 분리한다.
-- [ ] 모든 login/signup의 `findByUid`를 `findByProviderAndUid`로 전환한다.
-- [ ] v1 Controller 응답 DTO, status와 신규/PENDING 생성 동작은 기존 계약을 유지한다.
-- [ ] provider가 검증한 email만 신뢰하고 body의 uid/provider/role로 계정을 선택하지 않게 한다.
+- [x] V2 remote provider credential 검증과 DB 사용자 생성·token 발급 orchestration을 분리한다.
+- [x] V2 login/signup만 `findByProviderAndUid`를 사용한다. v1의 기존 `findByUid` 호출은 유지한다.
+- [x] v1 Controller·DTO·`*AuthServiceImpl`과 provider HTTP 요청 구현을 변경하지 않는다.
+- [x] V2는 provider가 검증한 email만 신뢰하고 body의 uid/provider/role로 계정을 선택하지 않는다.
 - [ ] 동일 provider+uid 동시 최초 로그인에서 하나의 사용자만 생성되는지 검증한다.
-- [ ] Web OAuth callback이 실제 사용된다면 one-time state와 PKCE/nonce의 발급·소비 경계를 먼저
-      명시하고 test 없이 v2 callback을 열지 않는다.
+- [x] v2 Web OAuth callback은 제공하지 않고 세 provider의 GET login을 permitAll에서 제외한다.
+      기존 v1 callback과 검증 코드는 호환성을 위해 유지한다.
 
 **Verification:**
 
 ```bash
 ./gradlew test --tests 'com.poppang.be.domain.auth.*'
 ./gradlew test --tests com.poppang.be.contract.V1EndpointInventoryContractTest
+./gradlew test --tests com.poppang.be.common.contract.V1AuthImplementationIsolationContractTest
 ```
 
 ---
@@ -512,7 +543,7 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 - [ ] commit 뒤 Access/Refresh를 발급하고 Redis 저장/응답 실패 시 재로그인으로 복구되게 한다.
 - [ ] latest-only, 동시 signup, Redis timeout, consume 후 rollback, login/signup 경합을 테스트한다.
 - [ ] Signup Token으로 닉네임·추천 보조 API나 일반/admin API를 호출하면 403인지 검증한다.
-- [ ] 로그인/signup/refresh rate limiter는 private config의 승인된 임계값을 사용하고 key에 token,
+- [x] 로그인/signup/refresh rate limiter는 승인된 기본 임계값을 사용하고 key에 token,
       email, FCM token을 넣지 않는다.
 
 **Verification:**
@@ -521,6 +552,21 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 ./gradlew test --tests 'com.poppang.be.domain.auth.*V2*'
 ./gradlew test --tests com.poppang.be.common.security.SecurityChainContractTest
 ```
+
+**Status:** 구현 청크 6 완료 (2026-07-31). v2 Kakao는 모바일 login과 Signup Token 기반 signup
+두 POST만 제공하며 브라우저 callback은 만들지 않는다. v1 `KakaoAuthServiceImpl`에 들어갔던
+V2 verifier 공유 리팩터링은 사용자 결정에 따라 `main` 기준 구현으로 완전히 복원했고, V2
+Kakao verifier와 service만 독립적으로 유지한다. Users 영속 field/JPA mapping/DB schema 변경
+없이 기존 컬럼을 사용하는 additive state method만 사용한다. v2 인증 Rate Limit은 2026-07-31
+승인된 기본값과 Redis 원자 script로 별도 구현했으며 v1에는 적용하지 않는다.
+
+**Status:** 구현 청크 7 완료 (2026-07-31). v2 Google·Apple은 모바일 login과 Signup Token 기반
+signup 네 POST만 제공하며 브라우저 callback은 만들지 않는다. V2 전용 provider credential
+검증과 공통 PENDING/COMPLETED 분기, provider 일치 회원가입을 구현했고 v1
+Google·Apple·Kakao 구현은 V2 코드와 격리한다. 전체 test 267개가 실패·오류·스킵 없이
+통과했으며 Entity/JPA/DB schema 변경과 외부 DB·Redis·provider 접속은 없다. 실제 provider
+실연동은 Wave 3 운영 배포 후 smoke gate로 남긴다. Apple nonce는 v1을 수정하지 않고 v2
+`auth_code + raw_nonce` 요청과 ID Token nonce SHA-256 constant-time 대조로 구현했다.
 
 ---
 
@@ -536,13 +582,13 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 
 **Steps:**
 
-- [ ] `/api/v2/user/**`에서 path/body userUuid를 제거하고 principal만 사용한다.
-- [ ] user 조회, 알림 동의, 닉네임 검사·변경을 v1 응답 의미에 맞춰 구현한다.
-- [ ] FCM은 idempotent `PUT /api/v2/user/fcm-token` 하나만 제공하고 duplicate-check를 만들지 않는다.
-- [ ] `DELETE /api/v2/user`는 row를 보존하고 `is_deleted=true`로 변경한다. v2 hard-delete/restore는
+- [x] `/api/v2/user/**`에서 path/body userUuid를 제거하고 principal만 사용한다.
+- [x] user 조회, 알림 동의, 닉네임 검사·변경을 v1 응답 의미에 맞춰 구현한다.
+- [x] FCM은 idempotent `PUT /api/v2/user/fcm-token` 하나만 제공하고 duplicate-check를 만들지 않는다.
+- [x] `DELETE /api/v2/user`는 row를 보존하고 `is_deleted=true`로 변경한다. v2 hard-delete/restore는
       만들지 않는다.
-- [ ] commit 뒤 Refresh/Signup key 정리를 수행하고 실패 시 탈퇴 성공은 유지하되 metric/alert를 남긴다.
-- [ ] 다른 사용자의 UUID를 path/body에 넣어도 대상을 바꿀 수 없는지 검증한다.
+- [x] commit 뒤 Refresh/Signup key 정리를 수행하고 실패 시 탈퇴 성공은 유지하되 안전한 로그를 남긴다.
+- [x] 다른 사용자의 UUID를 path/body에 넣어도 대상을 바꿀 수 없는지 검증한다.
 
 **Verification:**
 
@@ -550,6 +596,22 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 ./gradlew test --tests 'com.poppang.be.domain.users.*V2*'
 ./gradlew test --tests com.poppang.be.contract.V1EndpointInventoryContractTest
 ```
+
+**Status:** 구현 청크 8 완료 (2026-07-31). Access Token principal만 사용하는 사용자 API 여섯
+개를 v1과 분리해 구현했다. 본인 조회 응답에서 provider uid와 FCM token을 제외하고, v2 FCM
+duplicate-check·hard-delete·restore는 만들지 않았다. 탈퇴는 Users row를 soft-delete한 transaction
+commit 뒤 Refresh/Signup key를 정리하며, 인증 저장소 장애는 민감정보 없는 고정 로그를 남기고
+탈퇴 성공을 유지한다. 전체 test 291개가 실패·오류·스킵 없이 통과했으며 Entity/JPA/DB schema
+변경과 외부 DB·운영 Redis 접속은 없다. Wave 3는 운영 설정과 배포 직전 전체 build 검증을
+통과한 뒤 배포한다. v2 로그인/signup/refresh Rate Limit은 승인된 기본값으로 구현하고 폐기형
+Redis 동시성 검증을 수행한다.
+
+**Wave 3 배포 전 로컬 gate (2026-07-31):** `clean build`와 전체 test 304개가 실패·오류·스킵
+없이 통과했다. 배포 workflow가 가져오는 private `application-prod.yml`은 값을 출력하지 않고
+YAML 문법, JWT 필수 7개 속성, 서로 다른 audience, 양수 TTL, 32자 이상 Worker API Key를
+검증했다. v1 소셜 인증 Service·Controller·요청 DTO는 `origin/main`과 동일하다. 따라서 Wave 3
+배포를 시작할 수 있으나, 운영 배포 완료 판정은 health, 대표 v1 익명 API, v2 401/403, 실제
+Kakao·Google·Apple v2 로그인 smoke가 통과한 뒤에만 한다.
 
 ---
 
@@ -559,7 +621,7 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 
 - Create: favorite/keyword/alert 도메인의 `presentation/v2` Controller와 `dto/v2`
 - Create: popup 도메인의 v2 user popup/submission Controller와 DTO
-- Modify: 각 application service에 actor userUuid와 target을 분리한 method/command
+- Create: 각 도메인의 별도 V2 application service/adapter에서 actor userUuid와 target을 분리
 - Test: 각 v2 Controller principal/target/security test와 v1 service regression test
 
 **Steps:**
@@ -569,7 +631,7 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 - [ ] `/api/v1/users/{userUuid}/popups/**`는 `/api/v2/user/popups/**`로 이동하고 principal 기반
       개인화 결과를 반환한다.
 - [ ] popup 제보 body userUuid를 제거하고 principal을 `submitter_user_uuid` 감사 값으로 저장한다.
-- [ ] v1 DTO와 v1 service entry point를 제거하거나 변경하지 않는다.
+- [ ] v1 DTO, v1 service 구현과 기존 entry point를 제거·변경·공통화하지 않는다.
 - [ ] 모든 v2 endpoint에 token 없음 401, Signup Token 403, 다른 사용자 override 불가를 검증한다.
 
 **Verification:**
@@ -589,7 +651,7 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 
 - Create: popup/recommend 도메인의 v2 app/web Controller와 DTO
 - Create: `src/main/java/com/poppang/be/domain/popup/presentation/v2/V2PopupAdminController.java`
-- Modify: admin service에 principal role 전제의 entry point 추가
+- Create: principal role을 전제로 하는 별도 V2 admin application service/adapter
 - Test: v2 app/web/admin Controller 및 security test
 
 **Steps:**
@@ -656,6 +718,7 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
       실제 인가와 맞춘다.
 - [ ] route version, normalized route, status, auth outcome만 metric label로 사용한다.
 - [ ] UUID/token/email/FCM/API Key를 metric이나 로그에 포함하지 않는다.
+- [x] 완료 청크의 v1 유지 내용과 v2 동작 차이를 기존 설계 문서에서 누적 기록하기 시작한다.
 - [ ] migration matrix에 모든 v1 endpoint의 v2 대체, iOS/AOS/ETL version, v1 최근 호출,
       rollback 확인, 삭제 가능 상태를 기록할 열을 만든다.
 - [ ] CD가 `spotlessCheck`와 `clean build`를 통과한 동일 JAR로 image를 만드는지 확인한다.
@@ -682,7 +745,8 @@ TTL·Lua·refresh 동시 rotation·Signup 동시 consume·logout 통합 test 4�
 3. DB-E1의 대상 DB, backup, DDL, lock 영향과 rollback을 보고하고 별도 승인을 받는다.
 4. 승인된 expand SQL을 적용·검증하고 v1 signup 상태 전이를 보완한 구현 청크 1을 별도 PR로
    merge·배포한다. 두 선행 배포를 합쳐 1/7 기반 wave 완료로 기록한다.
-5. private config에 JWT audience/TTL, worker API Key, rate limit 값을 별도 승인으로 준비한다.
+5. private config에 JWT audience/TTL과 worker API Key를 별도 승인으로 준비한다. Rate Limit은
+   승인된 코드 기본값을 사용하며 운영에서 다른 값이 필요할 때만 private config로 재정의한다.
 6. 2/7~7/7을 위 표 순서대로 각각 검증·merge·운영 배포하고, 구현 청크마다 commit 후보를 만들되
    운영 배포는 wave 경계에서만 수행한다. 각 wave 뒤 v1 smoke와 해당 v2 smoke를 실행하고, 실패하면
    다음 wave를 중단한 뒤 직전 검증 image로 rollback한다.

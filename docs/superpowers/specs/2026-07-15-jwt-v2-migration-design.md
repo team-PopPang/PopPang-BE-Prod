@@ -21,14 +21,24 @@ iOS, Android, ETL 전환이 모두 확인될 때까지 v1을 유지하고, 실�
 
 - v1 URL, HTTP method, query, path, body, 응답 JSON, 상태 코드, media type을 바꾸지 않는다.
 - v1의 오타 경로, 단수형 경로, 혼재된 응답 형식도 마이그레이션 중에는 유지한다.
-- v2는 별도 Controller, DTO, SecurityFilterChain으로 추가한다.
-- 공통 Service나 Entity를 수정할 때는 v1 회귀 테스트를 먼저 작성한다.
+- 현재 운영 중인 v1 Controller, DTO, application/service 구현과 provider 연동 구현은 동작뿐
+  아니라 구현도 동결한다. v2를 구현한다는 이유로 공통화·추출·정리·조회 조건 변경을 하지 않는다.
+- v2는 별도 Controller, DTO, application/service, provider verifier와 SecurityFilterChain으로
+  추가한다. 마이그레이션 중의 제한적인 코드 중복은 v1 안정성을 위해 허용한다.
+- v2가 기존 v1 Service에 새 entry point를 추가하거나 기존 메서드를 재사용하는 방식보다 별도
+  V2 Service가 기존 repository를 직접 사용하는 방식을 우선한다.
+- SecurityConfig 같은 횡단 설정은 v2 chain을 추가하는 최소 변경만 허용하고 `/api/v1/**`에는
+  v2 JWT·worker filter를 적용하지 않는다. ErrorCode·Entity·Repository 같은 공유 기반은 기존
+  v1 메서드와 의미를 바꾸지 않는 additive 변경만 허용하며, Entity/JPA 영향은 아래 승인 gate를
+  따른다.
 - DB 변경은 롤백 가능한 추가·보정 방식으로 진행하고 기존 컬럼을 바로 삭제하지 않는다.
 - Entity/JPA/schema 영향이 예상되면 코드 수정 전에 영향과 DDL을 제시하고 사용자의 명시적 승인을
   받는다. 일반적인 작업 진행 승인은 Entity/DDL 승인으로 간주하지 않는다.
 - `main` merge는 운영 자동 배포를 시작하므로 JWT 전체를 한 PR로 합치지 않고 독립 배포 가능한
   wave로 나눈다. 각 merge는 push 승인과 별도로 운영 배포 승인을 다시 받는다.
 - iOS/AOS 코드 전환만으로 v1을 삭제하지 않는다. 구버전 앱 지원 종료와 실호출 0건을 확인한다.
+- 모든 v2 전환과 v1 삭제가 끝난 뒤에만 v2 코드 중복 제거, 공통화, 아키텍처·코드 품질 개선을
+  별도 작업으로 수행한다. 해당 후속 리팩터링을 현재 마이그레이션 청크에 섞지 않는다.
 
 다음 두 endpoint는 실제 서비스 계약이 아닌 과거 JWT 실험용이므로 호환 원칙의 명시적
 예외로 삭제한다. 이는 2026-07-15 설계 논의에서 사용자가 용도를 확인하고 승인한 예외이며,
@@ -83,6 +93,7 @@ v1 호환을 위해 이 잔여 위험을 전환 기간 동안 수용하되, 관�
 | Refresh rotation | 엄격한 rotation, 이전 토큰 즉시 무효화 |
 | 로그아웃 | Refresh Token 삭제, Access Token은 자연 만료 |
 | v2 본인 탈퇴 | DELETE /api/v2/user, JWT principal 기준 soft-delete |
+| v2 인증 Rate Limit | 로그인 10회/분(IP), signup 5회/분(JWT subject), refresh 10회/분(검증된 subject) |
 | v2 hard-delete | 앱용 endpoint를 만들지 않음 |
 | 다중 기기 | 첫 버전에서는 지원하지 않음 |
 | v1 삭제 | iOS/AOS/ETL 전환과 실호출 0건 확인 후 별도 수행 |
@@ -135,9 +146,6 @@ authorization과 shouldNotFilter는 같은 RequestMatcher 정의를 공유해 �
 
 v2에서 익명 접근을 허용할 인증 경로는 다음으로 제한한다.
 
-- GET /api/v2/auth/kakao/login
-- GET /api/v2/auth/google/login
-- GET /api/v2/auth/apple/login
 - POST /api/v2/auth/kakao/mobile/login
 - POST /api/v2/auth/google/mobile/login
 - POST /api/v2/auth/apple/mobile/login
@@ -146,6 +154,10 @@ v2에서 익명 접근을 허용할 인증 경로는 다음으로 제한한다.
 
 provider별 signup과 logout은 이 목록에 포함하지 않는다. signup은 TOKEN_SIGNUP, logout은
 TOKEN_ACCESS가 필요하다.
+
+2026-07-31 사용자 확인에 따라 v2는 모바일 소셜 로그인만 제공하고 Kakao·Google·Apple의
+브라우저 OAuth callback GET은 만들지 않는다. 따라서 `/api/v2/auth/{provider}/login`은
+permitAll 목록에도 포함하지 않는다. 기존 v1 callback과 검증 코드는 v1 호환성을 위해 유지한다.
 
 /api/v2/web/**는 공개 전용 namespace로 취급한다. 이 경로에는 GET·HEAD 기반 공개 조회만 둘 수
 있고 사용자 정보, 관리자 기능, 상태 변경 endpoint를 추가하지 않는다. architecture test가
@@ -233,23 +245,25 @@ ID 유효성은 회원가입 POST 내부에서 검증하고 잘못된 입력은 
 
 ## 소셜 로그인과 회원가입
 
-provider 연동 코드가 v1과 v2에 복제되지 않도록 다음 경계를 둔다.
+운영 중인 v1 provider 연동을 보호하기 위해 v1과 v2의 경계를 다음처럼 분리한다.
 
 ~~~text
-ProviderCredentialVerifier
+V1 provider auth implementation
+  → 현재 callback, provider HTTP 요청, uid 조회와 응답 조립을 그대로 유지
+  → V2 verifier나 V2 DTO에 의존하지 않음
+
+V2 ProviderCredentialVerifier
   → provider credential 검증
   → VerifiedSocialIdentity(provider, uid, verifiedEmail) 반환
-
-V1 legacy orchestration
-  → 기존 v1 응답 계약 유지
 
 V2 auth orchestration
   → SignupStatus 분기
   → Signup 또는 Access/Refresh Token 발급
 ~~~
 
-ProviderCredentialVerifier는 DB 사용자 생성이나 token 발급을 하지 않는다. v1과 v2 orchestration은
-검증 결과만 받아 각 버전의 계약을 처리한다.
+V2 ProviderCredentialVerifier는 DB 사용자 생성이나 token 발급을 하지 않는다. v1은 이 verifier를
+공유하지 않고 기존 provider 호출 코드를 그대로 유지한다. 이로 인한 provider 호출 코드 중복은
+마이그레이션 기간에 의도적으로 수용하며, v1 삭제 후 V2 코드만 남았을 때 정리한다.
 
 ### 소셜 로그인
 
@@ -267,8 +281,29 @@ ProviderCredentialVerifier는 DB 사용자 생성이나 token 발급을 하지 �
 | 삭제·비활성 | ACCOUNT_NOT_ACTIVE 오류 |
 
 브라우저 OAuth 경로를 제공할 때는 state를 검증하고 provider가 지원하면 PKCE와 nonce를
-사용한다. 모바일 token은 provider별 issuer, audience, signature, nonce를 검증한다. 로그인,
-signup, refresh endpoint에는 요청 크기 제한과 IP·provider uid 기반 rate limit을 적용한다.
+사용한다. 모바일 token은 provider별 issuer, audience, signature, nonce를 검증한다.
+
+Apple v2 모바일 로그인에서 iOS는 매 요청마다 raw nonce를 생성하고 SHA-256 값을 Apple
+Authorization 요청에 넣는다. v2 body는 `auth_code`와 `raw_nonce`만 받고, 서버는 code 교환으로
+얻은 ID Token의 nonce claim과 `SHA-256(raw_nonce)`를 constant-time으로 비교한다. 누락 또는
+불일치는 `INVALID_SOCIAL_CREDENTIAL`로 거절한다. v1 Apple DTO와 검증 흐름에는 이 계약을
+추가하지 않는다.
+
+v2 공개 인증 endpoint의 Rate Limit은 Redis Lua script로 원자적으로 처리하는 60초 window를
+사용한다.
+
+| 대상 | 식별 기준 | 기본 허용량 |
+|---|---|---:|
+| Kakao·Google·Apple 모바일 로그인 | forwarded header 처리 후 client IP | 10회/60초 |
+| Kakao·Google·Apple 회원가입 | 검증된 Signup Token의 subject | 5회/60초 |
+| Refresh Token 재발급 | 검증된 Refresh Token의 subject | 10회/60초 |
+
+Redis key에는 IP, userUuid, provider token을 원문으로 넣지 않고 식별자의 SHA-256만 저장한다.
+한도를 넘으면 429를 반환하며 Redis가 불능이면 인증 저장소 장애 503으로 fail-closed한다.
+기본값은 코드에 내장하고 `auth.rate-limit.login-per-minute`,
+`auth.rate-limit.signup-per-minute`, `auth.rate-limit.refresh-per-minute`로 선택적으로
+재정의할 수 있다. 이 필터와 service 제한은 `/api/v2/**`에만 적용하며 운영 중인 v1에는
+개입하지 않는다.
 
 email은 provider가 검증한 값만 저장한다. Apple처럼 후속 로그인에서 email을 다시 주지 않는
 경우 기존 값을 유지하며 client body의 email로 덮어쓰지 않는다. 신규 사용자인데 검증된
@@ -529,7 +564,8 @@ endpoint family별 v2 목적지는 다음과 같이 고정한다. 세부 query·
 
 | v1 endpoint family | v2 endpoint family | 인가 | identity 처리 |
 |---|---|---|---|
-| `/api/v1/auth/{provider}/login`, `/mobile/login` | 같은 suffix의 `/api/v2/auth/**` | permitAll | 검증된 provider credential |
+| `/api/v1/auth/{provider}/login` | v2 twin 없음 | 해당 없음 | v2는 모바일 로그인만 제공, v1은 호환 유지 |
+| `/api/v1/auth/{provider}/mobile/login` | 같은 suffix의 `/api/v2/auth/**` | permitAll | 검증된 provider credential |
 | `/api/v1/auth/{provider}/signup` | 같은 suffix의 `/api/v2/auth/**` | TOKEN_SIGNUP | Signup Token principal |
 | `/api/v1/auth/autoLogin` | v2 twin 없음 | 해당 없음 | Access 검증·refresh로 대체 |
 | `/api/v1/user/{userUuid}/**` | `/api/v2/user/**` | TOKEN_ACCESS | path userUuid 제거, principal 사용 |
@@ -544,6 +580,23 @@ endpoint family별 v2 목적지는 다음과 같이 고정한다. 세부 query·
 | `/api/v1/web/popup/**` | 같은 suffix의 `/api/v2/web/popup/**` | permitAll | 사용자 정보 없음 |
 | `/api/v1/recommend/web` | `/api/v2/web/recommend` | permitAll | 사용자 정보 없음 |
 | CRON·worker endpoint | `/api/v2/internal/**` | SERVICE_WORKER | API Key caller와 target을 분리 |
+
+### v1 → v2 동작 변경 기록
+
+v1은 현재 서비스 중인 계약으로 동결한다. 각 구현 청크는 완료 시 이 표와 아래
+마이그레이션·삭제 매트릭스에 `v1 유지 내용`, `v2 변경 내용`, `클라이언트 영향`, `DB 영향`,
+`구현 상태`를 함께 기록한다. 계획과 실제 구현을 구분하고, 테스트로 확인되지 않은 항목은
+완료로 표시하지 않는다.
+
+| 범위 | v1 유지 내용 | v2 변경 내용 | 클라이언트 영향 | DB 영향 | 상태 |
+|---|---|---|---|---|---|
+| 기본 보안 | 기존 익명 접근 유지 | 앱 API 기본 TOKEN_ACCESS, signup·admin·worker 용도별 인증 | v2 요청에 해당 token/header 필요 | 없음 | 구현·테스트 완료 |
+| 소셜 로그인 | 기존 provider callback·mobile 요청·응답 유지 | 모바일 login만 제공하며 COMPLETED는 Access/Refresh, PENDING은 Signup Token 반환 | v2 로그인 응답 처리 추가 | 기존 Users 컬럼만 사용 | 구현·테스트 완료 |
+| 회원가입 | 기존 v1 DTO와 호출 흐름 유지 | Signup Token subject를 사용자로 사용하고 caller uid/userUuid/provider/role/email을 body에서 제거 | v2 body와 Authorization header 변경 | 없음 | 구현·테스트 완료 |
+| Refresh·logout | 승인된 v1 실험 token endpoint 두 개만 삭제 | strict refresh rotation, 사용자당 한 session, idempotent logout | v2 token 저장·재발급 흐름 사용 | 없음, Redis key만 추가 | 구현·테스트 완료 |
+| 사용자 self-service | path/body userUuid, hard-delete·restore 포함 기존 API 유지 | principal 본인만 조회·수정하고 탈퇴는 soft-delete만 제공 | v2 path/body의 caller userUuid 제거 | 기존 컬럼만 사용 | 구현·테스트 완료 |
+| 인증 요청 제한 | 제한 없음 | login 10회/분(IP), signup 5회/분(subject), refresh 10회/분(subject) | 429 처리 필요 | 없음, Redis counter만 추가 | 구현·테스트 완료 |
+| Apple nonce | 기존 `auth_code` 요청과 검증 흐름 유지 | v2 요청만 `auth_code + raw_nonce`로 확장하고 ID Token nonce를 대조 | iOS가 v2 호출 시 nonce 생성·전달 | 없음 | 구현·테스트 완료 |
 
 v1의 `/api/v1/auth/token/test`와 `/api/v1/auth/refresh`는 승인된 실험용 삭제 대상이다. v2
 `/api/v2/auth/refresh`는 legacy controller를 복제하지 않고 이 문서의 rotation 계약으로 새로
@@ -685,6 +738,19 @@ signup이 호출하는 `completeSignup(SignupRequestDto)`도 status를 `COMPLETE
 메서드 변경은 2026-07-19 사용자 승인을 받아 `DDL: N/A — schema delta 없음`으로 구현했으며,
 regression test가 프로필 저장과 상태 전이를 함께 고정한다.
 
+2026-07-29 사용자는 구현 청크 6의 v2 회원가입을 위해 `Users`에 기존 v1 메서드를 유지한 채
+다음 additive state method를 추가하는 것을 승인했다.
+
+- v2 가입 입력인 nickname, alerted, fcmToken을 저장하고 SignupStatus를 COMPLETED로 바꾸는
+  `completeSignup` overload
+- provider가 검증한 email이 null 또는 blank가 아닐 때만 갱신하고, 값이 없으면 기존 email을
+  유지하는 `updateVerifiedEmail`
+
+이 변경은 영속 field, enum, relation, column/index/constraint annotation을 바꾸지 않는다.
+`DDL: N/A — schema delta 없음`이며 운영 DB read/write, DDL/DML과 `03-users-contract.sql` 실행은
+승인 범위에 포함되지 않는다. 기존 `completeSignup(SignupRequestDto)`와 v1 HTTP 계약은 그대로
+유지하고 신규 메서드와 v1 회귀 test만 추가한다.
+
 DB-E1 로컬 연습은 `poppang_restore_test_20260716`(MySQL 9.2.0)에서 users 303건, NULL 0건,
 활성 COMPLETED 182건, 활성 PENDING 1건, 탈퇴 PENDING 120건과 default PENDING을 확인했다. 이
 결과는 로컬 migration 연습 완료 증거이며 운영 DB 적용 증거는 아니다.
@@ -754,6 +820,7 @@ v2 filter, AuthenticationEntryPoint, AccessDeniedHandler는 모두 기존 ApiRes
 | Redis 인증 저장소 장애 | 503 | 5013 AUTH_STORE_UNAVAILABLE |
 | 최신 Signup Token 불일치 | 401 | 5014 SIGNUP_TOKEN_MISMATCH |
 | 가입 완료 사용자 재가입 | 409 | 4204 SIGNUP_ALREADY_COMPLETED |
+| 인증 요청 허용량 초과 | 429 | 5018 RATE_LIMIT_EXCEEDED |
 
 인증 코드에서 raw RuntimeException을 던지지 않고 BaseException(ErrorCode)으로 정규화한다.
 예상하지 못한 내부 오류만 6000 INTERNAL_ERROR로 처리한다.
@@ -775,7 +842,9 @@ JWT library의 signature, expiration, malformed, unsupported algorithm 예외는
 - 구현 전 모든 v1 mapping inventory와 OpenAPI snapshot을 만든다.
 - v1의 method, path, parameter, status, media type, schema를 고정한다.
 - token 실험 endpoint 두 개를 제외한 v1 익명 요청이 계속 성공하는지 검증한다.
-- 공통 Service와 Entity를 변경할 때 대응하는 v1 Controller·Service 회귀 테스트를 추가한다.
+- 기존 v1 Controller, DTO, application/service와 provider 연동 구현이 V2 클래스에 의존하지
+  않는지 구현 격리 contract test로 검증한다.
+- 불가피한 공유 기반의 additive 변경은 기존 v1 메서드의 회귀 테스트를 먼저 추가한다.
 
 ### JWT와 Security
 
@@ -941,6 +1010,7 @@ ErrorCode만 기록한다. endpoint별 v1 호출 0건은 최소 30일 연속 관
 구현을 시작하기 전에 모든 v1 mapping을 행 단위로 조사해 v2 경로·actor·target·인증·DTO
 변경·삭제/대체 사유를 먼저 채운다. 이 baseline matrix가 승인되기 전에는 v2 Controller 구현을
 시작하지 않는다. 구현 후에는 BE test, iOS, AOS, ETL, 호출량, 삭제 가능 열을 갱신한다.
+Task 19까지 기록을 미루지 않고 각 청크 검수 시 해당 행을 즉시 갱신한다.
 
 | 도메인 | v1 method/path | 처리 | v2 method/path | actor | target | 인증 | DTO 변경 | BE test | iOS | AOS | ETL | 최근 v1 호출 | 삭제 가능 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -966,6 +1036,8 @@ baseline matrix는 public 조회, 개인화, self-service, admin, social auth, h
 ## 완료 조건
 
 - v1 실험용 token endpoint 두 개를 제외한 현재 API 계약이 유지된다.
+- 현재 운영 중인 v1 Controller, DTO, application/service와 provider 연동 구현이 V2 코드에
+  의존하지 않고 기존 실행 경로를 유지한다.
 - v2 공개 경로 외 모든 앱 API가 TOKEN_ACCESS를 요구한다.
 - Signup Token은 회원가입에만 사용할 수 있다.
 - Signup Token은 사용자별 최신 하나만 유효하고 가입 시 원자적으로 소비된다.
@@ -978,6 +1050,8 @@ baseline matrix는 public 조회, 개인화, self-service, admin, social auth, h
 - v1 회귀, v2 Security, Redis concurrency test가 통과한다.
 - endpoint별 마이그레이션·삭제 매트릭스를 제공한다.
 - v2 구현 완료와 공개 v1 우회 경로까지 닫힌 인증 마이그레이션 완료를 구분해 보고한다.
+- v1 삭제 전에는 v1/V2 공통화나 아키텍처 리팩터링을 수행하지 않으며, v1 삭제 후 별도 작업으로
+  V2 코드 품질과 구조를 조정한다.
 
 ## 첫 버전 범위 밖
 
