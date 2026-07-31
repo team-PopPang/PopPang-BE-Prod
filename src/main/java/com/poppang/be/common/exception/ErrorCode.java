@@ -12,6 +12,7 @@ public enum ErrorCode {
   USER_ALERT_NOT_FOUND(HttpStatus.NOT_FOUND, 4001, "해당 팝업에 대한 알림 이력이 존재하지 않습니다."),
   USER_ALERT_ALREADY_EXISTS(HttpStatus.CONFLICT, 4002, "이미 해당 팝업에 대한 알림 기록이 존재합니다."),
   ALERT_KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, 4003, "해당 키워드가 존재하지 않습니다."),
+  ALERT_KEYWORD_ALREADY_EXISTS(HttpStatus.CONFLICT, 4004, "이미 등록된 알림 키워드입니다."),
 
   // ==================================================
   // 4100 ~ 4199 : Favorite (찜)
