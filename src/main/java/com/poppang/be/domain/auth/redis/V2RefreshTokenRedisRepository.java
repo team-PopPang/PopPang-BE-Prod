@@ -62,6 +62,14 @@ public class V2RefreshTokenRedisRepository {
     return executeBoolean(COMPARE_DELETE_SCRIPT, key(userUuid), sessionId);
   }
 
+  public boolean deleteByUserUuid(String userUuid) {
+    try {
+      return Boolean.TRUE.equals(redisTemplate.delete(key(userUuid)));
+    } catch (DataAccessException exception) {
+      throw storeUnavailable();
+    }
+  }
+
   private void saveAt(String key, TokenHashRecord record) {
     try {
       RedisCallback<Boolean> saveCallback =

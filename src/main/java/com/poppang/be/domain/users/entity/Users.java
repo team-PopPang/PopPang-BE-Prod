@@ -95,6 +95,19 @@ public class Users extends BaseEntity {
     this.signupStatus = SignupStatus.COMPLETED;
   }
 
+  public void completeSignup(String nickname, boolean alerted, String fcmToken) {
+    this.nickname = nickname;
+    this.alerted = alerted;
+    this.fcmToken = fcmToken;
+    this.signupStatus = SignupStatus.COMPLETED;
+  }
+
+  public void updateVerifiedEmail(String verifiedEmail) {
+    if (verifiedEmail != null && !verifiedEmail.isBlank()) {
+      this.email = verifiedEmail;
+    }
+  }
+
   public void completeSignup() {
     this.signupStatus = SignupStatus.COMPLETED;
   }

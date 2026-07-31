@@ -52,6 +52,14 @@ public class V2SignupTokenRedisRepository {
     }
   }
 
+  public boolean deleteByUserUuid(String userUuid) {
+    try {
+      return Boolean.TRUE.equals(redisTemplate.delete(key(userUuid)));
+    } catch (DataAccessException exception) {
+      throw storeUnavailable();
+    }
+  }
+
   private void saveAt(String key, TokenHashRecord record) {
     try {
       RedisCallback<Boolean> saveCallback =

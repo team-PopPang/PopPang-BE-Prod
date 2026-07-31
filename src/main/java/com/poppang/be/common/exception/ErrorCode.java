@@ -26,6 +26,7 @@ public enum ErrorCode {
   DUPLICATE_NICKNAME(HttpStatus.CONFLICT, 4202, "이미 존재하는 닉네임입니다."),
   ACCESS_DENIED(HttpStatus.FORBIDDEN, 4203, "관리자만 사용할 수 있는 기능입니다."),
   SIGNUP_ALREADY_COMPLETED(HttpStatus.CONFLICT, 4204, "이미 회원가입을 완료한 사용자입니다."),
+  INVALID_USER_REQUEST(HttpStatus.BAD_REQUEST, 4205, "사용자 요청값이 올바르지 않습니다."),
 
   // ==================================================
   // 4300 ~ 4399 : Popup (팝업)
@@ -64,6 +65,10 @@ public enum ErrorCode {
   SIGNUP_PROVIDER_MISMATCH(HttpStatus.FORBIDDEN, 5012, "회원가입 provider가 일치하지 않습니다."),
   AUTH_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, 5013, "인증 저장소를 사용할 수 없습니다."),
   SIGNUP_TOKEN_MISMATCH(HttpStatus.UNAUTHORIZED, 5014, "최신 Signup Token이 아닙니다."),
+  INVALID_SOCIAL_CREDENTIAL(HttpStatus.UNAUTHORIZED, 5015, "소셜 로그인 정보가 올바르지 않습니다."),
+  SOCIAL_IDENTITY_CONFLICT(HttpStatus.CONFLICT, 5016, "소셜 계정 식별자가 충돌했습니다."),
+  INVALID_SIGNUP_REQUEST(HttpStatus.BAD_REQUEST, 5017, "회원가입 요청값이 올바르지 않습니다."),
+  RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, 5018, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
 
   // ==================================================
   // 6000 ~ 6999 : System / Unexpected
