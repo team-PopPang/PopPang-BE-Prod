@@ -31,6 +31,16 @@ public interface UserFavoriteRepository extends JpaRepository<UserFavorite, Long
 
   @Query(
       """
+            SELECT uf.popup.id
+            FROM UserFavorite uf
+            WHERE uf.user.uuid = :userUuid
+              AND uf.popup.id IN :popupIds
+            """)
+  List<Long> findPopupIdsByUserUuidAndPopupIds(
+      @Param("userUuid") String userUuid, @Param("popupIds") List<Long> popupIds);
+
+  @Query(
+      """
                       SELECT uf.popup.id AS popupId, COUNT(uf.id) AS cnt
                       FROM UserFavorite uf
                       WHERE uf.popup.id IN :popupIds

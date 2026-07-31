@@ -117,6 +117,7 @@ class V1ApiCompatibilityContractTest {
 
           // 회원 팝업
           endpoint(GET, "/api/v1/users/{userUuid}/popups"),
+          endpoint(GET, "/api/v1/users/{userUuid}/popups/scroll"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/{popupUuid}"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/upcoming"),
           endpoint(GET, "/api/v1/users/{userUuid}/popups/recommend"),
@@ -164,7 +165,7 @@ class V1ApiCompatibilityContractTest {
   void applicationV1MappingsMatchApprovedInventory() throws Exception {
     Set<Endpoint> actualEndpoints = discoverApplicationV1Endpoints();
 
-    assertThat(APPROVED_V1_ENDPOINTS).hasSize(76);
+    assertThat(APPROVED_V1_ENDPOINTS).hasSize(77);
     assertThat(actualEndpoints)
         .as("Any v1 endpoint addition, removal, method change, or path change requires approval")
         .containsExactlyInAnyOrderElementsOf(APPROVED_V1_ENDPOINTS);

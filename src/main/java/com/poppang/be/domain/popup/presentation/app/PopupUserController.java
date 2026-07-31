@@ -1,6 +1,7 @@
 package com.poppang.be.domain.popup.presentation.app;
 
 import com.poppang.be.domain.popup.application.PopupUserService;
+import com.poppang.be.domain.popup.dto.app.response.PopupScrollResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
 import com.poppang.be.domain.popup.enums.MapSortStandard;
@@ -30,6 +31,15 @@ public class PopupUserController {
         popupUserService.getAllPopupList(userUuid);
 
     return ResponseEntity.ok(popupUserResponseDtoList);
+  }
+
+  @Operation(summary = "팝업 무한 스크롤 목록 조회", description = "최신 팝업을 15개씩 커서 기반으로 조회합니다.")
+  @GetMapping("/scroll")
+  public ResponseEntity<PopupScrollResponseDto> getScrollPopupList(
+      @PathVariable String userUuid, @RequestParam(name = "cursor", required = false) Long cursor) {
+    PopupScrollResponseDto response = popupUserService.getScrollPopupList(userUuid, cursor);
+
+    return ResponseEntity.ok(response);
   }
 
   @Operation(summary = "팝업 단건 조회", description = "popupUuid로 단건 팝업 조회합니다. ")

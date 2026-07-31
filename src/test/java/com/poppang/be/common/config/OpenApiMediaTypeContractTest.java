@@ -152,7 +152,7 @@ class OpenApiMediaTypeContractTest {
 
     assertThat(wildcardLocations).isEmpty();
     assertThat(unexpectedMediaTypes).isEmpty();
-    assertThat(jsonResponseCount).isEqualTo(46);
+    assertThat(jsonResponseCount).isEqualTo(47);
     assertThat(bodylessResponseCount).isEqualTo(16);
   }
 
@@ -218,6 +218,41 @@ class OpenApiMediaTypeContractTest {
     assertJsonResponse(
         "/api/v1/web/popup/search",
         "#/components/schemas/ApiResponseListPopupWebSearchResponseDto");
+  }
+
+  @Test
+  void popupScrollOpenApiContractUsesExistingUserPopupTag() {
+    JsonNode operation =
+        openApi.path("paths").path("/api/v1/users/{userUuid}/popups/scroll").path("get");
+
+    assertThat(operation.path("tags").size()).isEqualTo(1);
+    assertThat(operation.path("tags").path(0).asText()).isEqualTo("[POPUP-USER] 회원");
+    assertThat(operation.path("summary").asText()).isEqualTo("팝업 무한 스크롤 목록 조회");
+    assertThat(operation.path("operationId").asText()).isEqualTo("getScrollPopupList");
+    assertThat(operation.has("requestBody")).isFalse();
+
+    JsonNode parameters = operation.path("parameters");
+    assertThat(parameters.size()).isEqualTo(2);
+    assertThat(parameters.path(0).path("name").asText()).isEqualTo("userUuid");
+    assertThat(parameters.path(0).path("in").asText()).isEqualTo("path");
+    assertThat(parameters.path(0).path("required").asBoolean()).isTrue();
+    assertThat(parameters.path(1).path("name").asText()).isEqualTo("cursor");
+    assertThat(parameters.path(1).path("in").asText()).isEqualTo("query");
+    assertThat(parameters.path(1).path("required").asBoolean()).isFalse();
+    assertThat(parameters.path(1).path("schema").path("format").asText()).isEqualTo("int64");
+
+    assertJsonResponse(
+        "/api/v1/users/{userUuid}/popups/scroll", "#/components/schemas/PopupScrollResponseDto");
+
+    JsonNode itemProperties =
+        openApi
+            .path("components")
+            .path("schemas")
+            .path("PopupScrollItemResponseDto")
+            .path("properties");
+    assertThat(fieldNames(itemProperties))
+        .containsExactly(
+            "popupUuid", "thumbnailUrl", "region", "name", "startDate", "endDate", "isFavorited");
   }
 
   @Test

@@ -4,6 +4,8 @@ import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.util.StringNormalizer;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
+import com.poppang.be.domain.popup.dto.app.response.PopupScrollItemResponseDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupScrollResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupUserResponseDto;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupAdvertisement;
@@ -25,6 +27,7 @@ import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +36,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PopupUserServiceImpl implements PopupUserService {
 
   private static final int RECOMMEND_POPUP_LIMIT = 10;
+  private static final int SCROLL_PAGE_SIZE = 15;
+  private static final ZoneId KOREA_ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final PopupRepository popupRepository;
   private final PopupAdvertisementRepository popupAdvertisementRepository;
@@ -74,6 +80,59 @@ public class PopupUserServiceImpl implements PopupUserService {
             .collect(Collectors.toSet());
 
     return popupUserResponseDtoMapper.toPopupUserResponseDtoList(popupList, favoritedPopupIdList);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public PopupScrollResponseDto getScrollPopupList(String userUuid, Long cursor) {
+    usersRepository
+        .findByUuid(userUuid)
+        .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
+
+    LocalDate today = LocalDate.now(KOREA_ZONE_ID);
+    PageRequest pageRequest = PageRequest.of(0, SCROLL_PAGE_SIZE);
+    Slice<Popup> popupSlice =
+        cursor == null
+            ? popupRepository.findByActivatedTrueAndEndDateGreaterThanEqualOrderByIdDesc(
+                today, pageRequest)
+            : popupRepository
+                .findByActivatedTrueAndEndDateGreaterThanEqualAndIdLessThanOrderByIdDesc(
+                    today, cursor, pageRequest);
+    List<Popup> popupList = popupSlice.getContent();
+    if (popupList.isEmpty()) {
+      return new PopupScrollResponseDto(List.of(), null, false);
+    }
+
+    List<Long> popupIdList = popupList.stream().map(Popup::getId).toList();
+    Map<Long, String> thumbnailUrlByPopupId =
+        popupImageRepository
+            .findAllByPopup_IdInAndSortOrderOrderByPopup_IdAscIdAsc(popupIdList, 0)
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    popupImage -> popupImage.getPopup().getId(),
+                    PopupImage::getImageUrl,
+                    (first, ignored) -> first));
+    Set<Long> favoritedPopupIdSet =
+        new HashSet<>(
+            userFavoriteRepository.findPopupIdsByUserUuidAndPopupIds(userUuid, popupIdList));
+
+    List<PopupScrollItemResponseDto> itemList =
+        popupList.stream()
+            .map(
+                popup ->
+                    new PopupScrollItemResponseDto(
+                        popup.getUuid(),
+                        thumbnailUrlByPopupId.get(popup.getId()),
+                        popup.getRegion(),
+                        popup.getName(),
+                        popup.getStartDate(),
+                        popup.getEndDate(),
+                        favoritedPopupIdSet.contains(popup.getId())))
+            .toList();
+    Long nextCursor = popupSlice.hasNext() ? popupList.get(popupList.size() - 1).getId() : null;
+
+    return new PopupScrollResponseDto(itemList, nextCursor, popupSlice.hasNext());
   }
 
   private List<Popup> prependAdvertisementPopups(List<Popup> recommendedPopupList) {

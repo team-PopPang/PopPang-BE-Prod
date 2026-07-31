@@ -36,8 +36,8 @@ class V1EndpointInventoryContractTest {
         expected.stream().filter(line -> line.startsWith("DELETE_APPROVED|")).toList();
     List<String> actual = findV1Endpoints();
 
-    assertThat(expected).hasSize(78).doesNotHaveDuplicates();
-    assertThat(required).hasSize(76);
+    assertThat(expected).hasSize(79).doesNotHaveDuplicates();
+    assertThat(required).hasSize(77);
     assertThat(approvedDeletions).hasSize(2);
     assertThat(actual).doesNotHaveDuplicates();
     assertThat(actual).containsAll(required);
