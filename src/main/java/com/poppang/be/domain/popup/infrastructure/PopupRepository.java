@@ -9,6 +9,8 @@ import com.poppang.be.domain.popup.infrastructure.projection.PopupWebUpcomingRow
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,12 @@ import org.springframework.data.repository.query.Param;
 public interface PopupRepository extends JpaRepository<Popup, Long> {
 
   Optional<Popup> findByUuid(String popupUuid);
+
+  Slice<Popup> findByActivatedTrueAndEndDateGreaterThanEqualOrderByIdDesc(
+      LocalDate currentDate, Pageable pageable);
+
+  Slice<Popup> findByActivatedTrueAndEndDateGreaterThanEqualAndIdLessThanOrderByIdDesc(
+      LocalDate currentDate, Long cursor, Pageable pageable);
 
   @Query(
       """
