@@ -74,6 +74,21 @@ class V2UserAlertKeywordServiceTest {
   }
 
   @Test
+  void registerAlertKeywordRejectsAnExistingUserKeywordBeforeSaving() {
+    Users user = Users.builder().uuid(USER_UUID).build();
+    UserAlertKeyword existingKeyword =
+        UserAlertKeyword.builder().user(user).alertKeyword(KEYWORD).build();
+    given(usersRepository.findByUuid(USER_UUID)).willReturn(Optional.of(user));
+    given(userAlertKeywordRepository.findByUserUuidAndAlertKeyword(USER_UUID, KEYWORD))
+        .willReturn(Optional.of(existingKeyword));
+
+    assertError(
+        () -> service.registerAlertKeyword(USER_UUID, KEYWORD),
+        ErrorCode.ALERT_KEYWORD_ALREADY_EXISTS);
+    verify(userAlertKeywordRepository, never()).save(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
   void registerAndDeleteRejectMissingOrBlankKeywordsBeforeRepositoryAccess() {
     for (String invalidKeyword : new String[] {null, "", "   "}) {
       assertError(

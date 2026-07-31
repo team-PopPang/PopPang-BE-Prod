@@ -642,7 +642,8 @@ Kakao·Google·Apple v2 로그인, 유효 Access Token, refresh와 403 흐름은
 **구현 청크 9 Status:** 완료 (2026-07-31). 찜 4개와 알림 키워드 3개를 v1과 분리된 v2
 Controller·DTO·application service로 추가했다. 호출자 UUID는 request/query에서 제거하고 검증된
 Access Token principal만 사용한다. 키워드 등록·삭제는 null·빈 문자열·공백 입력을 repository 접근
-전에 `INVALID_USER_REQUEST`로 거절한다. 전체 test 329개와 `spotlessCheck`가 통과했으며 v1,
+전에 `INVALID_USER_REQUEST`로 거절하고, 동일 사용자의 중복 키워드 등록은
+`ALERT_KEYWORD_ALREADY_EXISTS`로 거절한다. 전체 test 329개와 `spotlessCheck`가 통과했으며 v1,
 Entity/JPA/DB schema 변경과 외부 DB·Redis 접속은 없다.
 
 **구현 청크 10 Status:** 완료 (2026-07-31). 알림함 조회·삭제·읽음 API 세 개를 v1과 분리된
@@ -650,7 +651,7 @@ v2 Controller·DTO·application service로 추가했다. 호출자 UUID는 path/
 검증된 Access Token principal만 사용하며, 알림 등록 POST는 worker용 구현 청크 18 범위로 남겼다.
 삭제·읽음 대상 popupUuid는 null·빈 문자열·공백을 repository 접근 전에
 `INVALID_USER_REQUEST`로 거절한다. 메인 세션 재검수에서 보안·v1 호환 focused test 49개와 전체
-test 345개가 실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`, `git diff --check`도
+test 346개가 실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`, `git diff --check`도
 통과했다. v1, Entity/JPA/Repository/DB schema 변경과 외부 DB·운영 Redis 접속은 없다. Wave 4는
 구현을 마쳤지만 commit·push·PR·운영 배포와 유효 Access Token smoke 전이므로 배포 완료가 아니다.
 

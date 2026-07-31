@@ -35,6 +35,9 @@ public class V2UserAlertKeywordServiceImpl implements V2UserAlertKeywordService 
         usersRepository
             .findByUuid(userUuid)
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
+    if (userAlertKeywordRepository.findByUserUuidAndAlertKeyword(userUuid, keyword).isPresent()) {
+      throw new BaseException(ErrorCode.ALERT_KEYWORD_ALREADY_EXISTS);
+    }
     userAlertKeywordRepository.save(UserAlertKeyword.from(user, keyword));
   }
 
