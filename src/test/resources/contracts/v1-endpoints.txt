@@ -43,6 +43,7 @@ KEEP|GET|/api/v1/users/{userUuid}/popups/inProgress|consumes=-|produces=applicat
 KEEP|GET|/api/v1/users/{userUuid}/popups/random|consumes=-|produces=application/json
 KEEP|GET|/api/v1/users/{userUuid}/popups/recommendations/{recommendId}|consumes=-|produces=application/json
 KEEP|GET|/api/v1/users/{userUuid}/popups/recommend|consumes=-|produces=application/json
+KEEP|GET|/api/v1/users/{userUuid}/popups/scroll|consumes=-|produces=application/json
 KEEP|GET|/api/v1/users/{userUuid}/popups/search|consumes=-|produces=application/json
 KEEP|GET|/api/v1/users/{userUuid}/popups/upcoming|consumes=-|produces=application/json
 KEEP|GET|/api/v1/users/{userUuid}/popups/{popupUuid}/related|consumes=-|produces=application/json
