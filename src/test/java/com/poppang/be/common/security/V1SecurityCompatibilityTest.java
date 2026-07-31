@@ -2,12 +2,14 @@ package com.poppang.be.common.security;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.poppang.be.common.jwt.JwtProvider;
+import com.poppang.be.common.ratelimit.V2AuthRateLimiter;
 import com.poppang.be.domain.favorite.application.UserFavoriteService;
 import com.poppang.be.domain.favorite.presentation.UserFavoriteController;
 import com.poppang.be.domain.popup.application.PopupAdminService;
@@ -21,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -34,8 +37,12 @@ import org.springframework.test.web.servlet.MockMvc;
       PopupAdminController.class,
       PopupController.class
     },
-    properties = {"springdoc.api-docs.enabled=false", "springdoc.swagger-ui.enabled=false"})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+    properties = {
+      "springdoc.api-docs.enabled=false",
+      "springdoc.swagger-ui.enabled=false",
+      "internal.worker.api-key=${random.uuid}${random.uuid}"
+    })
+@Import(SecurityConfig.class)
 class V1SecurityCompatibilityTest {
 
   @Autowired private MockMvc mockMvc;
@@ -46,6 +53,7 @@ class V1SecurityCompatibilityTest {
   @MockitoBean private PopupService popupService;
   @MockitoBean private JwtProvider jwtProvider;
   @MockitoBean private UsersRepository usersRepository;
+  @MockitoBean private V2AuthRateLimiter authRateLimiter;
 
   @Test
   void legacyUserReadRemainsPublicWithoutBearerToken() throws Exception {
@@ -88,5 +96,17 @@ class V1SecurityCompatibilityTest {
         .andExpect(status().isOk());
 
     verify(popupService).registerPopup(any());
+  }
+
+  @Test
+  void invalidBearerTokenDoesNotInvokeV2AuthenticationOnV1() throws Exception {
+    mockMvc
+        .perform(
+            get("/api/v1/user/legacy-user")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer invalid-or-expired-token"))
+        .andExpect(status().isOk());
+
+    verify(usersService).getUserInfo("legacy-user");
+    verifyNoInteractions(jwtProvider, usersRepository, authRateLimiter);
   }
 }

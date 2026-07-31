@@ -9,7 +9,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.POST;
 import static org.springframework.web.bind.annotation.RequestMethod.PUT;
 
 import com.poppang.be.common.jwt.JwtProvider;
-import com.poppang.be.common.security.JwtAuthenticationFilter;
+import com.poppang.be.common.ratelimit.V2AuthRateLimiter;
 import com.poppang.be.common.security.SecurityConfig;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import jakarta.servlet.http.HttpServletResponse;
@@ -49,7 +49,10 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootTest(
     classes = V1ApiCompatibilityContractTest.TestApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
-    properties = "spring.config.location=classpath:/application-test.yml")
+    properties = {
+      "spring.config.location=classpath:/application-test.yml",
+      "internal.worker.api-key=${random.uuid}${random.uuid}"
+    })
 @ActiveProfiles("test")
 class V1ApiCompatibilityContractTest {
 
@@ -61,7 +64,7 @@ class V1ApiCompatibilityContractTest {
           endpoint(GET, "/api/v1/users/{userUuid}/alert/popups"),
           endpoint(PATCH, "/api/v1/users/{userUuid}/alert/read"),
 
-          // 인증: Swagger에서 숨겨져 있어도 현재 존재하는 모든 엔드포인트를 의도적으로 포함함.
+          // 인증: 청크 5에서 삭제 승인된 실험용 token/refresh 두 endpoint는 제외함.
           endpoint(GET, "/api/v1/auth/kakao/login"),
           endpoint(GET, "/api/v1/auth/apple/login"),
           endpoint(GET, "/api/v1/auth/google/login"),
@@ -72,8 +75,6 @@ class V1ApiCompatibilityContractTest {
           endpoint(POST, "/api/v1/auth/kakao/signup"),
           endpoint(POST, "/api/v1/auth/apple/signup"),
           endpoint(POST, "/api/v1/auth/google/signup"),
-          endpoint(POST, "/api/v1/auth/token/test"),
-          endpoint(POST, "/api/v1/auth/refresh"),
 
           // 즐겨찾기
           endpoint(POST, "/api/v1/favorite"),
@@ -157,12 +158,13 @@ class V1ApiCompatibilityContractTest {
 
   @MockitoBean private JwtProvider jwtProvider;
   @MockitoBean private UsersRepository usersRepository;
+  @MockitoBean private V2AuthRateLimiter authRateLimiter;
 
   @Test
   void applicationV1MappingsMatchApprovedInventory() throws Exception {
     Set<Endpoint> actualEndpoints = discoverApplicationV1Endpoints();
 
-    assertThat(APPROVED_V1_ENDPOINTS).hasSize(78);
+    assertThat(APPROVED_V1_ENDPOINTS).hasSize(76);
     assertThat(actualEndpoints)
         .as("Any v1 endpoint addition, removal, method change, or path change requires approval")
         .containsExactlyInAnyOrderElementsOf(APPROVED_V1_ENDPOINTS);
@@ -295,6 +297,6 @@ class V1ApiCompatibilityContractTest {
         RedisAutoConfiguration.class,
         RedisRepositoriesAutoConfiguration.class
       })
-  @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+  @Import(SecurityConfig.class)
   static class TestApplication {}
 }

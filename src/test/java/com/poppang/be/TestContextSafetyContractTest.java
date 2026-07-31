@@ -48,8 +48,44 @@ class TestContextSafetyContractTest {
 
   @Test
   void v1SecuritySliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
-    Class<?> securityTest =
-        Class.forName("com.poppang.be.common.security.V1SecurityCompatibilityTest");
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.common.security.V1SecurityCompatibilityTest"));
+  }
+
+  @Test
+  void v2SecuritySliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.common.security.SecurityChainContractTest"));
+  }
+
+  @Test
+  void v2TokenControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.auth.presentation.v2.V2TokenControllerTest"));
+  }
+
+  @Test
+  void v2KakaoAuthControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration()
+      throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.auth.presentation.v2.V2KakaoAuthControllerTest"));
+  }
+
+  @Test
+  void v2GoogleAppleAuthControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration()
+      throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName(
+            "com.poppang.be.domain.auth.presentation.v2.V2GoogleAppleAuthControllerTest"));
+  }
+
+  @Test
+  void v2UsersControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.users.presentation.v2.V2UsersControllerTest"));
+  }
+
+  private void assertIsolatedWebMvcTest(Class<?> securityTest) {
     ActiveProfiles activeProfiles = securityTest.getAnnotation(ActiveProfiles.class);
     WebMvcTest webMvcTest = securityTest.getAnnotation(WebMvcTest.class);
     OverrideAutoConfiguration overrideAutoConfiguration =
