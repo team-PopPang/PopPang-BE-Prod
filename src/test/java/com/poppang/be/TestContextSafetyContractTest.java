@@ -95,6 +95,12 @@ class TestContextSafetyContractTest {
             "com.poppang.be.domain.keyword.presentation.v2.V2UserAlertKeywordControllerTest"));
   }
 
+  @Test
+  void v2UserAlertSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.alert.presentation.v2.V2UserAlertControllerTest"));
+  }
+
   private void assertIsolatedWebMvcTest(Class<?> securityTest) {
     ActiveProfiles activeProfiles = securityTest.getAnnotation(ActiveProfiles.class);
     WebMvcTest webMvcTest = securityTest.getAnnotation(WebMvcTest.class);

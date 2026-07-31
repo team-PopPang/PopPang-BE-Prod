@@ -66,7 +66,7 @@ identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소�
 | 7 | Google·Apple mobile login/signup adapter | 4 | ✅ 완료 (2026-07-31) | 두 provider v1 회귀 + v2 흐름 |
 | 8 | 사용자 조회·알림 동의·닉네임·탈퇴·FCM | 6 | ✅ 완료 (2026-07-31) | JWT 본인만 변경 가능 |
 | 9 | 찜 4개 + 알림 키워드 3개 | 7 | ✅ 완료 (2026-07-31) | request의 caller UUID 제거 |
-| 10 | 알림함 조회·삭제·읽음 | 3 | ⬜ 미완료 | principal 사용자 알림만 처리 |
+| 10 | 알림함 조회·삭제·읽음 | 3 | ✅ 완료 (2026-07-31) | principal 사용자 알림만 처리 |
 | 11 | 일반 popup 핵심 조회 | 7 | ⬜ 미완료 | 전체·상세·검색·예정·진행·지역·랜덤 회귀 |
 | 12 | 일반 popup 필터·추천 조회 | 6 | ⬜ 미완료 | filter·related·recommend target 유지 |
 | 13 | 조회수 3개 + app recommend master 2개 | 5 | ⬜ 미완료 | 기존 count/featured 계약 유지 |
@@ -76,7 +76,7 @@ identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소�
 | 17 | Admin popup·제보 API | 5 | ⬜ 미완료 | 모든 mapping에 현재 ROLE_ADMIN 강제 |
 | 18 | crawler·notification worker internal API | 5 | ⬜ 미완료 | API Key와 target UUID 분리 |
 | 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | ⬜ 미완료 | spotlessCheck, clean test/build |
-|  | **합계** | **71** | **10/20 완료** |  |
+|  | **합계** | **71** | **11/20 완료** |  |
 
 ## Merge and production deployment wave map
 
@@ -90,7 +90,7 @@ PR로 합치려면 사용자에게 범위와 위험을 다시 보고하고 별�
 | 1/7 | 0~1 | v1 호환 기준선·SignupStatus·Users identity 기반 | 0 | ✅ 완료 (2026-07-20) | 계약 테스트, DB-E1 적용·검증, v1 signup 상태 전이 |
 | 2/7 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | ✅ 완료 (2026-07-28) | private config, legacy JWT 비침해, 실제 Redis 테스트 |
 | 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 14 | ✅ 완료 (2026-07-31) | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
-| 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | ⬜ 미완료 | caller UUID 제거와 타 사용자 접근 거절 |
+| 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | 🟡 구현 완료·배포 전 | caller UUID 제거와 타 사용자 접근 거절 |
 | 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | ⬜ 미완료 | v1 결과 회귀와 filter/count/featured 계약 |
 | 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 19 | ⬜ 미완료 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
 | 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ⬜ 미완료 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
@@ -632,7 +632,7 @@ Kakao·Google·Apple v2 로그인, 유효 Access Token, refresh와 403 흐름은
 **Steps:**
 
 - [x] 찜과 키워드 request/query의 caller userUuid를 제거하고 popupUuid/keyword만 유지한다.
-- [ ] 알림함 조회·삭제·읽음은 `/api/v2/user/alert/**`와 principal을 사용한다.
+- [x] 알림함 조회·삭제·읽음은 `/api/v2/user/alert/**`와 principal을 사용한다.
 - [ ] `/api/v1/users/{userUuid}/popups/**`는 `/api/v2/user/popups/**`로 이동하고 principal 기반
       개인화 결과를 반환한다.
 - [ ] popup 제보 body userUuid를 제거하고 principal을 `submitter_user_uuid` 감사 값으로 저장한다.
@@ -643,8 +643,16 @@ Kakao·Google·Apple v2 로그인, 유효 Access Token, refresh와 403 흐름은
 Controller·DTO·application service로 추가했다. 호출자 UUID는 request/query에서 제거하고 검증된
 Access Token principal만 사용한다. 키워드 등록·삭제는 null·빈 문자열·공백 입력을 repository 접근
 전에 `INVALID_USER_REQUEST`로 거절한다. 전체 test 329개와 `spotlessCheck`가 통과했으며 v1,
-Entity/JPA/DB schema 변경과 외부 DB·Redis 접속은 없다. 구현 청크 10과 Wave 4 배포는 아직
-시작하지 않았다.
+Entity/JPA/DB schema 변경과 외부 DB·Redis 접속은 없다.
+
+**구현 청크 10 Status:** 완료 (2026-07-31). 알림함 조회·삭제·읽음 API 세 개를 v1과 분리된
+v2 Controller·DTO·application service로 추가했다. 호출자 UUID는 path/body/query에서 제거하고
+검증된 Access Token principal만 사용하며, 알림 등록 POST는 worker용 구현 청크 18 범위로 남겼다.
+삭제·읽음 대상 popupUuid는 null·빈 문자열·공백을 repository 접근 전에
+`INVALID_USER_REQUEST`로 거절한다. 메인 세션 재검수에서 보안·v1 호환 focused test 49개와 전체
+test 345개가 실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`, `git diff --check`도
+통과했다. v1, Entity/JPA/Repository/DB schema 변경과 외부 DB·운영 Redis 접속은 없다. Wave 4는
+구현을 마쳤지만 commit·push·PR·운영 배포와 유효 Access Token smoke 전이므로 배포 완료가 아니다.
 
 **Verification:**
 
