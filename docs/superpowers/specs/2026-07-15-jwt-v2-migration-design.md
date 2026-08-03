@@ -2,8 +2,10 @@
 
 ## 상태
 
-`APPROVED`. 인증 계약과 점진 배포 정책은 승인됐으며 구현은 진행 중이다. 구현·DB 적용·운영
-배포 완료 여부는 구현 체크리스트에서 별도로 관리한다.
+`APPROVED`. 인증 계약과 점진 배포 정책은 승인됐으며 구현은 진행 중이다. 2026-08-03 기준
+구현 청크 0~13(14/20)과 운영 배포 Wave 1~4(4/7)가 완료됐다. Wave 5는 구현·로컬 검증을
+마쳤지만 운영 배포 전이며, 다음 구현 대상은 청크 14다.
+세부 구현·DB 적용·운영 배포 증거는 구현 체크리스트에서 관리한다.
 
 ## 문서 목적
 
@@ -47,12 +49,15 @@ iOS, Android, ETL 전환이 모두 확인될 때까지 v1을 유지하고, 실�
 - POST /api/v1/auth/token/test
 - POST /api/v1/auth/refresh
 
-## 현재 상태와 위험
+## 도입 전 v1 기준 상태와 위험
 
-- SecurityConfig가 사실상 모든 URL을 permitAll로 허용한다.
-- JwtAuthenticationFilter는 Bearer Token이 있을 때만 principal을 채우며, 토큰이 없어도 요청을
-  차단하지 않는다.
-- 소셜 로그인 응답과 자체 JWT 발급이 연결되어 있지 않다.
+아래 항목은 마이그레이션 시작 당시의 v1 기준선이다. 2026-07-31 현재 v2 Security 경계와 소셜
+로그인·토큰 흐름은 Wave 3으로 운영 배포됐지만, v1은 클라이언트 전환 전까지 이 기준선을 그대로
+유지하므로 시스템 전체의 인증 우회 위험은 아직 남아 있다.
+
+- v1 SecurityConfig는 사실상 모든 v1 URL을 permitAll로 허용한다.
+- v1은 Bearer Token 없이도 요청을 차단하지 않는다.
+- v1 소셜 로그인 응답은 자체 JWT 발급과 연결되어 있지 않다.
 - v1의 사용자 종속 API는 path, query, body의 userUuid를 호출자 신원으로 신뢰한다.
 - 관리자 API 일부는 query의 uuid를 관리자 신원으로 사용하며 권한 검사가 누락된 API도 있다.
 - refresh token은 Redis에 사용자당 하나가 저장되지만 rotation과 logout 흐름이 없다.
@@ -597,6 +602,9 @@ v1은 현재 서비스 중인 계약으로 동결한다. 각 구현 청크는 �
 | 사용자 self-service | path/body userUuid, hard-delete·restore 포함 기존 API 유지 | principal 본인만 조회·수정하고 탈퇴는 soft-delete만 제공 | v2 path/body의 caller userUuid 제거 | 기존 컬럼만 사용 | 구현·테스트 완료 |
 | 인증 요청 제한 | 제한 없음 | login 10회/분(IP), signup 5회/분(subject), refresh 10회/분(subject) | 429 처리 필요 | 없음, Redis counter만 추가 | 구현·테스트 완료 |
 | Apple nonce | 기존 `auth_code` 요청과 검증 흐름 유지 | v2 요청만 `auth_code + raw_nonce`로 확장하고 ID Token nonce를 대조 | iOS가 v2 호출 시 nonce 생성·전달 | 없음 | 구현·테스트 완료 |
+| 일반 popup 핵심 조회 | 전체·상세·검색·예정·진행·지역·랜덤의 익명 접근과 기존 raw 응답 유지 | 같은 suffix의 v2 7개 조회에 TOKEN_ACCESS 적용, caller userUuid 없음 | Authorization Bearer header 추가 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
+| 일반 popup 필터·추천 조회 | 필터·관련·카테고리·개인 추천의 익명 접근과 기존 조회 조건 유지 | 같은 suffix의 v2 6개 조회에 TOKEN_ACCESS 적용, 개인 추천 caller userUuid는 principal로 대체 | Authorization Bearer header 추가, 개인 추천 path에서 userUuid 제거 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
+| popup 조회수·앱 Recommend master | 조회수 Redis key·TTL·DB+boost 계산과 Recommend 전체·featured 응답 유지 | 같은 suffix의 v2 5개 API에 TOKEN_ACCESS 적용, caller userUuid 없음 | Authorization Bearer header 추가 | 없음, 기존 Redis key 사용 | 구현·테스트 완료, 운영 정상 요청·Redis smoke 미실행 |
 
 v1의 `/api/v1/auth/token/test`와 `/api/v1/auth/refresh`는 승인된 실험용 삭제 대상이다. v2
 `/api/v2/auth/refresh`는 legacy controller를 복제하지 않고 이 문서의 rotation 계약으로 새로
@@ -940,29 +948,35 @@ v1 회귀와 v2 보안 test가 모두 통과해야 구현 완료로 판단한다
 따른다. 현재 CI/CD에서 `main` push는 운영 배포이므로 각 wave는 별도 branch/PR/merge, smoke와
 rollback 단위다.
 
-모든 진행 보고는 `현재 배포 청크 n/16`, 구현·검증 상태, `운영 배포 완료 m/16`과 배포 판단을
-함께 표시한다. gate가 남으면 `지금 배포하면 안 됩니다`, 모든 merge 전 조건이 충족되면
-`지금 배포할 단계입니다 — 별도 승인 필요`라고 명시한다. 운영 배포 완료 숫자는 main merge,
-production deploy, health와 smoke가 모두 끝난 뒤에만 증가시킨다.
+모든 진행 보고는 `현재 구현 청크 x/20`, `현재 배포 wave n/7`, 구현·검증 상태,
+`운영 배포 완료 m/7`과 배포 판단을 함께 표시한다. gate가 남으면 `지금 배포하면 안 됩니다`,
+모든 merge 전 조건이 충족되면 `지금 배포할 단계입니다 — 별도 승인 필요`라고 명시한다. 운영
+배포 완료 숫자는 main merge, production deploy, health와 smoke가 모두 끝난 뒤에만 증가시킨다.
 
-1. 1/16에서 v1 inventory·익명 호환 기준선만 먼저 배포한다.
-2. DB 중복과 SignupStatus 분류를 점검하고 DB-E1의 backup·DDL·lock·rollback을 별도 승인받아
-   수동 적용한다. DB 작업을 CD에 포함하지 않는다.
-3. v1 signup 상태 전이와 구·신규 binary 호환을 검증한 뒤 2/16 Users 기반을 배포한다.
-4. private config를 먼저 준비하고 3/16 JWT·Redis 기반과 4/16 Security 경계를 각각 독립 배포한다.
-   3/16이 legacy `JwtProvider`에 영향을 주면 v1 동작을 보존하는 additive 변경이어야 하며, 그렇지
-   않으면 feature-disabled v2 provider로 분리하고 배포 단위를 다시 승인받는다.
-5. 5/16~15/16의 auth·사용자·popup·Web·Admin·worker API는 체크리스트처럼 provider·도메인
-   경계로 나눠 배포한다. API wave마다 OpenAPI 보안 표기와 저카디널리티 관측도 함께 제공한다.
+1. Wave 1에서 청크 0~1의 v1 inventory·익명 호환 기준선과 Users 기반을 배포한다. DB 중복과
+   SignupStatus 분류를 점검하고 DB-E1의 backup·DDL·lock·rollback을 별도 승인받아 수동 적용하며,
+   DB 작업을 CD에 포함하지 않는다.
+2. Wave 2에서 청크 2~3의 JWT 계약과 Redis 원자 token 저장소를 배포한다.
+3. Wave 3에서 청크 4~8의 Security 경계, Refresh/logout, 소셜 인증과 사용자 self-service를
+   배포한다.
+4. Wave 4에서 청크 9~10의 찜, 알림 키워드와 알림함을 배포한다.
+5. Wave 5~7에서 청크 11~19의 일반·개인화 popup, Web, Admin, worker, OpenAPI·관측과 전체
+   안정화를 순서대로 배포한다. 각 API wave에는 해당 OpenAPI 보안 표기와 저카디널리티 관측을
+   함께 제공한다.
 6. 각 wave에서 main CD가 test와 formatting을 통과한 동일 JAR로 image를 만들고 digest를 기록한다.
    Actuator, 대표 v1 익명 API, 해당 v2의 401/403/성공 smoke와 5xx/DB·Redis 오류 부재를 확인한
    뒤에만 다음 wave를 merge한다.
-7. 16/16에서 전체 v1/v2 회귀, OpenAPI·관측 누락과 migration matrix를 최종 검증한다.
+7. Wave 7에서 전체 v1/v2 회귀, OpenAPI·관측 누락과 migration matrix를 최종 검증한다.
 8. 필요한 서버 wave가 모두 안정화된 뒤 iOS와 Android를 v2로 전환한다.
 9. ETL은 별도 일정과 승인으로 v2 worker API에 전환한다.
 10. 구버전 앱 지원 종료와 route별 v1 호출 0건을 확인한 뒤 contract SQL을 no-return 승인으로
     적용한다.
 11. v1 삭제는 별도 change와 별도 배포로 수행한다.
+
+2026-07-31 현재 Wave 1~4가 운영 반영됐다. 가장 최근 Wave 4는 PR #9, merge commit
+`28bc9dee`, production run `30627748110`으로 배포됐고 Actuator UP, 대표 v1 익명 HTTP 200,
+v2 token 없음·잘못된 token의 HTTP 401을 확인했다. 유효 Access Token을 사용한 Wave 4 정상
+요청 smoke는 테스트 계정·token 부재로 미검증이며 클라이언트 전환 전에 수행한다.
 
 DB 변경은 이전 서버가 모르는 column을 무시할 수 있는 추가 방식으로 시작한다. rollback 기간에
 column 삭제, 이름 변경, 기존 값 의미 변경을 수행하지 않는다.

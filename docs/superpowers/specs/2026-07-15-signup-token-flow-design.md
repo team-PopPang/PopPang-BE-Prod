@@ -9,13 +9,21 @@
 이 문서는 전체 JWT 마이그레이션 중 회원가입과 Signup Token 흐름만 다룬다. 기존 v1 API는
 클라이언트 마이그레이션 동안 유지하되, v2 전환 확인 후 제거한다.
 
-## 현재 동작과 문제
+## 구현 상태 (2026-07-31)
 
-현재 Kakao, Google, Apple 로그인 서비스는 소셜 제공자의 credential을 검증한 뒤 `uid`로
+- Kakao·Google·Apple의 v2 모바일 로그인과 Signup Token 기반 회원가입은 구현·자동 테스트를
+  마치고 운영 배포 Wave 3으로 반영됐다.
+- v1 소셜 로그인·회원가입 구현과 공개 계약은 변경하지 않고 계속 운영한다.
+- 실제 Kakao·Google·Apple 계정으로 v2 로그인·회원가입을 성공시키는 운영 smoke는 테스트
+  계정·token 부재로 아직 확인하지 못했다. iOS/AOS 전환 전에 provider별로 수행한다.
+
+## v1 기준 동작과 문제
+
+마이그레이션 전 v1 Kakao, Google, Apple 로그인 서비스는 소셜 제공자의 credential을 검증한 뒤 `uid`로
 `Users`를 조회하거나 미완성 사용자를 생성하고 `LoginResponseDto`를 반환한다. PopPang
 Access Token과 Refresh Token은 소셜 로그인 응답에 연결되어 있지 않다.
 
-현재 provider별 회원가입 API는 `SignupRequestDto` body에서 다음 신원 관련 값을 받는다.
+v1 provider별 회원가입 API는 `SignupRequestDto` body에서 다음 신원 관련 값을 받는다.
 
 - `uid`
 - `provider`
