@@ -739,8 +739,8 @@ GitHub rollout 진행 메모 — 2026-07-18:
   따른다. 청크 하나 또는 provider·read/write 경계로 더 나눈 작은 단위만 PR로 만든다.
 - `main` 병합은 자동 production 배포를 시작하므로 push 승인과 별도로 각 wave의 merge·배포
   승인을 받는다. 직전 wave의 smoke와 관찰이 끝나기 전에는 다음 wave를 병합하지 않는다.
-- 진행 보고마다 `현재 배포 청크 n/16`, `운영 배포 완료 m/16`과 `지금 배포하면 안 됩니다` 또는
-  `지금 배포할 단계입니다 — 별도 승인 필요` 판단을 명시한다.
+- 진행 보고마다 `현재 구현 청크 x/20`, `현재 배포 wave n/7`, `운영 배포 완료 m/7`과
+  `지금 배포하면 안 됩니다` 또는 `지금 배포할 단계입니다 — 별도 승인 필요` 판단을 명시한다.
 - 앱 클라이언트가 해당 v2 endpoint로 전환하기 전까지 신규 v2 API는 사용되지 않는다는 전제로
   점진적으로 배포한다.
 - Entity/JPA/schema 영향이 예상되면 코드 수정 전에 DDL·호환성·lock·backup·rollback을 보고하고
@@ -748,6 +748,12 @@ GitHub rollout 진행 메모 — 2026-07-18:
 - 기존 v1 controller, path, method, parameter, body, response, status, media type과 익명 접근 동작을
   변경하지 않는다.
 - v1 제거는 iOS와 Android의 endpoint별 v2 전환이 확인된 뒤 별도 작업으로 수행한다.
+
+2026-08-03 현재 JWT 구현 청크 0~13(14/20)과 운영 배포 Wave 1~4(4/7)가 완료됐다. Wave 5는
+청크 11~13의 구현·로컬 검증을 마쳤지만 아직 운영 배포 전이다. 최근 Wave 4의
+PR #9 merge 뒤 production run `30627748110`이 성공했고 Actuator UP, 대표 v1 익명 HTTP 200,
+v2 인증 실패 HTTP 401 smoke를 확인했다. 유효 Access Token 정상 요청 smoke는 클라이언트 전환
+전 필수 미검증 항목으로 남아 있다.
 
 ## Accepted risks and deferred work
 
