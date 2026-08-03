@@ -28,10 +28,10 @@ public class V2RecommendController {
 
   @Operation(summary = "추천 카테고리 전체 조회")
   @GetMapping
-  public List<V2RecommendResponseDto> getAllRecommendList(
+  public ResponseEntity<List<V2RecommendResponseDto>> getAllRecommendList(
       @AuthenticationPrincipal JwtPrincipal principal) {
     requireAccessPrincipal(principal);
-    return recommendService.getAllRecommendList();
+    return ResponseEntity.ok(recommendService.getAllRecommendList());
   }
 
   @Operation(summary = "지도 상단 Featured 추천 조회")

@@ -26,7 +26,6 @@ import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -251,7 +250,7 @@ class V2PopupServiceImplTest {
     given(popupRecommend.getRecommend()).willReturn(recommend);
     given(recommend.getId()).willReturn(7L);
     given(popupRecommendRepository.findRelatedActivePopupList(7L))
-        .willReturn(new ArrayList<>(List.of(current, related, related)));
+        .willReturn(List.of(current, related, related));
     given(popupRepository.findRandomActivePopupsExcluding(List.of(1L, 2L), 2, 9))
         .willReturn(List.of(random));
     given(popupResponseDtoMapper.toResponseDtoList(List.of(related, random)))
@@ -260,6 +259,16 @@ class V2PopupServiceImplTest {
     assertThat(popupService.getRelatedPopupList(POPUP_UUID)).hasSize(1);
 
     verify(popupRepository).findRandomActivePopupsExcluding(List.of(1L, 2L), 2, 9);
+  }
+
+  @Test
+  void blankRelatedPopupUuidReturnsNotFoundBeforeRepositoryAccess() {
+    assertThatThrownBy(() -> popupService.getRelatedPopupList(" "))
+        .isInstanceOfSatisfying(
+            BaseException.class,
+            exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.POPUP_NOT_FOUND));
+
+    verifyNoInteractions(popupRepository, popupRecommendRepository, popupResponseDtoMapper);
   }
 
   @Test

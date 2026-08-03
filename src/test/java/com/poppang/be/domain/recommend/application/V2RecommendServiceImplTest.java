@@ -44,12 +44,12 @@ class V2RecommendServiceImplTest {
   @Test
   void featuredRecommendationsKeepTheLegacyServerManagedId() {
     Recommend featured = recommend(21L, "캐릭터");
-    given(recommendRepository.findAllByIdIn(List.of(21))).willReturn(List.of(featured));
+    given(recommendRepository.findAllById(List.of(21L))).willReturn(List.of(featured));
 
     List<V2RecommendFeaturedResponseDto> result = service.getFeaturedForMap();
 
     assertThat(result).containsExactly(new V2RecommendFeaturedResponseDto(21L, "캐릭터"));
-    verify(recommendRepository).findAllByIdIn(List.of(21));
+    verify(recommendRepository).findAllById(List.of(21L));
   }
 
   private Recommend recommend(Long id, String name) {

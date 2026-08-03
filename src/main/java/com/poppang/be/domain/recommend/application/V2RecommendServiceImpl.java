@@ -10,21 +10,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class V2RecommendServiceImpl implements V2RecommendService {
 
-  private static final List<Integer> FEATURED_RECOMMEND_IDS = List.of(21);
+  private static final List<Long> FEATURED_RECOMMEND_IDS = List.of(21L);
 
   private final RecommendRepository recommendRepository;
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2RecommendResponseDto> getAllRecommendList() {
     return recommendRepository.findAll().stream().map(V2RecommendResponseDto::from).toList();
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2RecommendFeaturedResponseDto> getFeaturedForMap() {
-    return recommendRepository.findAllByIdIn(FEATURED_RECOMMEND_IDS).stream()
+    return recommendRepository.findAllById(FEATURED_RECOMMEND_IDS).stream()
         .map(V2RecommendFeaturedResponseDto::from)
         .toList();
   }

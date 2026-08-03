@@ -31,7 +31,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class V2PopupServiceImpl implements V2PopupService {
 
   private final PopupRepository popupRepository;
@@ -43,11 +42,13 @@ public class V2PopupServiceImpl implements V2PopupService {
   private final ObjectMapper objectMapper;
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getAllPopupList() {
     return popupResponseDtoMapper.toResponseDtoList(popupRepository.findAll());
   }
 
   @Override
+  @Transactional(readOnly = true)
   public V2PopupResponseDto getPopupByUuid(String popupUuid) {
     requirePopupUuid(popupUuid);
     Popup popup =
@@ -58,6 +59,7 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getSearchPopupList(String query) {
     String term = query == null ? "" : query.trim();
     if (term.isEmpty()) {
@@ -67,6 +69,7 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getUpcomingPopupList(Integer upcomingDays) {
     int days = upcomingDays == null || upcomingDays <= 0 ? 10 : upcomingDays;
     LocalDate startDate = LocalDate.now().plusDays(1);
@@ -76,11 +79,13 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getInProgressPopupList() {
     return popupResponseDtoMapper.toResponseDtoList(popupRepository.findInProgressPopupList());
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2RegionDistrictsResponseDto> getRegionDistricts() {
     List<V2RegionDistrictsResponseDto> responses = new ArrayList<>();
     for (PopupRepository.RegionDistrictsRaw row : popupRepository.findRegionDistrictsJson()) {
@@ -96,11 +101,13 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getRandomPopupList() {
     return popupResponseDtoMapper.toResponseDtoList(popupRepository.findRandomActivePopups());
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getFilteredPopupList(
       String region,
       String district,
@@ -122,6 +129,7 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getFilteredHomePopupList(
       String region, String district, HomeSortStandard homeSortStandard) {
     return popupResponseDtoMapper.toResponseDtoList(
@@ -129,6 +137,7 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getFilteredMapPopupList(
       String region,
       String district,
@@ -159,7 +168,9 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getRelatedPopupList(String popupUuid) {
+    requirePopupUuid(popupUuid);
     Popup popup =
         popupRepository
             .findByUuid(popupUuid)
@@ -170,9 +181,12 @@ public class V2PopupServiceImpl implements V2PopupService {
             .orElseThrow(() -> new BaseException(ErrorCode.POPUP_RECOMMEND_NOT_FOUND));
     Long recommendId = popupRecommend.getRecommend().getId();
 
-    List<Popup> relatedPopupList = popupRecommendRepository.findRelatedActivePopupList(recommendId);
-    relatedPopupList.removeIf(relatedPopup -> relatedPopup.getId().equals(popup.getId()));
-    List<Popup> popupList = relatedPopupList.stream().distinct().limit(10).toList();
+    List<Popup> popupList =
+        popupRecommendRepository.findRelatedActivePopupList(recommendId).stream()
+            .filter(relatedPopup -> !relatedPopup.getId().equals(popup.getId()))
+            .distinct()
+            .limit(10)
+            .toList();
 
     if (popupList.size() == 10) {
       return popupResponseDtoMapper.toResponseDtoList(popupList);
@@ -191,12 +205,14 @@ public class V2PopupServiceImpl implements V2PopupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getRecommendationPopupList(Long recommendId) {
     return popupResponseDtoMapper.toResponseDtoList(
         popupRepository.findActivePopupsByRecommendId(recommendId));
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<V2PopupResponseDto> getRecommendPopupList(String userUuid) {
     usersRepository
         .findByUuid(userUuid)
