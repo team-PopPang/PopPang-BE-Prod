@@ -3,10 +3,10 @@
 ## 상태
 
 `APPROVED`. 인증 계약과 점진 배포 정책은 승인됐으며 구현은 진행 중이다. 2026-08-04 기준
-구현 청크 0~16(17/20)와 운영 배포 Wave 1~5(5/7)가 완료됐다. Wave 5는 PR #11과 production
-run `30788767383`으로 운영 반영됐다. Wave 6의 청크 14~16은 개인화 popup·제보·공개 Web API
-20개를 모두 구현·검증했으며 아직 commit·PR·운영 배포 전이다. 다음 단계는 Wave 6 release
-검수이고, 배포가 확인된 뒤 청크 17을 진행한다.
+구현 청크 0~19(20/20)와 운영 배포 Wave 1~6(6/7)가 완료됐다. Wave 6은 PR #12, merge commit
+`387441c`, production run `30872564654`로 운영 반영됐고 health와 대표 v1·v2 smoke를 통과했다.
+청크 17의 Admin popup·제보 API 5개, 청크 18의 internal worker API 5개와 청크 19의 OpenAPI·
+관측·migration matrix를 구현·검증했다. Wave 7 운영 배포와 iOS/AOS/ETL 전환은 아직 미완료다.
 세부 구현·DB 적용·운영 배포 증거는 구현 체크리스트에서 관리한다.
 
 ## 문서 목적
@@ -611,6 +611,25 @@ v1은 현재 서비스 중인 계약으로 동결한다. 각 구현 청크는 �
 | 개인화 popup 고급 조회 | path userUuid와 홈·지도 필터, 관심사 추천, 연관, 추천 카테고리 계약 유지 | 같은 suffix의 v2 5개 조회에 TOKEN_ACCESS와 principal 적용 | Authorization Bearer header 추가, path userUuid 제거, target·filter 유지 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
 | popup 제보 등록 | 익명 multipart와 body userUuid, 기존 저장·정리 계약 유지 | `/api/v2/popup-submissions`에 TOKEN_ACCESS 적용, principal을 submitter로 저장 | Authorization Bearer header 추가, request JSON에서 userUuid 제거 | 없음, 기존 저장소·이미지 경로 사용 | 구현·테스트 완료, 운영 multipart smoke 미실행 |
 | 공개 Web popup·Recommend | 기존 Web popup 6개와 `/api/v1/recommend/web`의 익명 GET/HEAD·응답 의미 유지 | `/api/v2/web/popup/**` 6개와 `/api/v2/web/recommend`을 별도 공개 계층으로 추가, write method 차단 | 경로 버전만 변경하며 Authorization header 불필요 | 없음 | 7개 구현·테스트 완료, 운영 Web smoke 미실행 |
+| Admin popup·제보 | 기존 `/api/v1/admin/**` 5개와 query caller uuid·익명 접근 계약 유지 | 같은 suffix의 `/api/v2/admin/**`에서 caller uuid를 제거하고 TOKEN_ACCESS와 현재 ROLE_ADMIN을 모두 강제 | 관리자 클라이언트에 Access Token 필요, caller uuid 제거 | 없음 | 5개 구현·테스트 완료, 운영 ADMIN token·multipart smoke 미실행 |
+| Internal worker | 기존 popup 등록·image upsert·Polling A/B·alert 등록의 공개 v1 계약과 Long user id 응답 유지 | `/api/v2/internal/**` 5개에 SERVICE_WORKER를 강제하고 polling 응답을 Users.uuid로 전환, recipient UUID는 target으로 유지 | ETL이 v2 URL과 `X-Worker-Api-Key` header 및 UUID 응답을 사용해야 함 | 없음, 기존 query 뒤 사용자 일괄 조회 1회 추가 | 5개 구현·테스트 완료, 외부 worker 계약·운영 smoke 미실행 |
+
+### 클라이언트 전환·v1 삭제 준비 매트릭스
+
+72개 v2 mapping의 정확한 method·path·보안 분류 기준선은
+`src/test/resources/contracts/v2-endpoints.txt`와 `V2EndpointInventoryContractTest`가 고정한다.
+아래 표의 `미검증`은 완료로 추측하지 않으며 운영 증거가 생길 때만 갱신한다.
+
+| 소비자 | 서버 v2 구현 | 실제 traffic 전환 | 운영 정상 smoke | v1 최근 호출 | rollback 경로 | v1 삭제 가능 |
+|---|---|---|---|---|---|---|
+| iOS | 72개 중 앱 대상 mapping 구현 완료 | 미완료, 앱 version 미확인 | 유효 Access·Signup Token 기준 미검증 | route별 자료 없음 | 기존 공개 v1 유지 | 아니오 |
+| AOS | 72개 중 앱 대상 mapping 구현 완료 | 미완료, 앱 version 미확인 | 유효 Access·Signup Token 기준 미검증 | route별 자료 없음 | 기존 공개 v1 유지 | 아니오 |
+| Web | 공개 v2 Web 7개 구현·Wave 6 배포 | 클라이언트 전환 여부 미확인 | 대표 v2 Web HTTP 200 확인 | route별 자료 없음 | 기존 공개 v1 Web 유지 | 아니오 |
+| Admin | v2 Admin 5개 로컬 구현 완료 | 미완료 | ADMIN Token·multipart 미검증 | route별 자료 없음 | 기존 공개 v1 Admin 유지 | 아니오 |
+| ETL/crawler/notification worker | v2 internal 5개 로컬 구현 완료 | 미완료 | 운영 API Key·read/write 미검증 | 실제 A/B·alert POST 사용 여부 미확인 | 기존 공개 v1 worker 경로 유지 | 아니오 |
+
+Wave 7 배포가 성공하더라도 이 표의 traffic 전환과 v1 최근 호출 0건이 확인되기 전에는 v1을
+삭제하지 않는다. rollback은 현재 대응 v1 호출로 즉시 되돌릴 수 있도록 v1 계약을 계속 동결한다.
 
 v1의 `/api/v1/auth/token/test`와 `/api/v1/auth/refresh`는 승인된 실험용 삭제 대상이다. v2
 `/api/v2/auth/refresh`는 legacy controller를 복제하지 않고 이 문서의 rotation 계약으로 새로
@@ -1033,9 +1052,94 @@ ErrorCode만 기록한다. endpoint별 v1 호출 0건은 최소 30일 연속 관
 시작하지 않는다. 구현 후에는 BE test, iOS, AOS, ETL, 호출량, 삭제 가능 열을 갱신한다.
 Task 19까지 기록을 미루지 않고 각 청크 검수 시 해당 행을 즉시 갱신한다.
 
-| 도메인 | v1 method/path | 처리 | v2 method/path | actor | target | 인증 | DTO 변경 | BE test | iOS | AOS | ETL | 최근 v1 호출 | 삭제 가능 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 예시: 찜 등록 | POST /api/v1/favorite | v2 twin | POST /api/v2/favorite | 로그인 사용자 | popupUuid | TOKEN_ACCESS | body userUuid 제거 | 완료 | 버전 기록 | 버전 기록 | 해당 없음 | 시각 기록 | 아니오 |
+처리 분류는 `V2_TWIN` 70개, `REPLACED_FLOW` 2개, `V1_ONLY_KEEP` 5개,
+`DELETE_APPROVED` 2개다. `UNVERIFIED`와 `NO_ROUTE_DATA`는 운영 증거가 없다는 뜻이며 완료로
+추측하지 않는다. Wave 6에서 대표 v2 Web HTTP 200을 확인했지만 route가 기록되지 않았으므로
+개별 endpoint smoke는 모두 `UNVERIFIED`로 유지한다. 아래 표와 동일한 기계 판독 기준선은
+`src/test/resources/contracts/v1-v2-migration-matrix.txt`에 있고 contract test가 v1 79개 전체
+포함, 중복·누락, v2 참조 유효성과 fail-closed 전환 상태를 검사한다.
+
+| v1 method/path | 처리 | v2 method/path | actor | target | 인증 | DTO 변경 | 소비자 | BE test | 실제 전환 | 운영 smoke | 최근 v1 호출 | 삭제 가능 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `POST /api/v1/auth/refresh` | `DELETE_APPROVED` | `POST /api/v2/auth/refresh` | `ANONYMOUS` | `REFRESH_TOKEN` | `PUBLIC` | `STRICT_ROTATION` | `IOS_AOS` | `COMPLETE` | `NOT_APPLICABLE` | `UNVERIFIED` | `NO_ROUTE_DATA` | `APPROVED` |
+| `POST /api/v1/auth/token/test` | `DELETE_APPROVED` | `-` | `SERVER_TEST` | `NONE` | `NONE` | `REMOVED_EXPERIMENTAL_ENDPOINT` | `SERVER_ONLY` | `COMPLETE` | `NOT_APPLICABLE` | `UNVERIFIED` | `NO_ROUTE_DATA` | `APPROVED` |
+| `DELETE /api/v1/alert-keyword` | `V2_TWIN` | `DELETE /api/v2/alert-keyword` | `SELF_USER` | `KEYWORD` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `DELETE /api/v1/favorite` | `V2_TWIN` | `DELETE /api/v2/favorite` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `DELETE /api/v1/user/{userUuid}/hard-delete` | `V1_ONLY_KEEP` | `-` | `SELF_USER` | `SELF_USER` | `NONE` | `NO_V2_HARD_DELETE` | `IOS_AOS_LEGACY` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `DELETE /api/v1/users/{userUuid}/alert` | `V2_TWIN` | `DELETE /api/v2/user/alert` | `SELF_USER` | `ALERT_POPUP_UUIDS` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/admin/popup-submissions/{popupSubmissionId}` | `V2_TWIN` | `GET /api/v2/admin/popup-submissions/{popupSubmissionId}` | `ADMIN` | `POPUP_SUBMISSION_ID` | `ADMIN` | `CALLER_ADMIN_UUID_REMOVED` | `ADMIN` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/admin/popup-submissions` | `V2_TWIN` | `GET /api/v2/admin/popup-submissions` | `ADMIN` | `SUBMISSION_STATUS` | `ADMIN` | `CALLER_ADMIN_UUID_REMOVED` | `ADMIN` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/alert-keyword` | `V2_TWIN` | `GET /api/v2/alert-keyword` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/auth/apple/login` | `V1_ONLY_KEEP` | `-` | `WEB_BROWSER` | `APPLE_CALLBACK` | `NONE` | `V1_WEB_CALLBACK_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/auth/google/login` | `V1_ONLY_KEEP` | `-` | `WEB_BROWSER` | `GOOGLE_CALLBACK` | `NONE` | `V1_WEB_CALLBACK_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/auth/kakao/login` | `V1_ONLY_KEEP` | `-` | `WEB_BROWSER` | `KAKAO_CALLBACK` | `NONE` | `V1_WEB_CALLBACK_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/favorite/count/{popupUuid}` | `V2_TWIN` | `GET /api/v2/favorite/count/{popupUuid}` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/favorite/popup/{userUuid}` | `V2_TWIN` | `GET /api/v2/favorite/popup` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/filtered/home` | `V2_TWIN` | `GET /api/v2/popup/filtered/home` | `APP_USER` | `POPUP_FILTERS` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/filtered/map` | `V2_TWIN` | `GET /api/v2/popup/filtered/map` | `APP_USER` | `POPUP_FILTERS` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/filtered` | `V2_TWIN` | `GET /api/v2/popup/filtered` | `APP_USER` | `POPUP_FILTERS` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/inProgress` | `V2_TWIN` | `GET /api/v2/popup/inProgress` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/random` | `V2_TWIN` | `GET /api/v2/popup/random` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/recommendations/{recommendId}` | `V2_TWIN` | `GET /api/v2/popup/recommendations/{recommendId}` | `APP_USER` | `RECOMMEND_ID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/regions/districts` | `V2_TWIN` | `GET /api/v2/popup/regions/districts` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/search` | `V2_TWIN` | `GET /api/v2/popup/search` | `APP_USER` | `SEARCH_QUERY` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/upcoming` | `V2_TWIN` | `GET /api/v2/popup/upcoming` | `APP_USER` | `UPCOMING_DAYS` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/{popupUuid}/related` | `V2_TWIN` | `GET /api/v2/popup/{popupUuid}/related` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/{popupUuid}/total-view-count` | `V2_TWIN` | `GET /api/v2/popup/{popupUuid}/total-view-count` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/{popupUuid}/view-count` | `V2_TWIN` | `GET /api/v2/popup/{popupUuid}/view-count` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/{popupUuid}` | `V2_TWIN` | `GET /api/v2/popup/{popupUuid}` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup/{userUuid}/recommend` | `V2_TWIN` | `GET /api/v2/popup/recommend` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/popup` | `V2_TWIN` | `GET /api/v2/popup` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/recommend/featured` | `V2_TWIN` | `GET /api/v2/recommend/featured` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/recommend/web` | `V2_TWIN` | `GET /api/v2/web/recommend` | `PUBLIC_WEB` | `NONE` | `PUBLIC` | `PATH_VERSION_AND_ORDER_CHANGED` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/recommend` | `V2_TWIN` | `GET /api/v2/recommend` | `APP_USER` | `NONE` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/user/nickname/duplicated` | `V2_TWIN` | `GET /api/v2/user/nickname/duplicated` | `SELF_USER` | `NICKNAME` | `ACCESS` | `CALLER_IDENTITY_FROM_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/user/with-alert-keyword/a` | `V2_TWIN` | `GET /api/v2/internal/user/with-alert-keyword/a` | `WORKER` | `ALERT_RECIPIENTS` | `WORKER` | `LONG_USER_ID_TO_UUID` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/user/with-alert-keyword/b` | `V2_TWIN` | `GET /api/v2/internal/user/with-alert-keyword/b` | `WORKER` | `ALERT_RECIPIENTS` | `WORKER` | `LONG_USER_ID_TO_UUID` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/user/{userUuid}/fcm-token/duplicate-check` | `REPLACED_FLOW` | `PUT /api/v2/user/fcm-token` | `SELF_USER` | `FCM_TOKEN` | `ACCESS` | `DUPLICATE_CHECK_MERGED_INTO_IDEMPOTENT_UPDATE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/user/{userUuid}` | `V2_TWIN` | `GET /api/v2/user` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/alert/popups` | `V2_TWIN` | `GET /api/v2/user/alert/popups` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/filtered/home` | `V2_TWIN` | `GET /api/v2/user/popups/filtered/home` | `SELF_USER` | `POPUP_FILTERS` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/filtered/map` | `V2_TWIN` | `GET /api/v2/user/popups/filtered/map` | `SELF_USER` | `POPUP_FILTERS` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/inProgress` | `V2_TWIN` | `GET /api/v2/user/popups/inProgress` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/random` | `V2_TWIN` | `GET /api/v2/user/popups/random` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/recommendations/{recommendId}` | `V2_TWIN` | `GET /api/v2/user/popups/recommendations/{recommendId}` | `SELF_USER` | `RECOMMEND_ID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/recommend` | `V2_TWIN` | `GET /api/v2/user/popups/recommend` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/scroll` | `V2_TWIN` | `GET /api/v2/user/popups/scroll` | `SELF_USER` | `CURSOR` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/search` | `V2_TWIN` | `GET /api/v2/user/popups/search` | `SELF_USER` | `SEARCH_QUERY` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/upcoming` | `V2_TWIN` | `GET /api/v2/user/popups/upcoming` | `SELF_USER` | `UPCOMING_DAYS` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/{popupUuid}/related` | `V2_TWIN` | `GET /api/v2/user/popups/{popupUuid}/related` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups/{popupUuid}` | `V2_TWIN` | `GET /api/v2/user/popups/{popupUuid}` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/users/{userUuid}/popups` | `V2_TWIN` | `GET /api/v2/user/popups` | `SELF_USER` | `NONE` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/favorite` | `V2_TWIN` | `GET /api/v2/web/popup/favorite` | `PUBLIC_WEB` | `NONE` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/in-progress` | `V2_TWIN` | `GET /api/v2/web/popup/in-progress` | `PUBLIC_WEB` | `POPUP_FILTERS` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/random` | `V2_TWIN` | `GET /api/v2/web/popup/random` | `PUBLIC_WEB` | `NONE` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/search` | `V2_TWIN` | `GET /api/v2/web/popup/search` | `PUBLIC_WEB` | `SEARCH_QUERY` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/upcoming` | `V2_TWIN` | `GET /api/v2/web/popup/upcoming` | `PUBLIC_WEB` | `NONE` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `GET /api/v1/web/popup/{popupUuid}` | `V2_TWIN` | `GET /api/v2/web/popup/{popupUuid}` | `PUBLIC_WEB` | `POPUP_UUID` | `PUBLIC` | `PATH_VERSION_ONLY` | `WEB` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/admin/popup-submissions/{submissionId}/status` | `V2_TWIN` | `PATCH /api/v2/admin/popup-submissions/{submissionId}/status` | `ADMIN` | `SUBMISSION_ID_AND_STATUS` | `ADMIN` | `CALLER_ADMIN_UUID_REMOVED` | `ADMIN` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/admin/popup/{popupUuid}/deactivate` | `V2_TWIN` | `PATCH /api/v2/admin/popup/{popupUuid}/deactivate` | `ADMIN` | `POPUP_UUID` | `ADMIN` | `CALLER_ADMIN_UUID_REMOVED` | `ADMIN` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/user/{userUuid}/alert-status` | `V2_TWIN` | `PATCH /api/v2/user/alert-status` | `SELF_USER` | `ALERT_STATUS` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/user/{userUuid}/resotre` | `V1_ONLY_KEEP` | `-` | `SELF_USER` | `SELF_USER` | `NONE` | `NO_V2_RESTORE` | `IOS_AOS_LEGACY` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/user/{userUuid}/soft-delete` | `V2_TWIN` | `DELETE /api/v2/user` | `SELF_USER` | `SELF_USER` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL_AND_METHOD_CHANGED` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/user/{userUuid}` | `V2_TWIN` | `PATCH /api/v2/user` | `SELF_USER` | `NICKNAME_AND_EMAIL` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PATCH /api/v1/users/{userUuid}/alert/read` | `V2_TWIN` | `PATCH /api/v2/user/alert/read` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/alert-keyword` | `V2_TWIN` | `POST /api/v2/alert-keyword` | `SELF_USER` | `KEYWORD` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/apple/mobile/login` | `V2_TWIN` | `POST /api/v2/auth/apple/mobile/login` | `ANONYMOUS` | `APPLE_ID_TOKEN` | `PUBLIC` | `V2_TOKEN_RESPONSE_AND_NONCE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/apple/signup` | `V2_TWIN` | `POST /api/v2/auth/apple/signup` | `SIGNUP_USER` | `SIGNUP_PROFILE` | `SIGNUP` | `CALLER_IDENTITY_TO_SIGNUP_TOKEN_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/autoLogin` | `REPLACED_FLOW` | `POST /api/v2/auth/refresh` | `APP_USER` | `REFRESH_TOKEN` | `PUBLIC` | `UUID_AUTOLOGIN_REPLACED_BY_ACCESS_VALIDATION_AND_REFRESH` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/google/mobile/login` | `V2_TWIN` | `POST /api/v2/auth/google/mobile/login` | `ANONYMOUS` | `GOOGLE_ID_TOKEN` | `PUBLIC` | `V2_TOKEN_RESPONSE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/google/signup` | `V2_TWIN` | `POST /api/v2/auth/google/signup` | `SIGNUP_USER` | `SIGNUP_PROFILE` | `SIGNUP` | `CALLER_IDENTITY_TO_SIGNUP_TOKEN_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/kakao/mobile/login` | `V2_TWIN` | `POST /api/v2/auth/kakao/mobile/login` | `ANONYMOUS` | `KAKAO_ACCESS_TOKEN` | `PUBLIC` | `V2_TOKEN_RESPONSE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/auth/kakao/signup` | `V2_TWIN` | `POST /api/v2/auth/kakao/signup` | `SIGNUP_USER` | `SIGNUP_PROFILE` | `SIGNUP` | `CALLER_IDENTITY_TO_SIGNUP_TOKEN_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/favorite` | `V2_TWIN` | `POST /api/v2/favorite` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/popup-submissions` | `V2_TWIN` | `POST /api/v2/popup-submissions` | `SELF_USER` | `POPUP_SUBMISSION` | `ACCESS` | `BODY_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/popup/{popupUuid}/view` | `V2_TWIN` | `POST /api/v2/popup/{popupUuid}/view` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/popup` | `V2_TWIN` | `POST /api/v2/internal/popup` | `WORKER` | `POPUP_PAYLOAD` | `WORKER` | `CALLER_TO_WORKER_API_KEY` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/users/{userUuid}/alert` | `V2_TWIN` | `POST /api/v2/internal/users/{userUuid}/alert` | `WORKER` | `RECIPIENT_USER_UUID_AND_POPUP_UUID` | `WORKER` | `CALLER_TO_WORKER_API_KEY_AND_RECIPIENT_TARGET_KEPT` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PUT /api/v1/admin/popup-submissions/{popupSubmissionId}` | `V2_TWIN` | `PUT /api/v2/admin/popup-submissions/{popupSubmissionId}` | `ADMIN` | `POPUP_SUBMISSION_ID_AND_MULTIPART` | `ADMIN` | `CALLER_ADMIN_UUID_REMOVED` | `ADMIN` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PUT /api/v1/popup/{popupUuid}/images` | `V2_TWIN` | `PUT /api/v2/internal/popup/{popupUuid}/images` | `WORKER` | `POPUP_UUID_AND_IMAGES` | `WORKER` | `CALLER_TO_WORKER_API_KEY` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `PUT /api/v1/user/{userUuid}/fcm-token/update` | `V2_TWIN` | `PUT /api/v2/user/fcm-token` | `SELF_USER` | `FCM_TOKEN` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 
 iOS/AOS 열에는 코드 merge 여부뿐 아니라 실제 배포 version과 구버전 지원 종료 여부를 기록한다.
 ETL이 호출하지 않는 API는 해당 없음으로 표시한다.

@@ -6,12 +6,16 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.access.AccessDeniedHandler;
 
 public class ApiAccessDeniedHandler implements AccessDeniedHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(ApiAccessDeniedHandler.class);
 
   private static final String TOKEN_ACCESS = "TOKEN_ACCESS";
   private static final String ROLE_ADMIN = "ROLE_ADMIN";
@@ -32,7 +36,13 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
         isMemberAccessingAdmin(request)
             ? ErrorCode.ACCESS_DENIED
             : ErrorCode.INSUFFICIENT_AUTHORITY;
-    responseWriter.write(response, ApiAuthenticationEntryPoint.errorCode(request, fallback));
+    ErrorCode errorCode = ApiAuthenticationEntryPoint.errorCode(request, fallback);
+    log.warn(
+        "security_event=authorization_denied status={} error_code={} endpoint_category={}",
+        errorCode.getHttpStatus().value(),
+        errorCode.getCode(),
+        ApiAuthenticationEntryPoint.endpointCategory(request));
+    responseWriter.write(response, errorCode);
   }
 
   private boolean isMemberAccessingAdmin(HttpServletRequest request) {

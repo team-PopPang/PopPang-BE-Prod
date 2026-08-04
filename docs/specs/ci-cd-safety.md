@@ -749,12 +749,12 @@ GitHub rollout 진행 메모 — 2026-07-18:
   변경하지 않는다.
 - v1 제거는 iOS와 Android의 endpoint별 v2 전환이 확인된 뒤 별도 작업으로 수행한다.
 
-2026-08-04 현재 JWT 구현 청크 0~16(17/20)과 운영 배포 Wave 1~5(5/7)가 완료됐다. 최근 Wave 5는
-PR #11, merge commit `1fe6ffd`, production run `30788767383`으로 운영 반영됐다. Main Verify,
-Build and Deploy Production, Notify Result가 모두 성공했고 원격 신규 image health와 외부 Actuator
-UP, 대표 v1 익명 HTTP 200, v2 무토큰 HTTP 401을 확인했다. rollback은 실행되지 않았으며 이번
-wave에 Entity/JPA/DDL/DB 변경은 없다. 유효 Access Token 정상 요청과 운영 Redis INCR·TTL smoke는
-클라이언트 전환 전 필수 미검증 항목으로 남아 있다.
+2026-08-04 현재 JWT 구현 청크 0~19(20/20)과 운영 배포 Wave 1~6(6/7)가 완료됐다. 최근 Wave 6은
+PR #12, merge commit `387441c`, production run `30872564654`로 운영 반영됐다. Main Verify,
+Build and Deploy Production, Notify Result가 모두 성공했고 원격 신규 image health `UP`, 외부
+Actuator·대표 v1 Web·신규 v2 Web HTTP 200, 보호된 v2 무토큰 HTTP 401을 확인했다. rollback은
+필요하지 않았으며 이번 wave에 Entity/JPA/Repository/DDL/DB 변경은 없다. 유효 Access Token 정상
+요청과 운영 multipart·Redis smoke는 클라이언트 전환 전 필수 미검증 항목으로 남아 있다.
 
 같은 날 청크 14의 개인화 popup 핵심 조회 6개와 v2 scroll twin을 별도 v2 코드로 구현했다.
 청크 14-A focused test 27개, 확대 focused test 70개, 전체 test 431개와 `compileJava`,
@@ -771,8 +771,32 @@ DB schema 변경과 외부 DB·Redis·운영 파일 경로 접속은 없다.
 청크 16의 공개 Web popup 6개와 Web Recommend 1개도 별도 v2 계층으로 구현했다. GET·HEAD만
 permitAll이고 잘못된 Bearer Token도 공개 요청에 개입하지 않으며 write method는 401로 차단한다.
 메인 focused test 103개가 통과했고 v1·Repository/query·Entity/JPA·SecurityConfig·DB schema
-변경은 없다. 이로써 Wave 6의 청크 14~16 코드 구현은 완료됐지만 아직 commit·PR·merge·운영
-smoke 전이므로 운영 배포 완료 수는 5/7로 유지한다.
+변경은 없다. 청크 14~16은 위 Wave 6 운영 배포와 smoke까지 완료됐다.
+
+청크 17의 Admin popup·제보 API 5개는 기존 v1과 분리된 v2 Controller·DTO·application service로
+구현했다. query caller/admin UUID를 제거하고 URL chain과 class-level method security에서
+`TOKEN_ACCESS + ROLE_ADMIN`을 강제한다. 기존 v1에서 관리자 검사가 빠진 상태 변경 API도 v2에서는
+보호한다. 메인 검수 focused test 78개와 `compileJava`, `spotlessCheck`, `git diff --check`가
+통과했다. v1·SecurityConfig·Repository/query·Entity/JPA·DB schema 변경과 외부 DB·Redis 접속은
+없다.
+
+청크 18의 internal worker API 5개도 기존 v1과 분리된 v2 Controller·DTO·application service로
+구현했다. 모든 mapping은 `X-Worker-Api-Key`와 `SERVICE_WORKER`를 요구하고 일반 JWT는 거절한다.
+Polling A/B는 기존 query를 유지한 채 중복 제거한 user id를 `findAllById`로 한 번에 조회해 UUID로
+변환하므로 각 호출은 고정 2회 조회이고 N+1은 아니다. 메인 focused test 61개와 사이드 세션 전체
+test 536개가 통과했고 v1·SecurityConfig·Repository/query·Entity/JPA·DB schema 변경은 없다.
+외부 worker 계약과 운영 API Key 적용은 아직 확인되지 않았다.
+
+청크 19는 v1/v2 SpringDoc group과 Access·Signup·Worker security scheme, 저카디널리티 보안 이벤트
+로그, 72개 v2 endpoint 보안 인벤토리와 79개 v1→v2 endpoint 매트릭스를 추가했다. 매트릭스는
+`KEEP` 77개와 승인 삭제 2개 전체를 포함하고 `V2_TWIN` 70개·`REPLACED_FLOW` 2개·
+`V1_ONLY_KEEP` 5개·`DELETE_APPROVED` 2개로 분류한다. 인증 실패와 권한 거절 로그에는 status·error
+code·endpoint category만 기록하고 raw path·UUID·token·API Key는 기록하지 않는다. PR CI와 main
+verify는 계속 `clean test spotlessCheck`를 실행하며, 운영 build job은 verify가 성공한 동일
+`${{ github.sha }}`를 다시 checkout해 private config를 포함한 JAR와 image를 만든다. 두 job의 물리적
+JAR는 동일하지 않으므로 검증 근거는 동일 commit과 전체 회귀이며 이 사실을 숨기지 않는다. Wave 7
+운영 배포와 유효 Token/API Key smoke, iOS/AOS/ETL 전환이 남아 있으므로 운영 배포 완료는 6/7,
+v1 삭제 상태는 불가로 유지한다.
 
 ## Accepted risks and deferred work
 
