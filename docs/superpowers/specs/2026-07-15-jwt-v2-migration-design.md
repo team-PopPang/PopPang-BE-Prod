@@ -979,7 +979,7 @@ rollback 단위다.
     적용한다.
 11. v1 삭제는 별도 change와 별도 배포로 수행한다.
 
-2026-08-03 현재 Wave 1~5가 운영 반영됐다. 가장 최근 Wave 5는 PR #11, merge commit
+2026-08-04 현재 Wave 1~5가 운영 반영됐다. 가장 최근 Wave 5는 PR #11, merge commit
 `1fe6ffd`, production run `30788767383`으로 배포됐다. Main Verify와 운영 배포가 성공했고
 Actuator UP, 대표 v1 익명 HTTP 200, v2 무토큰 HTTP 401을 확인했으며 rollback은 실행되지 않았다.
 유효 Access Token을 사용한 Wave 5 정상 요청과 운영 Redis INCR·TTL smoke는 테스트 token 부재로

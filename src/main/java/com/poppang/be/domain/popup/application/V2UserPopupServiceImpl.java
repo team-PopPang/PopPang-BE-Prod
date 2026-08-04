@@ -18,7 +18,6 @@ import com.poppang.be.domain.popup.infrastructure.PopupRepository;
 import com.poppang.be.domain.popup.mapper.V2UserPopupResponseDtoMapper;
 import com.poppang.be.domain.recommend.entity.UserRecommend;
 import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
-import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -80,7 +79,7 @@ public class V2UserPopupServiceImpl implements V2UserPopupService {
   public List<V2UserPopupResponseDto> getUpcomingPopupList(String userUuid, Integer upcomingDays) {
     requireUser(userUuid);
     int days = upcomingDays == null || upcomingDays <= 0 ? 10 : upcomingDays;
-    LocalDate startDate = LocalDate.now().plusDays(1);
+    LocalDate startDate = LocalDate.now(KOREA_ZONE_ID).plusDays(1);
     LocalDate endDate = startDate.plusDays(days);
     List<Popup> popupList =
         popupRepository.findByActivatedTrueAndStartDateBetween(startDate, endDate);
@@ -237,8 +236,12 @@ public class V2UserPopupServiceImpl implements V2UserPopupService {
 
     List<Popup> relatedPopups =
         popupRecommendRepository.findRelatedActivePopupList(popupRecommend.getRecommend().getId());
-    relatedPopups.removeIf(candidate -> candidate.getId().equals(popup.getId()));
-    List<Popup> popupList = relatedPopups.stream().distinct().limit(10).toList();
+    List<Popup> popupList =
+        relatedPopups.stream()
+            .filter(candidate -> !candidate.getId().equals(popup.getId()))
+            .distinct()
+            .limit(RECOMMEND_POPUP_LIMIT)
+            .toList();
     if (popupList.size() == RECOMMEND_POPUP_LIMIT) {
       return popupResponseDtoMapper.toResponseDtoList(popupList, favoritePopupIds);
     }
@@ -264,8 +267,8 @@ public class V2UserPopupServiceImpl implements V2UserPopupService {
     return popupResponseDtoMapper.toResponseDtoList(popupList, favoritePopupIds);
   }
 
-  private Users requireUser(String userUuid) {
-    return usersRepository
+  private void requireUser(String userUuid) {
+    usersRepository
         .findByUuid(userUuid)
         .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
   }
@@ -305,7 +308,7 @@ public class V2UserPopupServiceImpl implements V2UserPopupService {
   private List<Popup> findActiveAdvertisementPopupList() {
     List<PopupAdvertisement> advertisements =
         popupAdvertisementRepository.findActiveAdvertisements(
-            PopupAdvertisementPlacement.USER_RECOMMEND_TOP, LocalDateTime.now());
+            PopupAdvertisementPlacement.USER_RECOMMEND_TOP, LocalDateTime.now(KOREA_ZONE_ID));
     if (advertisements.isEmpty()) {
       return List.of();
     }

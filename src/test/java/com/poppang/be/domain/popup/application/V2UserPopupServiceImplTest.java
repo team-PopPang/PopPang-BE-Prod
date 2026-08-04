@@ -26,6 +26,7 @@ import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -126,7 +127,7 @@ class V2UserPopupServiceImplTest {
         .willReturn(List.of());
     given(userFavoriteRepository.findAllActivatedByUserUuid(USER_UUID)).willReturn(List.of());
     given(popupResponseDtoMapper.toResponseDtoList(List.of(), Set.of())).willReturn(List.of());
-    LocalDate before = LocalDate.now().plusDays(1);
+    LocalDate before = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
 
     popupService.getUpcomingPopupList(USER_UUID, 0);
 
@@ -134,7 +135,7 @@ class V2UserPopupServiceImplTest {
     ArgumentCaptor<LocalDate> endCaptor = ArgumentCaptor.forClass(LocalDate.class);
     verify(popupRepository)
         .findByActivatedTrueAndStartDateBetween(startCaptor.capture(), endCaptor.capture());
-    LocalDate after = LocalDate.now().plusDays(1);
+    LocalDate after = LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1);
     assertThat(startCaptor.getValue()).isBetween(before, after);
     assertThat(endCaptor.getValue()).isEqualTo(startCaptor.getValue().plusDays(10));
   }

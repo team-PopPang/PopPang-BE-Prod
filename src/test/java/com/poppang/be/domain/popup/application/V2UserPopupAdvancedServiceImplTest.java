@@ -3,6 +3,8 @@ package com.poppang.be.domain.popup.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -126,7 +128,11 @@ class V2UserPopupAdvancedServiceImplTest {
                 invocation.<Long>getArgument(0).equals(10L)
                     ? List.of(first, second)
                     : List.of(second, third));
-    given(popupRepository.findRandomActivePopupsExcluding(List.of(1L, 2L, 3L), 3, 7))
+    given(
+            popupRepository.findRandomActivePopupsExcluding(
+                argThat(ids -> ids != null && Set.copyOf(ids).equals(Set.of(1L, 2L, 3L))),
+                eq(3),
+                eq(7)))
         .willReturn(List.of(random));
     given(userFavoriteRepository.findAllActivatedByUserUuid(USER_UUID))
         .willReturn(List.of(new UserFavorite(user(), second)));
@@ -139,7 +145,11 @@ class V2UserPopupAdvancedServiceImplTest {
 
     assertThat(popupService.getRecommendPopupList(USER_UUID)).containsExactly(response);
 
-    verify(popupRepository).findRandomActivePopupsExcluding(List.of(1L, 2L, 3L), 3, 7);
+    verify(popupRepository)
+        .findRandomActivePopupsExcluding(
+            argThat(ids -> ids != null && Set.copyOf(ids).equals(Set.of(1L, 2L, 3L))),
+            eq(3),
+            eq(7));
   }
 
   @Test
@@ -157,8 +167,7 @@ class V2UserPopupAdvancedServiceImplTest {
         .willReturn(
             Optional.of(PopupRecommend.builder().popup(current).recommend(recommend).build()));
     given(popupRecommendRepository.findRelatedActivePopupList(10L))
-        .willReturn(
-            new java.util.ArrayList<>(List.of(current, relatedOne, relatedOne, relatedTwo)));
+        .willReturn(List.of(current, relatedOne, relatedOne, relatedTwo));
     given(popupRepository.findRandomActivePopupsExcluding(List.of(2L, 3L), 2, 8))
         .willReturn(List.of(random));
     given(

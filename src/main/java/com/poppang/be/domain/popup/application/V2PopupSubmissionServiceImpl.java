@@ -67,6 +67,7 @@ public class V2PopupSubmissionServiceImpl implements V2PopupSubmissionService {
         || isBlank(request.getName())
         || request.getStartDate() == null
         || request.getEndDate() == null
+        || request.getStartDate().isAfter(request.getEndDate())
         || isBlank(request.getRoadAddress())
         || isBlank(request.getRegion())
         || isBlank(request.getDescription())

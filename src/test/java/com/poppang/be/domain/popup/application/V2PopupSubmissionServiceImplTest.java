@@ -147,6 +147,22 @@ class V2PopupSubmissionServiceImplTest {
   }
 
   @Test
+  void startDateAfterEndDateIsRejectedBeforeUserLookup() {
+    V2PopupSubmissionCreateRequestDto request = createRequest(List.of(1L));
+    ReflectionTestUtils.setField(request, "startDate", LocalDate.of(2026, 9, 1));
+    ReflectionTestUtils.setField(request, "endDate", LocalDate.of(2026, 8, 31));
+
+    assertThatThrownBy(
+            () -> popupSubmissionService.createPopupSubmission(USER_UUID, request, createImages()))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
+
+    verify(usersRepository, never()).findByUuidAndDeletedFalse(any());
+    verify(popupSubmissionImageStorage, never()).storeAll(any());
+  }
+
+  @Test
   void deletedOrUnknownPrincipalUserKeepsLegacyUserNotFoundError() {
     V2PopupSubmissionCreateRequestDto request = createRequest(List.of(1L));
     when(usersRepository.findByUuidAndDeletedFalse(USER_UUID)).thenReturn(Optional.empty());

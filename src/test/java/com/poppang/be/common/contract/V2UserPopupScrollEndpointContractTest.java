@@ -46,14 +46,18 @@ class V2UserPopupScrollEndpointContractTest {
 
   @Test
   void scrollContractDoesNotExposeCallerUuidAndKeepsLegacyResponseFields() throws Exception {
-    Set<String> parameterNames =
+    Set<String> requestParameterNames =
         Arrays.stream(scrollMethod().getParameters())
-            .map(Parameter::getName)
+            .map(parameter -> parameter.getAnnotation(RequestParam.class))
+            .filter(java.util.Objects::nonNull)
+            .map(
+                requestParam ->
+                    requestParam.name().isBlank() ? requestParam.value() : requestParam.name())
             .collect(Collectors.toSet());
     Set<String> responseFields = fieldNames(RESPONSE_DTO);
     Set<String> itemFields = fieldNames(ITEM_DTO);
 
-    assertThat(parameterNames).doesNotContain("userUuid", "uid");
+    assertThat(requestParameterNames).containsExactly("cursor").doesNotContain("userUuid", "uid");
     assertThat(responseFields).containsExactlyInAnyOrder("items", "nextCursor", "hasNext");
     assertThat(itemFields)
         .containsExactlyInAnyOrder(
