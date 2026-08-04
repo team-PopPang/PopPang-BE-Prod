@@ -9,10 +9,12 @@
 - `docs/superpowers/specs/2026-07-15-signup-token-flow-design.md`
 - 저장소 루트 `AGENTS.md`
 
-**Current snapshot (2026-08-03):** 구현 청크 0~13, 총 14/20개와 운영 배포 Wave 1~4,
-총 4/7개가 완료됐다. Wave 5의 청크 11~13은 구현·로컬 검증을 마쳤지만 아직 운영 배포 전이다.
-다음 구현 대상은 청크 14이며, iOS/AOS/ETL traffic은 아직 v2로 전환하지 않았다. 따라서 대응
-v1 API와 익명 호출 계약은 계속 유지한다.
+**Current snapshot (2026-08-04):** 구현 청크 0~16, 총 17/20개와 운영 배포 Wave 1~5,
+총 5/7개가 완료됐다. Wave 5의 청크 11~13은 PR #11과 production run `30788767383`으로
+운영 반영됐고 health·대표 v1 익명 접근·v2 무토큰 차단 smoke를 통과했다. Wave 6의 청크
+14~16은 개인화 popup·제보·공개 Web API 20개를 모두 구현하고 로컬 회귀를 마쳤지만 아직
+commit·PR·운영 배포 전이다. 다음 단계는 Wave 6 release 검수이며, iOS/AOS/ETL traffic은 아직
+v2로 전환하지 않았다. 따라서 대응 v1 API와 익명 호출 계약은 계속 유지한다.
 
 **Architecture:** v1과 v2 Controller/DTO/application/service/provider verifier를 분리한다. v1은
 승인된 실험용 token endpoint 두 개를 제외하고 현재 운영 구현을 동결한다. V2를 위한 공통화나
@@ -54,7 +56,7 @@ identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소�
 
 ## Execution chunk map
 
-71개 v2 mapping을 한 번에 구현하지 않는다. 아래 청크는 구현·검토·commit 승인 단위다. 실제
+72개 v2 mapping을 한 번에 구현하지 않는다. 아래 청크는 구현·검토·commit 승인 단위다. 실제
 운영 반영은 뒤의 7개 deployment wave가 연관된 구현 청크를 production-safe release 단위로 묶는다.
 일부 v2가 먼저 배포되어도 모바일·worker traffic은 필요한 서버 wave가 모두 안정화되기 전까지
 전환하지 않는다.
@@ -75,13 +77,13 @@ identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소�
 | 11 | 일반 popup 핵심 조회 | 7 | ✅ 완료 (2026-08-03) | 전체·상세·검색·예정·진행·지역·랜덤 회귀 |
 | 12 | 일반 popup 필터·추천 조회 | 6 | ✅ 완료 (2026-08-03) | filter·related·recommend target 유지 |
 | 13 | 조회수 3개 + app recommend master 2개 | 5 | ✅ 완료 (2026-08-03) | 기존 count/featured 계약 유지 |
-| 14 | 개인화 popup 핵심 조회 | 6 | ⬜ 미완료 | JWT 기반 찜 여부와 사용자 결과 |
-| 15 | 개인화 popup 고급 조회 5개 + 제보 1개 | 6 | ⬜ 미완료 | principal 제보자와 개인화 필터 |
-| 16 | 공개 Web popup 6개 + Web recommend 1개 | 7 | ⬜ 미완료 | GET/HEAD permitAll 전용 namespace |
+| 14 | 개인화 popup 핵심 조회 + scroll 보완 | 7 | ✅ 완료 (2026-08-03) | JWT 기반 찜 여부·사용자 결과·cursor scroll |
+| 15 | 개인화 popup 고급 조회 5개 + 제보 1개 | 6 | ✅ 완료 (2026-08-03) | principal 제보자와 개인화 필터 |
+| 16 | 공개 Web popup 6개 + Web recommend 1개 | 7 | ✅ 완료 (2026-08-04) | GET/HEAD permitAll 전용 namespace |
 | 17 | Admin popup·제보 API | 5 | ⬜ 미완료 | 모든 mapping에 현재 ROLE_ADMIN 강제 |
 | 18 | crawler·notification worker internal API | 5 | ⬜ 미완료 | API Key와 target UUID 분리 |
 | 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | ⬜ 미완료 | spotlessCheck, clean test/build |
-|  | **합계** | **71** | **14/20 완료** |  |
+|  | **합계** | **72** | **17/20 완료** |  |
 
 ## Merge and production deployment wave map
 
@@ -96,10 +98,10 @@ PR로 합치려면 사용자에게 범위와 위험을 다시 보고하고 별�
 | 2/7 | 2~3 | JWT 계약·Redis 원자 token 저장소 | 0 | ✅ 완료 (2026-07-28) | private config, legacy JWT 비침해, 실제 Redis 테스트 |
 | 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 14 | ✅ 완료 (2026-07-31) | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
 | 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | ✅ 완료 (2026-07-31) | caller UUID 제거와 타 사용자 접근 거절 |
-| 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | 🟡 구현 완료·배포 전 | v1 결과 회귀와 filter/count/featured 계약 |
-| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 19 | ⬜ 미완료 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
+| 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | ✅ 완료 (2026-08-03) | v1 결과 회귀와 filter/count/featured 계약 |
+| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 20 | 🟡 구현 완료·미배포 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
 | 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ⬜ 미완료 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
-|  |  | **합계** | **71** | **4/7 완료** |  |
+|  |  | **합계** | **72** | **5/7 완료** |  |
 
 DB-E1은 1/7의 선행 수동 DB gate이며 서버 배포 wave 숫자에는 포함하지 않는다. 대상
 DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 적용·검증한 뒤에만 관련
@@ -667,6 +669,30 @@ HTTP 200, v2 favorite의 token 없음 요청은 HTTP 401 `AUTHENTICATION_REQUIRE
 운영 테스트 계정·유효 Access Token이 없어 찜·키워드·알림함의 정상 요청 smoke와 다른 사용자
 접근 거절은 운영에서 실행하지 못했으며, 클라이언트 전환 전 확인 항목으로 유지한다.
 
+**구현 청크 14 Status:** 7/7 구현·검증 완료 (2026-08-03).
+`GET /api/v2/user/popups`, `/{popupUuid}`, `/upcoming`, `/search`, `/inProgress`, `/random`을 별도
+v2 Controller·DTO·application service·mapper로 추가했다. caller userUuid는 제거하고 검증된
+Access Token principal만 사용하며 v1의 사용자별 찜 여부, count boost, 검색·날짜·랜덤 광고 우선
+계약을 유지한다. 최초 71개 inventory 이후 추가된 v1 무한 스크롤에 대응해 14-A에서
+`GET /api/v2/user/popups/scroll`도 추가했다. 선택적 Long cursor, 15개 고정 페이지, 활성·미종료
+팝업의 ID 내림차순 조회, 경량 item, 대표 이미지·찜 여부 배치 조회와 `nextCursor`·`hasNext` 계약은
+v1과 같고, path userUuid만 Access Token principal로 대체했다. v1 Controller·DTO·Service·Mapper,
+기존 Repository/query와 Entity/JPA/DB schema 변경은 없다. 청크 14-A focused test 27개와 확대
+focused test 70개, 전체 test 431개가 실패·오류·스킵 없이 통과했고 `compileJava`,
+`spotlessCheck`, `git diff --check`도 통과했다. 전체 v2 mapping은 72개다.
+
+**구현 청크 15 Status:** 6/6 구현·검증 완료 (2026-08-03). 개인화 홈·지도 필터, 사용자 관심사
+추천, 연관 팝업, 추천 카테고리 조회를 기존 청크 14의 v2 user popup 계층에 추가하고,
+`POST /api/v2/popup-submissions`는 별도 v2 Controller·DTO·application service로 구현했다. 모든
+caller userUuid 입력을 제거하고 Access Token principal만 사용한다. 제보 DTO는 userUuid를 노출하지
+않으며 principal UUID를 기존 `submitter_user_uuid` 감사 값으로 저장한다. v1의 정렬·정규화·추천
+보충·광고 우선 노출·찜 상태와 제보 유효성 검증·PENDING 저장·이미지 실패 정리 계약을 유지한다.
+v1의 연관 팝업 랜덤 보충이 현재 조회 중인 popup을 제외 목록에 추가하지 않는 특성도 이번
+마이그레이션에서는 바꾸지 않고 잔여 위험으로 기록한다. v1 Controller·DTO·Service·Mapper,
+Repository/query와 Entity/JPA/DB schema 변경은 없다. 메인 focused test 88개와 전체 test 458개가
+실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`, `git diff --check`도 통과했다. 실제
+운영 Access Token·DB 데이터·multipart 파일 저장·reverse proxy smoke는 미검증이다.
+
 **Verification:**
 
 ```bash
@@ -689,13 +715,13 @@ HTTP 200, v2 favorite의 token 없음 요청은 HTTP 401 `AUTHENTICATION_REQUIRE
 
 **Steps:**
 
-- [ ] `/api/v2/popup/**`, `/api/v2/recommend/**`, 찜 수·조회수 같은 앱 조회도 TOKEN_ACCESS를
+- [x] `/api/v2/popup/**`, `/api/v2/recommend/**`, 찜 수·조회수 같은 앱 조회도 TOKEN_ACCESS를
       요구한다.
-- [ ] 비활성 팝업 포함 같은 기존 동작은 JWT 마이그레이션에서 임의로 고치지 않고 v1 기능 계약을
+- [x] 비활성 팝업 포함 같은 기존 동작은 JWT 마이그레이션에서 임의로 고치지 않고 v1 기능 계약을
       유지한다.
-- [ ] 기존 web popup GET을 `/api/v2/web/popup/**`로 twin 구현한다.
-- [ ] 추천 Web은 `/api/v2/web/recommend`만 만들고 `/api/v2/recommend/web`은 만들지 않는다.
-- [ ] `/api/v2/web/**`에 write method나 사용자/관리자 DTO가 없도록 architecture test를 작성한다.
+- [x] 기존 web popup GET을 `/api/v2/web/popup/**`로 twin 구현한다.
+- [x] 추천 Web은 `/api/v2/web/recommend`만 만들고 `/api/v2/recommend/web`은 만들지 않는다.
+- [x] `/api/v2/web/**`에 write method나 사용자/관리자 DTO가 없도록 architecture test를 작성한다.
 - [ ] 모든 `/api/v2/admin/**`에서 query caller uuid를 제거하고 DB의 현재 ROLE_ADMIN을 요구한다.
 - [ ] legacy에서 관리자 검사가 빠진 submission status endpoint도 v2에서는 동일하게 보호한다.
 
@@ -706,8 +732,8 @@ HTTP 200, v2 favorite의 token 없음 요청은 HTTP 401 `AUTHENTICATION_REQUIRE
 유지했다. v1 Controller·DTO·Service·Repository와 Entity/JPA/DB schema 변경은 없다. 사이드 세션
 전체 test 372개와 메인 검수 focused test 60개가 실패·오류·스킵 없이 통과했고 `spotlessCheck`,
 `git diff --check`도 통과했다. 필수 검색어 `q` 누락 시 기존 예외 처리에 따라 HTTP 500을 반환하는
-특성은 v1 호환을 위해 유지했다. 운영 DB 데이터와 유효 Access Token을 사용하는 smoke는 Wave 5
-배포 전 미검증 항목이다.
+특성은 v1 호환을 위해 유지했다. 운영 DB 데이터와 유효 Access Token을 사용하는 정상 요청 smoke는
+Wave 5 배포 후에도 미검증 항목으로 남아 있다.
 
 **구현 청크 12 Status:** 완료 (2026-08-03). 일반 popup 필터 3개와 관련·카테고리·개인 추천 조회
 3개를 기존 v1과 분리된 v2 Controller·application service로 추가했다. 개인 추천은 path의 caller
@@ -716,7 +742,7 @@ userUuid를 제거하고 검증된 Access Token principal을 사용한다. 관�
 13개 mapping만 정확히 존재하는지 검증한다. v1 Controller·DTO·Service·Repository와
 Entity/JPA/DB schema 변경은 없다. 전체 test 383개와 `spotlessCheck`, `git diff --check`가
 통과했으며 외부 DB·Redis 접속과 애플리케이션 실행은 하지 않았다. 운영 DB 데이터와 유효 Access
-Token을 사용하는 smoke는 Wave 5 배포 전 미검증 항목이다.
+Token을 사용하는 정상 요청 smoke는 Wave 5 배포 후에도 미검증 항목으로 남아 있다.
 
 **구현 청크 13 Status:** 완료 (2026-08-03). 조회수 증가·총 조회수·Redis delta 조회 3개와 앱용
 Recommend 전체·featured 조회 2개를 기존 v1과 분리된 v2 Controller·DTO·application service로
@@ -725,7 +751,26 @@ DB 저장값과 viewCountBoost만 합산한다. Recommend featured 대상 ID 21�
 유지했다. 다섯 API는 Access Token을 요구하고 caller userUuid를 받지 않는다. 메인 세션 전체 test
 395개와 `spotlessCheck`, `git diff --check`가 통과했다. v1 Controller·DTO·Service·Repository와
 Entity/JPA/DB schema 변경, 외부 DB·운영 Redis 접속, 애플리케이션 실행은 없다. 운영 DB 데이터,
-유효 Access Token, 운영 Redis INCR·TTL을 사용하는 smoke는 Wave 5 배포 후 확인한다.
+유효 Access Token, 운영 Redis INCR·TTL을 사용하는 정상 요청 smoke는 아직 미검증이다.
+
+**Wave 5 운영 반영 (2026-08-03):** PR #11이 `main`에 merge됐고 merge commit은 `1fe6ffd`,
+production run은 `30788767383`이다. Main Verify, Build and Deploy Production, Notify Result가 모두
+성공했고 원격 배포의 신규 image health check와 외부 Actuator `UP`을 확인했다. 대표 v1 익명
+`GET /api/v1/popup/regions/districts`는 HTTP 200, v2 무토큰 `GET /api/v2/popup`은 HTTP 401을
+반환했다. rollback은 실행되지 않았고 Entity/JPA/DDL/DB 변경도 없다. 유효 Access Token으로 18개
+v2 API의 정상 응답을 비교하는 smoke와 운영 Redis INCR·TTL 확인은 테스트 token 부재로 남아 있으며,
+클라이언트 전환 전에 수행한다.
+
+**구현 청크 16 Status:** 7/7 구현·검증 완료 (2026-08-04). 기존 공개 Web popup의 random,
+favorite, in-progress, upcoming, search, detail 여섯 API와 Web Recommend 조회를 각각
+`/api/v2/web/popup/**`, `/api/v2/web/recommend`에 별도 v2 Controller·DTO·application service로
+추가했다. GET·HEAD는 익명 접근과 잘못된 Bearer Token 비개입을 유지하고, 같은 namespace의
+write method는 401로 차단한다. `favorite`가 이름과 달리 조회수 상위 결과를 반환하는 계약을
+포함해 v1 조회 조건·응답 의미를 그대로 유지했으며 `/api/v2/recommend/web`은 만들지 않았다.
+메인 검수 focused test 103개가 실패·오류·스킵 없이 통과했다. v1 Controller·DTO·Service·Mapper,
+Repository/query, Entity/JPA, SecurityConfig와 DB schema 변경은 없다. 운영 Web 응답, reverse
+proxy, Authorization header 유무별 smoke와 실제 운영 데이터 비교는 Wave 6 배포 후 검증한다.
+Wave 6의 청크 14~16 구현은 완료됐지만 운영 배포 완료 수는 5/7로 유지한다.
 
 **Verification:**
 

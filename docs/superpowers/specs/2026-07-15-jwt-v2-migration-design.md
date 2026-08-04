@@ -2,9 +2,11 @@
 
 ## 상태
 
-`APPROVED`. 인증 계약과 점진 배포 정책은 승인됐으며 구현은 진행 중이다. 2026-08-03 기준
-구현 청크 0~13(14/20)과 운영 배포 Wave 1~4(4/7)가 완료됐다. Wave 5는 구현·로컬 검증을
-마쳤지만 운영 배포 전이며, 다음 구현 대상은 청크 14다.
+`APPROVED`. 인증 계약과 점진 배포 정책은 승인됐으며 구현은 진행 중이다. 2026-08-04 기준
+구현 청크 0~16(17/20)와 운영 배포 Wave 1~5(5/7)가 완료됐다. Wave 5는 PR #11과 production
+run `30788767383`으로 운영 반영됐다. Wave 6의 청크 14~16은 개인화 popup·제보·공개 Web API
+20개를 모두 구현·검증했으며 아직 commit·PR·운영 배포 전이다. 다음 단계는 Wave 6 release
+검수이고, 배포가 확인된 뒤 청크 17을 진행한다.
 세부 구현·DB 적용·운영 배포 증거는 구현 체크리스트에서 관리한다.
 
 ## 문서 목적
@@ -605,6 +607,10 @@ v1은 현재 서비스 중인 계약으로 동결한다. 각 구현 청크는 �
 | 일반 popup 핵심 조회 | 전체·상세·검색·예정·진행·지역·랜덤의 익명 접근과 기존 raw 응답 유지 | 같은 suffix의 v2 7개 조회에 TOKEN_ACCESS 적용, caller userUuid 없음 | Authorization Bearer header 추가 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
 | 일반 popup 필터·추천 조회 | 필터·관련·카테고리·개인 추천의 익명 접근과 기존 조회 조건 유지 | 같은 suffix의 v2 6개 조회에 TOKEN_ACCESS 적용, 개인 추천 caller userUuid는 principal로 대체 | Authorization Bearer header 추가, 개인 추천 path에서 userUuid 제거 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
 | popup 조회수·앱 Recommend master | 조회수 Redis key·TTL·DB+boost 계산과 Recommend 전체·featured 응답 유지 | 같은 suffix의 v2 5개 API에 TOKEN_ACCESS 적용, caller userUuid 없음 | Authorization Bearer header 추가 | 없음, 기존 Redis key 사용 | 구현·테스트 완료, 운영 정상 요청·Redis smoke 미실행 |
+| 개인화 popup 핵심 조회 | path userUuid와 전체·상세·예정·검색·진행·랜덤·scroll 계약 유지 | 7개 조회를 `/api/v2/user/popups/**`와 principal로 전환 | Authorization Bearer header 추가, path userUuid 제거, scroll cursor 유지 | 없음 | 7개 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
+| 개인화 popup 고급 조회 | path userUuid와 홈·지도 필터, 관심사 추천, 연관, 추천 카테고리 계약 유지 | 같은 suffix의 v2 5개 조회에 TOKEN_ACCESS와 principal 적용 | Authorization Bearer header 추가, path userUuid 제거, target·filter 유지 | 없음 | 구현·테스트 완료, 운영 정상 요청 smoke 미실행 |
+| popup 제보 등록 | 익명 multipart와 body userUuid, 기존 저장·정리 계약 유지 | `/api/v2/popup-submissions`에 TOKEN_ACCESS 적용, principal을 submitter로 저장 | Authorization Bearer header 추가, request JSON에서 userUuid 제거 | 없음, 기존 저장소·이미지 경로 사용 | 구현·테스트 완료, 운영 multipart smoke 미실행 |
+| 공개 Web popup·Recommend | 기존 Web popup 6개와 `/api/v1/recommend/web`의 익명 GET/HEAD·응답 의미 유지 | `/api/v2/web/popup/**` 6개와 `/api/v2/web/recommend`을 별도 공개 계층으로 추가, write method 차단 | 경로 버전만 변경하며 Authorization header 불필요 | 없음 | 7개 구현·테스트 완료, 운영 Web smoke 미실행 |
 
 v1의 `/api/v1/auth/token/test`와 `/api/v1/auth/refresh`는 승인된 실험용 삭제 대상이다. v2
 `/api/v2/auth/refresh`는 legacy controller를 복제하지 않고 이 문서의 rotation 계약으로 새로
@@ -973,10 +979,11 @@ rollback 단위다.
     적용한다.
 11. v1 삭제는 별도 change와 별도 배포로 수행한다.
 
-2026-07-31 현재 Wave 1~4가 운영 반영됐다. 가장 최근 Wave 4는 PR #9, merge commit
-`28bc9dee`, production run `30627748110`으로 배포됐고 Actuator UP, 대표 v1 익명 HTTP 200,
-v2 token 없음·잘못된 token의 HTTP 401을 확인했다. 유효 Access Token을 사용한 Wave 4 정상
-요청 smoke는 테스트 계정·token 부재로 미검증이며 클라이언트 전환 전에 수행한다.
+2026-08-03 현재 Wave 1~5가 운영 반영됐다. 가장 최근 Wave 5는 PR #11, merge commit
+`1fe6ffd`, production run `30788767383`으로 배포됐다. Main Verify와 운영 배포가 성공했고
+Actuator UP, 대표 v1 익명 HTTP 200, v2 무토큰 HTTP 401을 확인했으며 rollback은 실행되지 않았다.
+유효 Access Token을 사용한 Wave 5 정상 요청과 운영 Redis INCR·TTL smoke는 테스트 token 부재로
+미검증이며 클라이언트 전환 전에 수행한다.
 
 DB 변경은 이전 서버가 모르는 column을 무시할 수 있는 추가 방식으로 시작한다. rollback 기간에
 column 삭제, 이름 변경, 기존 값 의미 변경을 수행하지 않는다.

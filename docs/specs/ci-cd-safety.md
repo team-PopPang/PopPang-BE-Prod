@@ -749,11 +749,30 @@ GitHub rollout 진행 메모 — 2026-07-18:
   변경하지 않는다.
 - v1 제거는 iOS와 Android의 endpoint별 v2 전환이 확인된 뒤 별도 작업으로 수행한다.
 
-2026-08-03 현재 JWT 구현 청크 0~13(14/20)과 운영 배포 Wave 1~4(4/7)가 완료됐다. Wave 5는
-청크 11~13의 구현·로컬 검증을 마쳤지만 아직 운영 배포 전이다. 최근 Wave 4의
-PR #9 merge 뒤 production run `30627748110`이 성공했고 Actuator UP, 대표 v1 익명 HTTP 200,
-v2 인증 실패 HTTP 401 smoke를 확인했다. 유효 Access Token 정상 요청 smoke는 클라이언트 전환
-전 필수 미검증 항목으로 남아 있다.
+2026-08-04 현재 JWT 구현 청크 0~16(17/20)과 운영 배포 Wave 1~5(5/7)가 완료됐다. 최근 Wave 5는
+PR #11, merge commit `1fe6ffd`, production run `30788767383`으로 운영 반영됐다. Main Verify,
+Build and Deploy Production, Notify Result가 모두 성공했고 원격 신규 image health와 외부 Actuator
+UP, 대표 v1 익명 HTTP 200, v2 무토큰 HTTP 401을 확인했다. rollback은 실행되지 않았으며 이번
+wave에 Entity/JPA/DDL/DB 변경은 없다. 유효 Access Token 정상 요청과 운영 Redis INCR·TTL smoke는
+클라이언트 전환 전 필수 미검증 항목으로 남아 있다.
+
+같은 날 청크 14의 개인화 popup 핵심 조회 6개와 v2 scroll twin을 별도 v2 코드로 구현했다.
+청크 14-A focused test 27개, 확대 focused test 70개, 전체 test 431개와 `compileJava`,
+`spotlessCheck`, `git diff --check`가 통과했다. 외부 DB·Redis 접속과
+Entity/JPA/Repository/query/DDL 변경은 없다. 전체 v2 mapping 계획은 72개이며 청크 14는 7/7
+완료됐다.
+
+청크 15의 개인화 고급 조회 5개와 팝업 제보 1개도 v1과 분리된 v2 코드로 구현했다. caller
+userUuid는 Access Token principal로 대체했고 제보 DTO에서 userUuid를 제거했으며 기존
+`submitter_user_uuid` 컬럼에 principal UUID를 저장한다. 메인 focused test 88개와 전체 test
+458개, `compileJava`, `spotlessCheck`, `git diff --check`가 통과했다. v1·Repository/query·Entity/JPA,
+DB schema 변경과 외부 DB·Redis·운영 파일 경로 접속은 없다.
+
+청크 16의 공개 Web popup 6개와 Web Recommend 1개도 별도 v2 계층으로 구현했다. GET·HEAD만
+permitAll이고 잘못된 Bearer Token도 공개 요청에 개입하지 않으며 write method는 401로 차단한다.
+메인 focused test 103개가 통과했고 v1·Repository/query·Entity/JPA·SecurityConfig·DB schema
+변경은 없다. 이로써 Wave 6의 청크 14~16 코드 구현은 완료됐지만 아직 commit·PR·merge·운영
+smoke 전이므로 운영 배포 완료 수는 5/7로 유지한다.
 
 ## Accepted risks and deferred work
 

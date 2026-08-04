@@ -115,6 +115,28 @@ class TestContextSafetyContractTest {
             "com.poppang.be.domain.popup.presentation.v2.V2PopupViewRecommendControllerTest"));
   }
 
+  @Test
+  void v2UserPopupSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.popup.presentation.v2.V2UserPopupControllerTest"));
+  }
+
+  @Test
+  void v2PopupSubmissionSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName(
+            "com.poppang.be.domain.popup.presentation.v2.V2PopupSubmissionControllerTest"));
+  }
+
+  @Test
+  void v2PublicWebSlicesUseTestProfileAndDisableFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.popup.presentation.v2.V2PopupWebControllerTest"));
+    assertIsolatedWebMvcTest(
+        Class.forName(
+            "com.poppang.be.domain.recommend.presentation.v2.V2WebRecommendControllerTest"));
+  }
+
   private void assertIsolatedWebMvcTest(Class<?> securityTest) {
     ActiveProfiles activeProfiles = securityTest.getAnnotation(ActiveProfiles.class);
     WebMvcTest webMvcTest = securityTest.getAnnotation(WebMvcTest.class);

@@ -2,7 +2,7 @@
 
 ## Status
 
-IMPLEMENTED
+IMPLEMENTED (v1 and JWT v2 counterpart, chunk 14-A)
 
 ## Goal
 
@@ -23,7 +23,7 @@ iOS 앱이 팝업 목록 셀에 필요한 최소 정보만 15개씩 조회하고
 - 전체 개수, 전체 페이지 수 또는 페이지 번호 제공
 - 페이지 크기, 필터 또는 정렬 기준을 클라이언트가 지정하는 기능
 - 커서 암호화, 서명, Base64 인코딩 또는 복합 커서
-- v2 JWT 계약으로의 변경
+- 이 v1 기능 구현과 같은 변경에서 v2 JWT 계약까지 추가하는 작업
 
 ## API contract
 
@@ -106,6 +106,8 @@ Accept: application/json
 - 기존 `GET /api/v1/users/{userUuid}/popups` 전체 목록 계약을 변경하지 않는다.
 - 기존 상세, 검색, 필터, 추천 API 계약을 변경하지 않는다.
 - 신규 endpoint는 기존 `[POPUP-USER] 회원` Swagger 태그에 포함되며 새 태그를 만들지 않는다.
+- JWT 마이그레이션 청크 14-A에서 `GET /api/v2/user/popups/scroll` twin을 추가하고 path의 caller
+  `userUuid`를 Access Token principal로 대체했다. `cursor`와 경량 응답 계약은 유지한다.
 
 ## Acceptance criteria
 
