@@ -25,6 +25,13 @@ public class V2InternalUserAlertServiceImpl implements V2InternalUserAlertServic
   @Override
   @Transactional
   public void registerUserAlert(String userUuid, V2WorkerUserAlertRegisterRequestDto request) {
+    if (userUuid == null
+        || userUuid.isBlank()
+        || request == null
+        || request.popupUuid() == null
+        || request.popupUuid().isBlank()) {
+      throw new BaseException(ErrorCode.INVALID_WORKER_ALERT_REQUEST);
+    }
     Users user =
         usersRepository
             .findByUuid(userUuid)

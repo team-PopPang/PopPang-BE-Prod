@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.poppang.be.common.exception.BaseException;
@@ -92,5 +93,31 @@ class V2InternalUserAlertServiceImplTest {
         .isInstanceOf(BaseException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.POPUP_NOT_FOUND);
+  }
+
+  @Test
+  void registerAlertRejectsInvalidWorkerInputBeforeRepositoryAccess() {
+    assertThatThrownBy(
+            () ->
+                userAlertService.registerUserAlert(
+                    " ", new V2WorkerUserAlertRegisterRequestDto("popup-uuid")))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_WORKER_ALERT_REQUEST);
+
+    assertThatThrownBy(() -> userAlertService.registerUserAlert("recipient-uuid", null))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_WORKER_ALERT_REQUEST);
+
+    assertThatThrownBy(
+            () ->
+                userAlertService.registerUserAlert(
+                    "recipient-uuid", new V2WorkerUserAlertRegisterRequestDto(" ")))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_WORKER_ALERT_REQUEST);
+
+    verifyNoInteractions(usersRepository, popupRepository, userAlertRepository);
   }
 }

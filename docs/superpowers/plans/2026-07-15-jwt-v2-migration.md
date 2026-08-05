@@ -785,8 +785,10 @@ caller/admin UUID 입력을 제거하고 모든 mapping에 `TOKEN_ACCESS + ROLE_
 기존 v1에서 관리자 검사가 빠진 제보 상태 변경 API도 v2에서는 동일한 보호를 받는다. 메인 검수
 focused test 78개가 실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`,
 `git diff --check`도 통과했다. v1 Controller·DTO·Service, SecurityConfig, Entity/JPA,
-Repository/query와 DB schema 변경은 없다. 운영 ADMIN token, 실제 DB 쓰기, multipart 이미지 저장과
-reverse proxy smoke는 Wave 7 배포 전 미검증 항목으로 남아 있다.
+DB schema 변경은 없다. v2 상태 변경 PATCH는 실제 팝업 생성 없이 승인 상태만 바뀌는 것을 막기 위해
+`REJECTED`만 허용하고, 승인/반려 쓰기는 기존 Repository에 추가한 pessimistic write 조회로 직렬화해
+동시 승인 시 중복 팝업 생성을 방지한다. 이는 Entity·DDL 변경 없이 v2에만 적용한다. 운영 ADMIN token,
+실제 DB 쓰기, multipart 이미지 저장과 reverse proxy smoke는 Wave 7 배포 전 미검증 항목으로 남아 있다.
 
 **구현 청크 18 Status:** 5/5 구현·검증 완료 (2026-08-04). popup 등록·image upsert, 알림 대상
 Polling A/B와 사용자 알림 등록을 `/api/v2/internal/**`의 별도 Controller·DTO·application
@@ -794,6 +796,8 @@ service로 추가했다. 모든 mapping은 `X-Worker-Api-Key`와 `SERVICE_WORKER
 internal 인증에 사용하지 않는다. Polling 응답의 내부 Long user id는 기존 query 결과를 사용자
 일괄 조회 1회로 UUID에 매핑해 대체하므로 A/B 각각 조회 횟수는 고정 2회이고 N+1은 아니다. 기존
 v1 Controller·DTO·Service, SecurityConfig, Entity/JPA, Repository/query와 DB schema 변경은 없다.
+Worker popup·alert 쓰기 요청은 null·공백·잘못된 media type과 image 입력을 Repository 접근 전에
+400 도메인 오류로 거절하며 이 검증도 v2 internal service에만 적용한다.
 사이드 세션 전체 test 536개와 메인 검수 focused test 61개가 실패·오류·스킵 없이 통과했다.
 외부 worker의 실제 request body·Polling A/B 사용 버전·alert POST 사용 여부와 API Key header
 적용, 운영 데이터 기반 read/write와 reverse proxy smoke는 Wave 7 배포 전 미검증 항목이다.

@@ -1,6 +1,5 @@
 package com.poppang.be.domain.popup.dto.v2.admin;
 
-import com.poppang.be.domain.popup.entity.PopupSubmissionStatus;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -8,5 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class V2PopupSubmissionStatusUpdateRequestDto {
 
-  private PopupSubmissionStatus popupSubmissionStatus;
+  private String popupSubmissionStatus;
 }

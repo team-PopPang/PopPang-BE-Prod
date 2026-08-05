@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.poppang.be.common.exception.BaseException;
@@ -21,6 +22,7 @@ import com.poppang.be.domain.recommend.entity.Recommend;
 import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -86,6 +88,54 @@ class V2InternalPopupServiceImplTest {
   }
 
   @Test
+  void registerPopupRejectsInvalidMediaTypeAsControlledWorkerRequestError() {
+    V2WorkerPopupRegisterRequestDto request = registerRequestWithMediaType("UNKNOWN");
+
+    assertThatThrownBy(() -> popupService.registerPopup(request))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository);
+  }
+
+  @Test
+  void registerPopupRejectsNullRequestBeforeRepositoryAccess() {
+    assertThatThrownBy(() -> popupService.registerPopup(null))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository);
+  }
+
+  @Test
+  void registerPopupRejectsBlankImageUrlBeforeSavingPopup() {
+    V2WorkerPopupRegisterRequestDto request =
+        registerRequestWithImages(List.of(new V2WorkerPopupImageUpsertRequestDto(" ", null)));
+
+    assertThatThrownBy(() -> popupService.registerPopup(request))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository, popupImageRepository);
+  }
+
+  @Test
+  void registerPopupRejectsNullImageBeforeSavingPopup() {
+    V2WorkerPopupRegisterRequestDto request =
+        registerRequestWithImages(Collections.singletonList(null));
+
+    assertThatThrownBy(() -> popupService.registerPopup(request))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository, popupImageRepository);
+  }
+
+  @Test
   void upsertImagesDeletesExistingRowsAndUsesRequestOrderAsDefaultSort() {
     Popup popup = Popup.builder().id(9L).uuid("popup-uuid").build();
     when(popupRepository.findByUuid("popup-uuid")).thenReturn(Optional.of(popup));
@@ -116,7 +166,48 @@ class V2InternalPopupServiceImplTest {
         .isEqualTo(ErrorCode.POPUP_NOT_FOUND);
   }
 
+  @Test
+  void upsertImagesRejectsNullListBeforeDeletingExistingRows() {
+    assertThatThrownBy(() -> popupService.upsertImages("popup-uuid", null))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository, popupImageRepository);
+  }
+
+  @Test
+  void upsertImagesRejectsInvalidEntryBeforeDeletingExistingRows() {
+    assertThatThrownBy(
+            () ->
+                popupService.upsertImages(
+                    "popup-uuid", List.of(new V2WorkerPopupImageUpsertRequestDto(" ", null))))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+
+    verifyNoInteractions(popupRepository, popupImageRepository);
+  }
+
   private V2WorkerPopupRegisterRequestDto registerRequest() {
+    return registerRequestWithMediaType("IMAGE");
+  }
+
+  private V2WorkerPopupRegisterRequestDto registerRequestWithMediaType(String mediaType) {
+    return registerRequest(
+        mediaType,
+        List.of(
+            new V2WorkerPopupImageUpsertRequestDto("first.jpg", null),
+            new V2WorkerPopupImageUpsertRequestDto("second.jpg", 7)));
+  }
+
+  private V2WorkerPopupRegisterRequestDto registerRequestWithImages(
+      List<V2WorkerPopupImageUpsertRequestDto> images) {
+    return registerRequest("IMAGE", images);
+  }
+
+  private V2WorkerPopupRegisterRequestDto registerRequest(
+      String mediaType, List<V2WorkerPopupImageUpsertRequestDto> images) {
     return new V2WorkerPopupRegisterRequestDto(
         "팝업",
         LocalDate.of(2026, 8, 10),
@@ -133,11 +224,9 @@ class V2InternalPopupServiceImplTest {
         "https://instagram.example/post",
         "요약",
         "본문",
-        "IMAGE",
+        mediaType,
         true,
-        List.of(
-            new V2WorkerPopupImageUpsertRequestDto("first.jpg", null),
-            new V2WorkerPopupImageUpsertRequestDto("second.jpg", 7)),
+        images,
         List.of(3L));
   }
 

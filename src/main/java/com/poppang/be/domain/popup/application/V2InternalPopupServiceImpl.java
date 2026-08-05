@@ -31,6 +31,8 @@ public class V2InternalPopupServiceImpl implements V2InternalPopupService {
   @Override
   @Transactional
   public void registerPopup(V2WorkerPopupRegisterRequestDto request) {
+    validateRegisterRequest(request);
+    MediaType mediaType = parseMediaType(request.mediaType());
     Popup popup =
         Popup.builder()
             .name(request.name())
@@ -48,7 +50,7 @@ public class V2InternalPopupServiceImpl implements V2InternalPopupService {
             .instaPostUrl(request.instaPostUrl())
             .captionSummary(request.captionSummary())
             .caption(request.caption())
-            .mediaType(request.mediaType() == null ? null : MediaType.valueOf(request.mediaType()))
+            .mediaType(mediaType)
             .activated(Boolean.TRUE.equals(request.isActive()))
             .build();
     popupRepository.save(popup);
@@ -77,6 +79,10 @@ public class V2InternalPopupServiceImpl implements V2InternalPopupService {
   @Override
   @Transactional
   public void upsertImages(String popupUuid, List<V2WorkerPopupImageUpsertRequestDto> images) {
+    if (isBlank(popupUuid) || images == null) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+    validateImages(images);
     Popup popup =
         popupRepository
             .findByUuid(popupUuid)
@@ -98,5 +104,42 @@ public class V2InternalPopupServiceImpl implements V2InternalPopupService {
         .imageUrl(image.imageUrl())
         .sortOrder(image.sortOrder() == null ? defaultSortOrder : image.sortOrder())
         .build();
+  }
+
+  private void validateRegisterRequest(V2WorkerPopupRegisterRequestDto request) {
+    if (request == null) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+    if (request.imageList() != null) {
+      validateImages(request.imageList());
+    }
+    if (request.recommendIdList() != null
+        && request.recommendIdList().stream().anyMatch(recommendId -> recommendId == null)) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+  }
+
+  private void validateImages(List<V2WorkerPopupImageUpsertRequestDto> images) {
+    if (images.stream().anyMatch(image -> image == null || isBlank(image.imageUrl()))) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+  }
+
+  private MediaType parseMediaType(String mediaType) {
+    if (mediaType == null) {
+      return null;
+    }
+    if (isBlank(mediaType)) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+    try {
+      return MediaType.valueOf(mediaType.trim());
+    } catch (IllegalArgumentException exception) {
+      throw new BaseException(ErrorCode.INVALID_INTERNAL_POPUP_REQUEST);
+    }
+  }
+
+  private boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 }

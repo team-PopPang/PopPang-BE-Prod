@@ -31,6 +31,7 @@ import com.poppang.be.domain.recommend.entity.Recommend;
 import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
+import jakarta.persistence.LockModeType;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -45,6 +46,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -166,7 +168,7 @@ class V2PopupAdminServiceImplTest {
   @Test
   void updatePopupSubmissionRejectsWithoutImages() {
     PopupSubmission submission = pendingPopupSubmission();
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(submission));
 
     V2PopupSubmissionAdminUpdateResponseDto response =
@@ -184,7 +186,7 @@ class V2PopupAdminServiceImplTest {
     PopupSubmission submission = pendingPopupSubmission();
     MockMultipartFile upload = imageFile("new.jpg", "image/jpeg");
     String uploadedUrl = "/submissionImages/new.jpg";
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(submission));
     mockRecommendList();
     mockPopupSave();
@@ -213,7 +215,7 @@ class V2PopupAdminServiceImplTest {
     MockMultipartFile upload = imageFile("new.jpg", "image/jpeg");
     List<String> storedUrls = List.of("/submissionImages/new.jpg");
     RuntimeException databaseFailure = new RuntimeException("db failed");
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(submission));
     mockRecommendList();
     when(popupSubmissionImageStorage.storeAll(any())).thenReturn(storedUrls);
@@ -234,7 +236,7 @@ class V2PopupAdminServiceImplTest {
   void updatePopupSubmissionRejectsAlreadyProcessedSubmission() {
     PopupSubmission submission = pendingPopupSubmission();
     submission.updateStatus(PopupSubmissionStatus.APPROVED);
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(submission));
 
     assertThatThrownBy(
@@ -247,41 +249,87 @@ class V2PopupAdminServiceImplTest {
   }
 
   @Test
-  void updateSubmissionStatusKeepsLegacyStateChangeBehavior() {
+  void updateSubmissionStatusOnlyAllowsRejection() {
     PopupSubmission submission = pendingPopupSubmission();
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(submission));
 
-    popupAdminService.updateSubmissionStatus(
-        POPUP_SUBMISSION_ID, statusRequest(PopupSubmissionStatus.REJECTED));
+    popupAdminService.updateSubmissionStatus(POPUP_SUBMISSION_ID, statusRequest("REJECTED"));
 
     assertThat(submission.getStatus()).isEqualTo(PopupSubmissionStatus.REJECTED);
   }
 
   @Test
-  void updateSubmissionStatusKeepsLegacyErrorCodes() {
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID)).thenReturn(Optional.empty());
+  void updateSubmissionStatusRejectsApprovalWithoutCreatingPopup() {
+    assertThatThrownBy(
+            () ->
+                popupAdminService.updateSubmissionStatus(
+                    POPUP_SUBMISSION_ID, statusRequest("APPROVED")))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_UPDATE_STATUS);
+
+    verifyNoInteractions(popupSubmissionRepository, popupRepository);
+  }
+
+  @Test
+  void updateSubmissionStatusRejectsMissingBlankAndPendingStatusBeforeRepositoryAccess() {
+    assertThatThrownBy(() -> popupAdminService.updateSubmissionStatus(POPUP_SUBMISSION_ID, null))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_UPDATE_STATUS);
+    assertThatThrownBy(
+            () -> popupAdminService.updateSubmissionStatus(POPUP_SUBMISSION_ID, statusRequest(" ")))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_UPDATE_STATUS);
+    assertThatThrownBy(
+            () ->
+                popupAdminService.updateSubmissionStatus(
+                    POPUP_SUBMISSION_ID, statusRequest("PENDING")))
+        .isInstanceOf(BaseException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_UPDATE_STATUS);
+
+    verifyNoInteractions(popupSubmissionRepository);
+  }
+
+  @Test
+  void updateSubmissionStatusUsesSubmissionDomainErrors() {
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->
                 popupAdminService.updateSubmissionStatus(
-                    POPUP_SUBMISSION_ID, statusRequest(PopupSubmissionStatus.REJECTED)))
+                    POPUP_SUBMISSION_ID, statusRequest("REJECTED")))
         .isInstanceOf(BaseException.class)
         .extracting("errorCode")
-        .isEqualTo(ErrorCode.POPUP_NOT_FOUND);
+        .isEqualTo(ErrorCode.POPUP_SUBMISSION_NOT_FOUND);
 
     PopupSubmission processed = pendingPopupSubmission();
     processed.updateStatus(PopupSubmissionStatus.APPROVED);
-    when(popupSubmissionRepository.findById(POPUP_SUBMISSION_ID))
+    when(popupSubmissionRepository.findByIdForUpdate(POPUP_SUBMISSION_ID))
         .thenReturn(Optional.of(processed));
 
     assertThatThrownBy(
             () ->
                 popupAdminService.updateSubmissionStatus(
-                    POPUP_SUBMISSION_ID, statusRequest(PopupSubmissionStatus.REJECTED)))
+                    POPUP_SUBMISSION_ID, statusRequest("REJECTED")))
         .isInstanceOf(BaseException.class)
         .extracting("errorCode")
-        .isEqualTo(ErrorCode.FAVORITE_ALREADY_EXISTS);
+        .isEqualTo(ErrorCode.POPUP_SUBMISSION_ALREADY_PROCESSED);
+  }
+
+  @Test
+  void popupSubmissionWriteLookupUsesPessimisticLock() throws NoSuchMethodException {
+    Lock lock =
+        PopupSubmissionRepository.class
+            .getMethod("findByIdForUpdate", Long.class)
+            .getAnnotation(Lock.class);
+
+    assertThat(lock).isNotNull();
+    assertThat(lock.value()).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
   }
 
   private PopupSubmission pendingPopupSubmission() {
@@ -344,7 +392,7 @@ class V2PopupAdminServiceImplTest {
     return image;
   }
 
-  private V2PopupSubmissionStatusUpdateRequestDto statusRequest(PopupSubmissionStatus status) {
+  private V2PopupSubmissionStatusUpdateRequestDto statusRequest(String status) {
     V2PopupSubmissionStatusUpdateRequestDto request = new V2PopupSubmissionStatusUpdateRequestDto();
     ReflectionTestUtils.setField(request, "popupSubmissionStatus", status);
     return request;

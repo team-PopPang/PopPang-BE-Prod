@@ -125,7 +125,7 @@ public class V2PopupAdminServiceImpl implements V2PopupAdminService {
     PopupSubmissionStatus updateStatus = parsePopupSubmissionUpdateStatus(request);
     PopupSubmission popupSubmission =
         popupSubmissionRepository
-            .findById(popupSubmissionId)
+            .findByIdForUpdate(popupSubmissionId)
             .orElseThrow(() -> new BaseException(ErrorCode.POPUP_SUBMISSION_NOT_FOUND));
 
     if (popupSubmission.getStatus() != PopupSubmissionStatus.PENDING) {
@@ -159,14 +159,26 @@ public class V2PopupAdminServiceImpl implements V2PopupAdminService {
   @Transactional
   public void updateSubmissionStatus(
       Long submissionId, V2PopupSubmissionStatusUpdateRequestDto request) {
+    validatePopupSubmissionRejectionStatus(request);
     PopupSubmission popupSubmission =
         popupSubmissionRepository
-            .findById(submissionId)
-            .orElseThrow(() -> new BaseException(ErrorCode.POPUP_NOT_FOUND));
+            .findByIdForUpdate(submissionId)
+            .orElseThrow(() -> new BaseException(ErrorCode.POPUP_SUBMISSION_NOT_FOUND));
     if (popupSubmission.getStatus() != PopupSubmissionStatus.PENDING) {
-      throw new BaseException(ErrorCode.FAVORITE_ALREADY_EXISTS);
+      throw new BaseException(ErrorCode.POPUP_SUBMISSION_ALREADY_PROCESSED);
     }
-    popupSubmission.updateStatus(request.getPopupSubmissionStatus());
+    popupSubmission.updateStatus(PopupSubmissionStatus.REJECTED);
+  }
+
+  private void validatePopupSubmissionRejectionStatus(
+      V2PopupSubmissionStatusUpdateRequestDto request) {
+    if (request == null
+        || isBlank(request.getPopupSubmissionStatus())
+        || !PopupSubmissionStatus.REJECTED
+            .name()
+            .equals(request.getPopupSubmissionStatus().trim())) {
+      throw new BaseException(ErrorCode.INVALID_POPUP_SUBMISSION_UPDATE_STATUS);
+    }
   }
 
   private PopupSubmissionStatus parsePopupSubmissionUpdateStatus(
