@@ -13,6 +13,7 @@ public enum ErrorCode {
   USER_ALERT_ALREADY_EXISTS(HttpStatus.CONFLICT, 4002, "이미 해당 팝업에 대한 알림 기록이 존재합니다."),
   ALERT_KEYWORD_NOT_FOUND(HttpStatus.NOT_FOUND, 4003, "해당 키워드가 존재하지 않습니다."),
   ALERT_KEYWORD_ALREADY_EXISTS(HttpStatus.CONFLICT, 4004, "이미 등록된 알림 키워드입니다."),
+  INVALID_WORKER_ALERT_REQUEST(HttpStatus.BAD_REQUEST, 4005, "Worker 알림 요청값이 올바르지 않습니다."),
 
   // ==================================================
   // 4100 ~ 4199 : Favorite (찜)
@@ -48,6 +49,7 @@ public enum ErrorCode {
   POPUP_SUBMISSION_ALREADY_PROCESSED(HttpStatus.CONFLICT, 4312, "이미 처리된 팝업 제보입니다."),
   INVALID_POPUP_SEARCH_QUERY(HttpStatus.BAD_REQUEST, 4313, "검색어는 필수입니다."),
   REGION_REQUIRED_FOR_DISTRICT(HttpStatus.BAD_REQUEST, 4314, "구를 조회하려면 지역이 필요합니다."),
+  INVALID_INTERNAL_POPUP_REQUEST(HttpStatus.BAD_REQUEST, 4315, "Worker 팝업 요청값이 올바르지 않습니다."),
 
   // ==================================================
   // 5000 ~ 5099 : Auth / JWT (인증)

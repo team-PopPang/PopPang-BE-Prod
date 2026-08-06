@@ -9,12 +9,14 @@
 - `docs/superpowers/specs/2026-07-15-signup-token-flow-design.md`
 - 저장소 루트 `AGENTS.md`
 
-**Current snapshot (2026-08-04):** 구현 청크 0~16, 총 17/20개와 운영 배포 Wave 1~5,
-총 5/7개가 완료됐다. Wave 5의 청크 11~13은 PR #11과 production run `30788767383`으로
-운영 반영됐고 health·대표 v1 익명 접근·v2 무토큰 차단 smoke를 통과했다. Wave 6의 청크
-14~16은 개인화 popup·제보·공개 Web API 20개를 모두 구현하고 로컬 회귀를 마쳤지만 아직
-commit·PR·운영 배포 전이다. 다음 단계는 Wave 6 release 검수이며, iOS/AOS/ETL traffic은 아직
-v2로 전환하지 않았다. 따라서 대응 v1 API와 익명 호출 계약은 계속 유지한다.
+**Current snapshot (2026-08-04):** 구현 청크 0~19, 총 20/20개와 운영 배포 Wave 1~6,
+총 6/7개가 완료됐다. Wave 6의 청크 14~16은 PR #12, merge commit `387441c`, production run
+`30872564654`로 운영 반영됐다. Main Verify·배포·알림과 신규 image health가 성공했고 외부
+Actuator·대표 v1 Web·신규 v2 Web은 HTTP 200, 보호된 v2 무토큰 요청은 HTTP 401을 반환했으며
+rollback은 필요하지 않았다. 청크 17의 Admin popup·제보 API 5개, 청크 18의 internal worker
+API 5개와 청크 19의 OpenAPI·저카디널리티 보안 이벤트·72개 v2 inventory 및 79개 v1→v2
+migration matrix를 구현하고 로컬 검수를 마쳤다. iOS/AOS/ETL traffic은 아직 v2로 전환하지 않았다.
+따라서 대응 v1 API와 익명 호출 계약은 계속 유지한다.
 
 **Architecture:** v1과 v2 Controller/DTO/application/service/provider verifier를 분리한다. v1은
 승인된 실험용 token endpoint 두 개를 제외하고 현재 운영 구현을 동결한다. V2를 위한 공통화나
@@ -80,10 +82,10 @@ identity로 사용하며 Refresh/Signup Token의 최신 상태와 원자적 소�
 | 14 | 개인화 popup 핵심 조회 + scroll 보완 | 7 | ✅ 완료 (2026-08-03) | JWT 기반 찜 여부·사용자 결과·cursor scroll |
 | 15 | 개인화 popup 고급 조회 5개 + 제보 1개 | 6 | ✅ 완료 (2026-08-03) | principal 제보자와 개인화 필터 |
 | 16 | 공개 Web popup 6개 + Web recommend 1개 | 7 | ✅ 완료 (2026-08-04) | GET/HEAD permitAll 전용 namespace |
-| 17 | Admin popup·제보 API | 5 | ⬜ 미완료 | 모든 mapping에 현재 ROLE_ADMIN 강제 |
-| 18 | crawler·notification worker internal API | 5 | ⬜ 미완료 | API Key와 target UUID 분리 |
-| 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | ⬜ 미완료 | spotlessCheck, clean test/build |
-|  | **합계** | **72** | **17/20 완료** |  |
+| 17 | Admin popup·제보 API | 5 | ✅ 완료 (2026-08-04) | 모든 mapping에 현재 ROLE_ADMIN 강제 |
+| 18 | crawler·notification worker internal API | 5 | ✅ 완료 (2026-08-04) | API Key와 target UUID 분리 |
+| 19 | OpenAPI·관측·migration matrix·전체 회귀 | 0 | ✅ 완료 (2026-08-04) | spotlessCheck, clean test/build |
+|  | **합계** | **72** | **20/20 완료** |  |
 
 ## Merge and production deployment wave map
 
@@ -99,9 +101,9 @@ PR로 합치려면 사용자에게 범위와 위험을 다시 보고하고 별�
 | 3/7 | 4~8 | Security 경계·Refresh·logout·소셜 인증·사용자 self-service | 14 | ✅ 완료 (2026-07-31) | v1 회귀와 401/403, strict rotation, provider별 인증과 본인 한정 |
 | 4/7 | 9~10 | 찜·알림 키워드·알림함 | 10 | ✅ 완료 (2026-07-31) | caller UUID 제거와 타 사용자 접근 거절 |
 | 5/7 | 11~13 | 일반 popup 조회·필터·추천·조회수·recommend master | 18 | ✅ 완료 (2026-08-03) | v1 결과 회귀와 filter/count/featured 계약 |
-| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 20 | 🟡 구현 완료·미배포 | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
+| 6/7 | 14~16 | 개인화 popup·popup 제보·공개 Web API | 20 | ✅ 완료 (2026-08-04) | principal 개인화·제보자 검증, Web GET/HEAD permitAll |
 | 7/7 | 17~19 | Admin·worker·OpenAPI·관측·matrix·전체 안정화 | 10 | ⬜ 미완료 | ROLE_ADMIN·API Key, ETL 계획, clean test/build와 전체 회귀 |
-|  |  | **합계** | **72** | **5/7 완료** |  |
+|  |  | **합계** | **72** | **6/7 완료** |  |
 
 DB-E1은 1/7의 선행 수동 DB gate이며 서버 배포 wave 숫자에는 포함하지 않는다. 대상
 DB·backup·backfill DML·default DDL·lock·rollback을 별도로 승인받고 적용·검증한 뒤에만 관련
@@ -722,8 +724,8 @@ Repository/query와 Entity/JPA/DB schema 변경은 없다. 메인 focused test 8
 - [x] 기존 web popup GET을 `/api/v2/web/popup/**`로 twin 구현한다.
 - [x] 추천 Web은 `/api/v2/web/recommend`만 만들고 `/api/v2/recommend/web`은 만들지 않는다.
 - [x] `/api/v2/web/**`에 write method나 사용자/관리자 DTO가 없도록 architecture test를 작성한다.
-- [ ] 모든 `/api/v2/admin/**`에서 query caller uuid를 제거하고 DB의 현재 ROLE_ADMIN을 요구한다.
-- [ ] legacy에서 관리자 검사가 빠진 submission status endpoint도 v2에서는 동일하게 보호한다.
+- [x] 모든 `/api/v2/admin/**`에서 query caller uuid를 제거하고 DB의 현재 ROLE_ADMIN을 요구한다.
+- [x] legacy에서 관리자 검사가 빠진 submission status endpoint도 v2에서는 동일하게 보호한다.
 
 **구현 청크 11 Status:** 완료 (2026-08-03). 일반 popup 전체·상세·검색·오픈 예정·진행 중·지역/구·
 랜덤 조회 7개를 `/api/v2/popup/**`의 별도 Controller·DTO·application service·mapper로 추가했다.
@@ -768,9 +770,49 @@ favorite, in-progress, upcoming, search, detail 여섯 API와 Web Recommend 조�
 write method는 401로 차단한다. `favorite`가 이름과 달리 조회수 상위 결과를 반환하는 계약을
 포함해 v1 조회 조건·응답 의미를 그대로 유지했으며 `/api/v2/recommend/web`은 만들지 않았다.
 메인 검수 focused test 103개가 실패·오류·스킵 없이 통과했다. v1 Controller·DTO·Service·Mapper,
-Repository/query, Entity/JPA, SecurityConfig와 DB schema 변경은 없다. 운영 Web 응답, reverse
-proxy, Authorization header 유무별 smoke와 실제 운영 데이터 비교는 Wave 6 배포 후 검증한다.
-Wave 6의 청크 14~16 구현은 완료됐지만 운영 배포 완료 수는 5/7로 유지한다.
+Repository/query, Entity/JPA, SecurityConfig와 DB schema 변경은 없다.
+
+**Wave 6 운영 반영 (2026-08-04):** PR #12가 `main`에 merge됐고 merge commit은 `387441c`,
+production run은 `30872564654`이다. Main Verify, Build and Deploy Production, Notify Result가 모두
+성공했고 원격 신규 image health는 `UP`이었다. 외부 Actuator, 대표 v1 Web, 신규 v2 Web은 HTTP
+200을 반환했고 보호된 v2 API의 무토큰 요청은 HTTP 401을 반환했다. rollback은 필요하지 않았고
+Entity/JPA/Repository/DDL/DB 변경도 없다. 유효 Access Token을 이용한 개인화 정상 요청과 운영
+multipart·Redis 동작은 클라이언트 전환 전 미검증 항목으로 남아 있다.
+
+**구현 청크 17 Status:** 5/5 구현·검증 완료 (2026-08-04). 팝업 비활성화와 제보 목록·상세·
+승인/반려·상태 변경을 `/api/v2/admin/**`의 별도 Controller·DTO·application service로 추가했다.
+caller/admin UUID 입력을 제거하고 모든 mapping에 `TOKEN_ACCESS + ROLE_ADMIN`을 이중 적용했다.
+기존 v1에서 관리자 검사가 빠진 제보 상태 변경 API도 v2에서는 동일한 보호를 받는다. 메인 검수
+focused test 78개가 실패·오류·스킵 없이 통과했고 `compileJava`, `spotlessCheck`,
+`git diff --check`도 통과했다. v1 Controller·DTO·Service, SecurityConfig, Entity/JPA,
+DB schema 변경은 없다. v2 상태 변경 PATCH는 실제 팝업 생성 없이 승인 상태만 바뀌는 것을 막기 위해
+`REJECTED`만 허용하고, 승인/반려 쓰기는 기존 Repository에 추가한 pessimistic write 조회로 직렬화해
+동시 승인 시 중복 팝업 생성을 방지한다. 이는 Entity·DDL 변경 없이 v2에만 적용한다. 운영 ADMIN token,
+실제 DB 쓰기, multipart 이미지 저장과 reverse proxy smoke는 Wave 7 배포 전 미검증 항목으로 남아 있다.
+
+**구현 청크 18 Status:** 5/5 구현·검증 완료 (2026-08-04). popup 등록·image upsert, 알림 대상
+Polling A/B와 사용자 알림 등록을 `/api/v2/internal/**`의 별도 Controller·DTO·application
+service로 추가했다. 모든 mapping은 `X-Worker-Api-Key`와 `SERVICE_WORKER`를 요구하며 일반 JWT는
+internal 인증에 사용하지 않는다. Polling 응답의 내부 Long user id는 기존 query 결과를 사용자
+일괄 조회 1회로 UUID에 매핑해 대체하므로 A/B 각각 조회 횟수는 고정 2회이고 N+1은 아니다. 기존
+v1 Controller·DTO·Service, SecurityConfig, Entity/JPA, Repository/query와 DB schema 변경은 없다.
+Worker popup·alert 쓰기 요청은 null·공백·잘못된 media type과 image 입력을 Repository 접근 전에
+400 도메인 오류로 거절하며 이 검증도 v2 internal service에만 적용한다.
+사이드 세션 전체 test 536개와 메인 검수 focused test 61개가 실패·오류·스킵 없이 통과했다.
+외부 worker의 실제 request body·Polling A/B 사용 버전·alert POST 사용 여부와 API Key header
+적용, 운영 데이터 기반 read/write와 reverse proxy smoke는 Wave 7 배포 전 미검증 항목이다.
+
+**구현 청크 19 Status:** 구현·로컬 검증 완료 (2026-08-04). SpringDoc에 `/api/v1/**`과
+`/api/v2/**` group을 분리하고 v2 public, Access, Signup, Admin, Worker 분류가 실제 Security
+계약과 일치하도록 operation security를 적용했다. 기존 v1 문서의 전역 Bearer 표기는 유지하고
+Access·Signup Bearer와 `X-Worker-Api-Key` scheme을 분리했다. 인증 실패와 인가 거절은 raw path나
+UUID·token·API Key 없이 status·error code·저카디널리티 endpoint category만 구조화 로그로 남긴다.
+`contracts/v2-endpoints.txt`가 정확한 72개 mapping, 보안 분류, 유일하게 허용된 worker target
+`{userUuid}`를 고정한다. 별도 v1→v2 contract resource와 설계 문서의 79행 매트릭스는 `KEEP` 77개와
+승인된 실험 API 삭제 2개를 모두 한 번씩 포함하고, `V2_TWIN` 70개·`REPLACED_FLOW` 2개·
+`V1_ONLY_KEEP` 5개·`DELETE_APPROVED` 2개를 분류한다. contract test는 두 표현의 일치, 중복·누락,
+v2 참조 유효성과 미검증 전환 상태를 고정한다. 운영 배포와 유효 token/API Key smoke, 실제 ETL
+계약 및 iOS/AOS 전환은 아직 완료되지 않았으므로 Wave 7과 일반 v1 삭제 상태는 미완료다.
 
 **Verification:**
 
@@ -792,11 +834,11 @@ Wave 6의 청크 14~16 구현은 완료됐지만 운영 배포 완료 수는 5/7
 
 **Steps:**
 
-- [ ] 설계 문서의 다섯 v2 internal mapping을 구현하고 모두 `X-Worker-Api-Key`를 요구한다.
-- [ ] popup 등록·image upsert는 crawler target만 받고 caller user identity를 받지 않는다.
-- [ ] 알림 대상 polling 응답은 내부 Long id 대신 Users.uuid를 반환한다.
-- [ ] alert 생성의 path userUuid는 인증 주체가 아닌 recipient target으로 유지한다.
-- [ ] API Key 누락/불일치 401, 일반 JWT 접근 거절, inactive user 제외, secret 로그 미노출을 검증한다.
+- [x] 설계 문서의 다섯 v2 internal mapping을 구현하고 모두 `X-Worker-Api-Key`를 요구한다.
+- [x] popup 등록·image upsert는 crawler target만 받고 caller user identity를 받지 않는다.
+- [x] 알림 대상 polling 응답은 내부 Long id 대신 Users.uuid를 반환한다.
+- [x] alert 생성의 path userUuid는 인증 주체가 아닌 recipient target으로 유지한다.
+- [x] API Key 누락/불일치 401, 일반 JWT 접근 거절, inactive user 제외, secret 응답 미노출을 검증한다.
 - [ ] 외부 worker 코드 또는 access log로 alert POST 사용 여부를 확인한 결과를 migration matrix에 남긴다.
 
 **Verification:**
@@ -814,21 +856,23 @@ Wave 6의 청크 14~16 구현은 완료됐지만 운영 배포 완료 수는 5/7
 - Modify: `src/main/java/com/poppang/be/common/config/OpenApiConfig.java`
 - Create: v1/v2 SpringDoc group와 JWT/Signup/API Key security scheme 설정
 - Create: 저카디널리티 route/auth metric interceptor 또는 filter
-- Create: `docs/migrations/jwt-v2-endpoint-status.md`
+- Create: `src/test/resources/contracts/v1-v2-migration-matrix.txt`
+- Modify: 기존 설계 문서의 endpoint별 마이그레이션·삭제 매트릭스
 - Modify if needed: `.github/workflows/build-test.yml`, `.github/workflows/cicd.yml`
-- Test: OpenAPI/security/metric architecture contract tests
+- Test: OpenAPI/security/metric 및 v1→v2 matrix contract tests
 
 **Steps:**
 
-- [ ] v1과 v2 OpenAPI group을 분리하고 public, Access, Signup, worker operation의 security scheme을
+- [x] v1과 v2 OpenAPI group을 분리하고 public, Access, Signup, worker operation의 security scheme을
       실제 인가와 맞춘다.
-- [ ] route version, normalized route, status, auth outcome만 metric label로 사용한다.
-- [ ] UUID/token/email/FCM/API Key를 metric이나 로그에 포함하지 않는다.
+- [x] status, error code, 저카디널리티 endpoint category와 auth outcome만 보안 이벤트에 사용한다.
+- [x] raw path·UUID/token/email/FCM/API Key를 metric이나 로그에 포함하지 않는다.
 - [x] 완료 청크의 v1 유지 내용과 v2 동작 차이를 기존 설계 문서에서 누적 기록하기 시작한다.
-- [ ] migration matrix에 모든 v1 endpoint의 v2 대체, iOS/AOS/ETL version, v1 최근 호출,
+- [x] migration matrix에 모든 v1 endpoint의 v2 대체, iOS/AOS/ETL version, v1 최근 호출,
       rollback 확인, 삭제 가능 상태를 기록할 열을 만든다.
-- [ ] CD가 `spotlessCheck`와 `clean build`를 통과한 동일 JAR로 image를 만드는지 확인한다.
-- [ ] 마지막 변경 뒤 focused test, 전체 test, formatting, clean build를 새로 실행한다.
+- [x] CD가 동일 `${{ github.sha }}`를 검증하고 성공한 뒤 같은 SHA를 다시 checkout해 운영 JAR와
+      image를 만드는지 확인한다. 검증 job과 private config build job의 물리적 JAR는 동일하지 않다.
+- [x] 마지막 변경 뒤 focused test, 전체 test, formatting, clean build를 새로 실행한다.
 
 **Verification:**
 

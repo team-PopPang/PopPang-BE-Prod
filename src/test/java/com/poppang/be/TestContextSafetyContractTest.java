@@ -129,6 +129,18 @@ class TestContextSafetyContractTest {
   }
 
   @Test
+  void v2PopupAdminSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.popup.presentation.v2.V2PopupAdminControllerTest"));
+  }
+
+  @Test
+  void v2InternalWorkerSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.common.security.V2InternalWorkerControllerTest"));
+  }
+
+  @Test
   void v2PublicWebSlicesUseTestProfileAndDisableFullAutoConfiguration() throws Exception {
     assertIsolatedWebMvcTest(
         Class.forName("com.poppang.be.domain.popup.presentation.v2.V2PopupWebControllerTest"));
