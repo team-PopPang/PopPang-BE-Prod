@@ -38,6 +38,8 @@ class V2OpenApiSecurityContractTest {
       assertThat(securityNames(operation(openApi, "/api/v2/web/popup/random"))).isEmpty();
       assertThat(securityNames(operation(openApi, "/api/v2/auth/kakao/mobile/login"))).isEmpty();
       assertThat(securityNames(operation(openApi, "/api/v2/auth/refresh"))).isEmpty();
+      assertThat(securityNames(operation(openApi, "/api/v2/test-auth/token")))
+          .containsExactly("qaApiKeyAuth");
       assertThat(securityNames(operation(openApi, "/api/v2/auth/kakao/signup")))
           .containsExactly("bearerSignupAuth");
       assertThat(securityNames(operation(openApi, "/api/v2/popup")))
@@ -54,11 +56,16 @@ class V2OpenApiSecurityContractTest {
     OpenAPI openApi = new OpenApiConfig().customOpenAPI();
 
     var schemes = openApi.getComponents().getSecuritySchemes();
-    assertThat(schemes).containsKeys("bearerAuth", "bearerAccessAuth", "bearerSignupAuth");
+    assertThat(schemes)
+        .containsKeys("bearerAuth", "bearerAccessAuth", "bearerSignupAuth", "qaApiKeyAuth");
+    assertThat(schemes.get("qaApiKeyAuth").getType().toString()).isEqualTo("apiKey");
+    assertThat(schemes.get("qaApiKeyAuth").getName()).isEqualTo("X-QA-Api-Key");
+    assertThat(schemes.get("qaApiKeyAuth").getIn().toString()).isEqualTo("header");
     assertThat(schemes.get("workerApiKeyAuth").getType().toString()).isEqualTo("apiKey");
     assertThat(schemes.get("workerApiKeyAuth").getName()).isEqualTo("X-Worker-Api-Key");
     assertThat(schemes.get("workerApiKeyAuth").getIn().toString()).isEqualTo("header");
-    assertThat(openApi.toString()).doesNotContain("internal.worker.api-key", "jwt.secret");
+    assertThat(openApi.toString())
+        .doesNotContain("internal.worker.api-key", "qa.auth.api-key", "jwt.secret");
   }
 
   private GroupedOpenApi group(Map<String, GroupedOpenApi> groups, String groupName) {
@@ -73,6 +80,7 @@ class V2OpenApiSecurityContractTest {
         .path("/api/v2/web/popup/random", new PathItem().get(new Operation()))
         .path("/api/v2/auth/kakao/mobile/login", new PathItem().post(new Operation()))
         .path("/api/v2/auth/refresh", new PathItem().post(new Operation()))
+        .path("/api/v2/test-auth/token", new PathItem().post(new Operation()))
         .path("/api/v2/auth/kakao/signup", new PathItem().post(new Operation()))
         .path("/api/v2/popup", new PathItem().get(new Operation()))
         .path("/api/v2/admin/popup-submissions", new PathItem().get(new Operation()))

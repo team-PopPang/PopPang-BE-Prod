@@ -1,4 +1,5 @@
-# Security classification and exact v2 mapping inventory (72 endpoints)
+# Security classification and exact v2 mapping inventory (73 endpoints)
+QA_KEY|POST /api/v2/test-auth/token
 ACCESS|DELETE /api/v2/alert-keyword
 ACCESS|DELETE /api/v2/favorite
 ACCESS|DELETE /api/v2/user

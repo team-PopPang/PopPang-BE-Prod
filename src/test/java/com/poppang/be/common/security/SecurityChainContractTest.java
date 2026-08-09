@@ -73,6 +73,8 @@ class SecurityChainContractTest {
   private static final String EXPIRED_TOKEN = UUID.randomUUID().toString();
   private static final String WORKER_API_KEY =
       UUID.randomUUID().toString() + UUID.randomUUID().toString();
+  private static final String QA_API_KEY =
+      UUID.randomUUID().toString() + UUID.randomUUID().toString();
 
   @Autowired private MockMvc mockMvc;
   @Autowired private List<SecurityFilterChain> securityFilterChains;
@@ -90,12 +92,19 @@ class SecurityChainContractTest {
   private FilterRegistrationBean<WorkerApiKeyAuthenticationFilter> workerApiKeyFilterRegistration;
 
   @Autowired
+  @Qualifier("qaApiKeyFilterRegistration")
+  private FilterRegistrationBean<QaApiKeyAuthenticationFilter> qaApiKeyFilterRegistration;
+
+  @Autowired
   @Qualifier("v2AuthRateLimitFilterRegistration")
   private FilterRegistrationBean<V2AuthRateLimitFilter> v2AuthRateLimitFilterRegistration;
 
   @DynamicPropertySource
   static void workerApiKey(DynamicPropertyRegistry registry) {
     registry.add("internal.worker.api-key", () -> WORKER_API_KEY);
+    registry.add("qa.auth.api-key", () -> QA_API_KEY);
+    registry.add("qa.auth.member-user-uuid", () -> "44444444-4444-4444-4444-444444444444");
+    registry.add("qa.auth.admin-user-uuid", () -> "55555555-5555-5555-5555-555555555555");
   }
 
   @BeforeEach
@@ -120,28 +129,34 @@ class SecurityChainContractTest {
   }
 
   @Test
-  void chainsAreOrderedInternalThenV2ThenV1ThenInfrastructure() {
-    assertThat(securityFilterChains).hasSize(4);
+  void chainsAreOrderedInternalThenQaThenV2ThenV1ThenInfrastructure() {
+    assertThat(securityFilterChains).hasSize(5);
 
     MockHttpServletRequest internal = request("/api/v2/internal/resource");
+    MockHttpServletRequest qa = request("POST", "/api/v2/test-auth/token");
     MockHttpServletRequest v2 = request("/api/v2/resource");
     MockHttpServletRequest v1 = request("/api/v1/resource");
     MockHttpServletRequest infrastructure = request("/actuator/health");
 
     assertThat(securityFilterChains.get(0).matches(internal)).isTrue();
     assertThat(securityFilterChains.get(0).matches(v2)).isFalse();
-    assertThat(securityFilterChains.get(1).matches(internal)).isTrue();
-    assertThat(securityFilterChains.get(1).matches(v2)).isTrue();
-    assertThat(securityFilterChains.get(1).matches(v1)).isFalse();
-    assertThat(securityFilterChains.get(2).matches(v1)).isTrue();
-    assertThat(securityFilterChains.get(2).matches(infrastructure)).isFalse();
-    assertThat(securityFilterChains.get(3).matches(infrastructure)).isTrue();
+    assertThat(securityFilterChains.get(1).matches(internal)).isFalse();
+    assertThat(securityFilterChains.get(1).matches(qa)).isTrue();
+    assertThat(securityFilterChains.get(1).matches(v2)).isFalse();
+    assertThat(securityFilterChains.get(2).matches(internal)).isTrue();
+    assertThat(securityFilterChains.get(2).matches(qa)).isTrue();
+    assertThat(securityFilterChains.get(2).matches(v2)).isTrue();
+    assertThat(securityFilterChains.get(2).matches(v1)).isFalse();
+    assertThat(securityFilterChains.get(3).matches(v1)).isTrue();
+    assertThat(securityFilterChains.get(3).matches(infrastructure)).isFalse();
+    assertThat(securityFilterChains.get(4).matches(infrastructure)).isTrue();
   }
 
   @Test
   void authenticationFiltersAreNotRegisteredAsGlobalServletFilters() {
     assertThat(v2JwtFilterRegistration.isEnabled()).isFalse();
     assertThat(workerApiKeyFilterRegistration.isEnabled()).isFalse();
+    assertThat(qaApiKeyFilterRegistration.isEnabled()).isFalse();
     assertThat(v2AuthRateLimitFilterRegistration.isEnabled()).isFalse();
   }
 
@@ -352,6 +367,31 @@ class SecurityChainContractTest {
   }
 
   @Test
+  void qaTokenEndpointUsesOnlyTheConfiguredQaApiKey() throws Exception {
+    mockMvc
+        .perform(post("/api/v2/test-auth/token").queryParam("account", "MEMBER"))
+        .andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(
+            post("/api/v2/test-auth/token")
+                .queryParam("account", "MEMBER")
+                .header("X-QA-Api-Key", "wrong-qa-key"))
+        .andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(
+            post("/api/v2/test-auth/token")
+                .queryParam("account", "MEMBER")
+                .header("X-QA-Api-Key", QA_API_KEY))
+        .andExpect(status().isOk());
+    mockMvc
+        .perform(
+            post("/api/v2/test-auth/token")
+                .queryParam("account", "MEMBER")
+                .header(HttpHeaders.AUTHORIZATION, bearer(ACCESS_TOKEN)))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
   void customSpringDocPathsRemainPublicAndDefaultSwaggerPathsReturnApiResponse403()
       throws Exception {
     mockMvc
@@ -417,7 +457,11 @@ class SecurityChainContractTest {
   }
 
   private MockHttpServletRequest request(String path) {
-    MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
+    return request("GET", path);
+  }
+
+  private MockHttpServletRequest request(String method, String path) {
+    MockHttpServletRequest request = new MockHttpServletRequest(method, path);
     request.setServletPath(path);
     return request;
   }
@@ -451,6 +495,7 @@ class SecurityChainContractTest {
       "/api/v2/auth/google/signup",
       "/api/v2/auth/apple/signup",
       "/api/v2/auth/logout",
+      "/api/v2/test-auth/token",
       "/api/v2/web/resource"
     })
     ApiResponse<String> write() {

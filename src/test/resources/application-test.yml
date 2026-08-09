@@ -22,3 +22,9 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+qa:
+  auth:
+    api-key: test-qa-api-key-0123456789-abcdef
+    member-user-uuid: 44444444-4444-4444-4444-444444444444
+    admin-user-uuid: 55555555-5555-5555-5555-555555555555

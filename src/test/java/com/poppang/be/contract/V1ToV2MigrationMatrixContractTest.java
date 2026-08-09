@@ -53,11 +53,12 @@ class V1ToV2MigrationMatrixContractTest {
             .filter(MatrixRow::referencesV2)
             .map(MatrixRow::v2InventoryKey)
             .collect(Collectors.toSet());
-    assertThat(v2Inventory).hasSize(72);
+    assertThat(v2Inventory).hasSize(73);
     assertThat(v2Inventory).containsAll(referencedV2);
     assertThat(v2Inventory)
         .filteredOn(endpoint -> !referencedV2.contains(endpoint))
-        .containsExactly("ACCESS|POST /api/v2/auth/logout");
+        .containsExactlyInAnyOrder(
+            "ACCESS|POST /api/v2/auth/logout", "QA_KEY|POST /api/v2/test-auth/token");
   }
 
   @Test
