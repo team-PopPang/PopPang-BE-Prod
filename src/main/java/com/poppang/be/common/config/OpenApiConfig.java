@@ -1,7 +1,5 @@
 package com.poppang.be.common.config;
 
-import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
-import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -12,14 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@SecurityScheme(
-    name = "bearerAuth",
-    type = SecuritySchemeType.HTTP,
-    scheme = "bearer",
-    bearerFormat = "JWT")
 public class OpenApiConfig {
 
-  private static final String LEGACY_BEARER = "bearerAuth";
   private static final String ACCESS_BEARER = "bearerAccessAuth";
   private static final String SIGNUP_BEARER = "bearerSignupAuth";
   private static final String WORKER_API_KEY = "workerApiKeyAuth";
@@ -42,16 +34,8 @@ public class OpenApiConfig {
   @Bean
   public OpenAPI customOpenAPI() {
     return new OpenAPI()
-        .addSecurityItem(new SecurityRequirement().addList(LEGACY_BEARER))
         .components(
             new Components()
-                .addSecuritySchemes(
-                    LEGACY_BEARER,
-                    new io.swagger.v3.oas.models.security.SecurityScheme()
-                        .type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP)
-                        .scheme("bearer")
-                        .bearerFormat("JWT")
-                        .description("v1 문서 호환용 Bearer JWT"))
                 .addSecuritySchemes(
                     ACCESS_BEARER,
                     bearerScheme("v2 Access Token. /api/v2/admin/**는 ROLE_ADMIN도 필요합니다."))
