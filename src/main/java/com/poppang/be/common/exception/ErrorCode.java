@@ -72,6 +72,9 @@ public enum ErrorCode {
   SOCIAL_IDENTITY_CONFLICT(HttpStatus.CONFLICT, 5016, "소셜 계정 식별자가 충돌했습니다."),
   INVALID_SIGNUP_REQUEST(HttpStatus.BAD_REQUEST, 5017, "회원가입 요청값이 올바르지 않습니다."),
   RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, 5018, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."),
+  INVALID_QA_API_KEY(HttpStatus.UNAUTHORIZED, 5019, "QA API Key가 올바르지 않습니다."),
+  INVALID_QA_ACCOUNT(HttpStatus.BAD_REQUEST, 5020, "QA 계정은 MEMBER 또는 ADMIN이어야 합니다."),
+  QA_ACCOUNT_NOT_READY(HttpStatus.SERVICE_UNAVAILABLE, 5021, "QA 계정 설정 또는 상태가 올바르지 않습니다."),
 
   // ==================================================
   // 6000 ~ 6999 : System / Unexpected

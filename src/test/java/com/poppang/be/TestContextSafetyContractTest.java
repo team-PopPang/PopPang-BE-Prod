@@ -65,6 +65,12 @@ class TestContextSafetyContractTest {
   }
 
   @Test
+  void v2QaTokenControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration() throws Exception {
+    assertIsolatedWebMvcTest(
+        Class.forName("com.poppang.be.domain.auth.presentation.v2.V2QaTokenControllerTest"));
+  }
+
+  @Test
   void v2KakaoAuthControllerSliceUsesTestProfileAndDisablesFullAutoConfiguration()
       throws Exception {
     assertIsolatedWebMvcTest(

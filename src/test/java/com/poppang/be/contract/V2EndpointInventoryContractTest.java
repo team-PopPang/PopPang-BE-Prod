@@ -26,12 +26,12 @@ class V2EndpointInventoryContractTest {
   private static final String CONTRACT_RESOURCE = "contracts/v2-endpoints.txt";
 
   @Test
-  void v2EndpointsMatchTheApprovedSeventyTwoMappingAndSecurityMatrix() throws Exception {
+  void v2EndpointsMatchTheApprovedSeventyThreeMappingAndSecurityMatrix() throws Exception {
     List<String> expected = readContract();
     List<String> actual = findV2Endpoints();
 
-    assertThat(expected).hasSize(72).doesNotHaveDuplicates();
-    assertThat(actual).hasSize(72).doesNotHaveDuplicates().containsExactlyElementsOf(expected);
+    assertThat(expected).hasSize(73).doesNotHaveDuplicates();
+    assertThat(actual).hasSize(73).doesNotHaveDuplicates().containsExactlyElementsOf(expected);
     assertThat(actual.stream().filter(line -> line.contains("{userUuid}")))
         .containsExactly("WORKER|POST /api/v2/internal/users/{userUuid}/alert");
   }
@@ -122,6 +122,9 @@ class V2EndpointInventoryContractTest {
     String operation = endpoint.httpMethod() + " " + endpoint.path();
     if (endpoint.path().startsWith("/api/v2/internal/")) {
       return "WORKER";
+    }
+    if (operation.equals("POST /api/v2/test-auth/token")) {
+      return "QA_KEY";
     }
     if (endpoint.path().startsWith("/api/v2/web/")) {
       return "PUBLIC";

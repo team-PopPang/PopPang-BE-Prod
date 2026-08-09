@@ -5,6 +5,7 @@ import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.jwt.JwtProvider;
 import com.poppang.be.common.ratelimit.V2AuthRateLimitProperties;
 import com.poppang.be.common.ratelimit.V2AuthRateLimiter;
+import com.poppang.be.domain.auth.config.QaTokenProperties;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,11 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties({WorkerApiKeyProperties.class, V2AuthRateLimitProperties.class})
+@EnableConfigurationProperties({
+  WorkerApiKeyProperties.class,
+  QaTokenProperties.class,
+  V2AuthRateLimitProperties.class
+})
 public class SecurityConfig {
 
   private static final String[] DEFAULT_SWAGGER_PATHS = {
@@ -97,6 +102,12 @@ public class SecurityConfig {
   }
 
   @Bean
+  QaApiKeyAuthenticationFilter qaApiKeyAuthenticationFilter(
+      QaTokenProperties properties, ApiAuthenticationEntryPoint authenticationEntryPoint) {
+    return new QaApiKeyAuthenticationFilter(properties, authenticationEntryPoint);
+  }
+
+  @Bean
   V2AuthRateLimitFilter v2AuthRateLimitFilter(
       V2AuthRateLimiter rateLimiter, ApiAuthenticationEntryPoint authenticationEntryPoint) {
     return new V2AuthRateLimitFilter(rateLimiter, authenticationEntryPoint);
@@ -111,6 +122,12 @@ public class SecurityConfig {
   @Bean
   FilterRegistrationBean<WorkerApiKeyAuthenticationFilter> workerApiKeyFilterRegistration(
       WorkerApiKeyAuthenticationFilter filter) {
+    return disabledRegistration(filter);
+  }
+
+  @Bean
+  FilterRegistrationBean<QaApiKeyAuthenticationFilter> qaApiKeyFilterRegistration(
+      QaApiKeyAuthenticationFilter filter) {
     return disabledRegistration(filter);
   }
 
@@ -146,6 +163,30 @@ public class SecurityConfig {
 
   @Bean
   @Order(2)
+  SecurityFilterChain qaTokenSecurityFilterChain(
+      HttpSecurity http,
+      QaApiKeyAuthenticationFilter qaApiKeyFilter,
+      ApiAuthenticationEntryPoint authenticationEntryPoint,
+      ApiAccessDeniedHandler accessDeniedHandler)
+      throws Exception {
+    stateless(http);
+    return http.securityMatcher(matcher(HttpMethod.POST, "/api/v2/test-auth/token"))
+        .authorizeHttpRequests(
+            authorization ->
+                authorization
+                    .anyRequest()
+                    .hasAuthority(QaApiKeyAuthenticationFilter.QA_TOKEN_ISSUER))
+        .exceptionHandling(
+            exceptions ->
+                exceptions
+                    .authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler))
+        .addFilterBefore(qaApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
+        .build();
+  }
+
+  @Bean
+  @Order(3)
   SecurityFilterChain v2SecurityFilterChain(
       HttpSecurity http,
       V2JwtAuthenticationFilter jwtFilter,
@@ -179,7 +220,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  @Order(3)
+  @Order(4)
   SecurityFilterChain v1SecurityFilterChain(HttpSecurity http) throws Exception {
     stateless(http);
     return http.securityMatcher("/api/v1/**")
@@ -188,7 +229,7 @@ public class SecurityConfig {
   }
 
   @Bean
-  @Order(4)
+  @Order(5)
   SecurityFilterChain infrastructureSecurityFilterChain(
       HttpSecurity http,
       ApiAuthenticationEntryPoint authenticationEntryPoint,

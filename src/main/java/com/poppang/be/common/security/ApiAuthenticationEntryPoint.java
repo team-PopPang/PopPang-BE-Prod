@@ -56,6 +56,9 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint {
     if (path.startsWith("/api/v2/internal/")) {
       return "internal";
     }
+    if (path.startsWith("/api/v2/test-auth/")) {
+      return "qa_auth";
+    }
     if (path.startsWith("/api/v2/admin/")) {
       return "admin";
     }

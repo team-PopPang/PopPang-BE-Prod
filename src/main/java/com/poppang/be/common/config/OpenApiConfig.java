@@ -23,6 +23,7 @@ public class OpenApiConfig {
   private static final String ACCESS_BEARER = "bearerAccessAuth";
   private static final String SIGNUP_BEARER = "bearerSignupAuth";
   private static final String WORKER_API_KEY = "workerApiKeyAuth";
+  private static final String QA_API_KEY = "qaApiKeyAuth";
 
   @Bean
   public GroupedOpenApi v1OpenApi() {
@@ -62,7 +63,14 @@ public class OpenApiConfig {
                         .type(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
                         .in(io.swagger.v3.oas.models.security.SecurityScheme.In.HEADER)
                         .name("X-Worker-Api-Key")
-                        .description("v2 internal worker 전용 API Key")))
+                        .description("v2 internal worker 전용 API Key"))
+                .addSecuritySchemes(
+                    QA_API_KEY,
+                    new io.swagger.v3.oas.models.security.SecurityScheme()
+                        .type(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
+                        .in(io.swagger.v3.oas.models.security.SecurityScheme.In.HEADER)
+                        .name("X-QA-Api-Key")
+                        .description("v2 고정 QA 계정 토큰 발급용 공통 API Key")))
         .info(
             new Info()
                 .title("PopPang API 리스트")
@@ -97,6 +105,9 @@ public class OpenApiConfig {
     String operation = method + " " + path;
     if (path.startsWith("/api/v2/internal/")) {
       return requirement(WORKER_API_KEY);
+    }
+    if (operation.equals("POST /api/v2/test-auth/token")) {
+      return requirement(QA_API_KEY);
     }
     if ((method.equals("GET") || method.equals("HEAD")) && path.startsWith("/api/v2/web/")) {
       return List.of();
