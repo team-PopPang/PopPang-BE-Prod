@@ -52,12 +52,14 @@ class V2OpenApiSecurityContractTest {
   }
 
   @Test
-  void declaresPurposeSpecificSchemesWithoutPuttingSecretsInTheDocument() {
+  void declaresOnlyPurposeSpecificSchemesWithoutPuttingSecretsInTheDocument() {
     OpenAPI openApi = new OpenApiConfig().customOpenAPI();
 
     var schemes = openApi.getComponents().getSecuritySchemes();
     assertThat(schemes)
-        .containsKeys("bearerAuth", "bearerAccessAuth", "bearerSignupAuth", "qaApiKeyAuth");
+        .containsKeys("bearerAccessAuth", "bearerSignupAuth", "qaApiKeyAuth")
+        .doesNotContainKey("bearerAuth");
+    assertThat(openApi.getSecurity()).isNullOrEmpty();
     assertThat(schemes.get("qaApiKeyAuth").getType().toString()).isEqualTo("apiKey");
     assertThat(schemes.get("qaApiKeyAuth").getName()).isEqualTo("X-QA-Api-Key");
     assertThat(schemes.get("qaApiKeyAuth").getIn().toString()).isEqualTo("header");
