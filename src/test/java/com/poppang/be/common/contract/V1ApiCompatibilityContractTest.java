@@ -58,6 +58,9 @@ class V1ApiCompatibilityContractTest {
 
   private static final Set<Endpoint> APPROVED_V1_ENDPOINTS =
       Set.of(
+          // 앱 진입 시 서버 응답 확인
+          endpoint(GET, "/api/v1/health"),
+
           // 알림
           endpoint(POST, "/api/v1/users/{userUuid}/alert"),
           endpoint(DELETE, "/api/v1/users/{userUuid}/alert"),
@@ -165,7 +168,7 @@ class V1ApiCompatibilityContractTest {
   void applicationV1MappingsMatchApprovedInventory() throws Exception {
     Set<Endpoint> actualEndpoints = discoverApplicationV1Endpoints();
 
-    assertThat(APPROVED_V1_ENDPOINTS).hasSize(77);
+    assertThat(APPROVED_V1_ENDPOINTS).hasSize(78);
     assertThat(actualEndpoints)
         .as("Any v1 endpoint addition, removal, method change, or path change requires approval")
         .containsExactlyInAnyOrderElementsOf(APPROVED_V1_ENDPOINTS);
