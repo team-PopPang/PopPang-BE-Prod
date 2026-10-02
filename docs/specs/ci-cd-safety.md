@@ -659,6 +659,7 @@ GitHub rollout 진행 메모 — 2026-07-18:
 - 이미지 생성·전송·배포 job은 `needs: verify`로 연결한다.
 - `verify` 실패 또는 취소 시 운영 설정 다운로드, 이미지 생성, 원격 배포를 실행하지 않는다.
 - 서버 host·user·SSH key는 이를 사용하는 각 scp/ssh action 입력에만 전달한다.
+- 2026-10-02부터 scp 2곳·ssh 1곳은 `SERVER_HOST_FINGERPRINT` secret의 SHA256 호스트 키 지문으로 서버를 검증하고, 값이 비었거나 형식이 다르면 build 전에 실패한다.
 - 2026-10-02부터 CD는 private 설정을 다운로드하지 않으므로 `PERSONAL_ACCESS_TOKEN`을 쓰지 않는다.
   미사용 GitHub secret 정리는 AWS 이전의 전환·롤백 마감 후에 한다.
 

@@ -57,6 +57,15 @@ jobs:
       HEALTH_URL: http://localhost:4002/actuator/health
 
     steps:
+      - name: Require pinned server host key
+        env:
+          SERVER_HOST_FINGERPRINT: ${{ secrets.SERVER_HOST_FINGERPRINT }}
+        run: |
+          if [[ ! "${SERVER_HOST_FINGERPRINT}" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]]; then
+            echo "::error::SERVER_HOST_FINGERPRINT secret에 운영 서버 SSH 호스트 키의 SHA256 지문이 필요합니다."
+            exit 1
+          fi
+
       - name: Checkout verified commit
         uses: actions/checkout@v4
         with:
@@ -114,6 +123,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          fingerprint: ${{ secrets.SERVER_HOST_FINGERPRINT }}
           source: "${{ env.IMAGE_TAR }}"
           target: "${{ env.SERVER_DIR }}"
 
@@ -123,6 +133,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          fingerprint: ${{ secrets.SERVER_HOST_FINGERPRINT }}
           source: "scripts/ci/production-deploy-with-rollback.sh"
           target: "${{ env.SERVER_DIR }}"
 
@@ -134,6 +145,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          fingerprint: ${{ secrets.SERVER_HOST_FINGERPRINT }}
           capture_stdout: true
           script: |
             set +e

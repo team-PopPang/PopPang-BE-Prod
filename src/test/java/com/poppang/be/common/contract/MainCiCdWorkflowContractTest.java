@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
@@ -20,6 +21,8 @@ class MainCiCdWorkflowContractTest {
   private static final String VALIDATION_COMMAND = "./gradlew clean test spotlessCheck --no-daemon";
   private static final String MAIN_REVISION_GUARD =
       "github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
+  private static final String HOST_KEY_GATE = "Require pinned server host key";
+  private static final String FINGERPRINT_SECRET = "${{ secrets.SERVER_HOST_FINGERPRINT }}";
 
   private String workflowSource;
   private Map<Object, Object> workflow;
@@ -91,6 +94,42 @@ class MainCiCdWorkflowContractTest {
     assertThat(workflowSource)
         .doesNotContain(
             "${{ env.SSH_HOST }}", "${{ env.SERVER_USER }}", "${{ env.SERVER_SSH_KEY }}");
+  }
+
+  @Test
+  void pinsServerHostKeyAndFailsBeforeBuildWhenFingerprintIsMissing() throws Exception {
+    List<Object> steps = asList(job("build-and-deploy").get("steps"), "Build and deploy steps");
+    Map<Object, Object> gate = asMap(steps.get(0), "Host key gate must run first");
+    assertThat(gate.get("name")).isEqualTo(HOST_KEY_GATE);
+    assertThat(gate).doesNotContainKeys("uses", "if", "continue-on-error");
+    assertThat(asMap(gate.get("env"), "Host key gate environment"))
+        .containsOnly(entry("SERVER_HOST_FINGERPRINT", FINGERPRINT_SECRET));
+
+    String gateScript = String.valueOf(gate.get("run"));
+    String validFingerprint = "SHA256:" + "Ab0+/".repeat(8) + "Ab0";
+    for (String invalid : List.of("", "   ", "SHA256:short", validFingerprint + "=", "MD5:aa:bb")) {
+      ShellResult rejected = runGate(gateScript, invalid);
+      assertThat(rejected.exitCode()).as("fingerprint %s must be rejected", invalid).isNotZero();
+      assertThat(rejected.log()).doesNotContain("SHA256:short", validFingerprint);
+    }
+    ShellResult accepted = runGate(gateScript, validFingerprint);
+    assertThat(accepted.exitCode()).isZero();
+    assertThat(accepted.log()).doesNotContain(validFingerprint);
+
+    int pinnedRemoteActions = 0;
+    for (Object stepValue : steps) {
+      Map<Object, Object> step = asMap(stepValue, "Every step must be a mapping");
+      Object action = step.get("uses");
+      if ("appleboy/scp-action@v0.1.7".equals(action)
+          || "appleboy/ssh-action@v1.2.5".equals(action)) {
+        pinnedRemoteActions++;
+        assertThat(asMap(step.get("with"), "Remote action inputs"))
+            .containsEntry("fingerprint", FINGERPRINT_SECRET);
+      } else if (step != gate) {
+        assertThat(String.valueOf(step)).doesNotContain(FINGERPRINT_SECRET);
+      }
+    }
+    assertThat(pinnedRemoteActions).isEqualTo(3);
   }
 
   @Test
@@ -212,6 +251,26 @@ class MainCiCdWorkflowContractTest {
             "Copy image to server",
             "Remote deploy");
   }
+
+  private ShellResult runGate(String script, String fingerprint) throws Exception {
+    // GitHub Actions의 bash run step과 같은 옵션으로 실행한다.
+    ProcessBuilder processBuilder =
+        new ProcessBuilder("bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", script)
+            .redirectErrorStream(true);
+    processBuilder.environment().clear();
+    processBuilder.environment().put("PATH", "/usr/bin:/bin");
+    processBuilder.environment().put("SERVER_HOST_FINGERPRINT", fingerprint);
+
+    Process process = processBuilder.start();
+    if (!process.waitFor(5, TimeUnit.SECONDS)) {
+      process.destroyForcibly();
+      throw new AssertionError("Host key gate did not finish within five seconds");
+    }
+    return new ShellResult(
+        process.exitValue(), new String(process.getInputStream().readAllBytes()));
+  }
+
+  private record ShellResult(int exitCode, String log) {}
 
   private boolean containsProductionOperation(String source) {
     return source.contains("docker/build-push-action")
