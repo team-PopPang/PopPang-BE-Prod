@@ -82,8 +82,31 @@ class PopupSubmissionImageStorageTest {
         .isEqualTo(ErrorCode.INVALID_POPUP_SUBMISSION_REQUEST);
   }
 
+  @Test
+  void deleteAllRemovesOnlyFilesInsideRoot() throws Exception {
+    Path root = Files.createDirectories(tempDir.resolve("root"));
+    PopupSubmissionImageStorage storage = createStorage(root);
+    MockMultipartFile image =
+        new MockMultipartFile(
+            "images", "popup.png", "image/png", "image".getBytes(StandardCharsets.UTF_8));
+    String imageUrlPath = storage.storeAll(List.of(image)).get(0);
+    Path outside = Files.writeString(tempDir.resolve("outside.jpg"), "keep");
+
+    storage.deleteAll(List.of(imageUrlPath, "/submissionImages/../outside.jpg", "/images/a.jpg"));
+
+    String relativePath = imageUrlPath.substring((URL_PREFIX + "/").length());
+    assertThat(Files.exists(root.resolve(relativePath))).isFalse();
+    assertThat(Files.exists(outside)).isTrue();
+  }
+
   private PopupSubmissionImageStorage createStorage() {
+    return createStorage(tempDir);
+  }
+
+  private PopupSubmissionImageStorage createStorage(Path root) {
+    PopupSubmissionImageStorageProperties properties =
+        new PopupSubmissionImageStorageProperties(root.toString(), URL_PREFIX);
     return new PopupSubmissionImageStorage(
-        new PopupSubmissionImageStorageProperties(tempDir.toString(), URL_PREFIX));
+        properties, new FileSystemPopupSubmissionImageStore(properties.submissionImageRoot()));
   }
 }

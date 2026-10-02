@@ -1,0 +1,26 @@
+# 공통 설정 템플릿(커밋 대상). 실제 비밀값·운영 주소는 넣지 않는다.
+# 운영 값은 application-prod.yml의 ${ENV}로 런타임에 주입하고, 로컬 값은 application-local.yml(커밋 제외)에 둔다.
+spring:
+  profiles:
+    default: prod
+  application:
+    name: poppang-be
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:10MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:30MB}
+
+server:
+  forward-headers-strategy: framework
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      # 모든 X-Forwarded-For를 신뢰하므로 nginx를 거치지 않는 BE 경로를 열지 않는다.
+      trusted-proxies: ".*"
+
+app:
+  storage:
+    # dev/local 기본은 파일시스템 저장이다. 운영(prod)은 application-prod.yml에서 S3로 바꾼다.
+    submission-image-root: ${SUBMISSION_IMAGE_ROOT:/opt/submission_images}
+    submission-image-url-prefix: ${SUBMISSION_IMAGE_URL_PREFIX:/submissionImages}

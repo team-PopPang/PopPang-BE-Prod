@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.yaml.snakeyaml.Yaml;
@@ -20,6 +21,8 @@ class MainCiCdWorkflowContractTest {
   private static final String VALIDATION_COMMAND = "./gradlew clean test spotlessCheck --no-daemon";
   private static final String MAIN_REVISION_GUARD =
       "github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')";
+  private static final String HOST_KEY_GATE = "Require pinned server host key";
+  private static final String FINGERPRINT_SECRET = "${{ secrets.SERVER_HOST_FINGERPRINT }}";
 
   private String workflowSource;
   private Map<Object, Object> workflow;
@@ -59,25 +62,12 @@ class MainCiCdWorkflowContractTest {
     Map<Object, Object> environment =
         asMap(buildAndDeploy.get("env"), "Production job must declare its environment");
     assertThat(environment)
-        .containsOnlyKeys(
-            "APP_NAME",
-            "CONTAINER_NAME",
-            "SERVER_DIR",
-            "HEALTH_URL",
-            "ROLLBACK_DIR",
-            "PRIVATE_BASE_URL")
+        .containsOnlyKeys("APP_NAME", "CONTAINER_NAME", "SERVER_DIR", "DEPLOY_SCRIPT", "HEALTH_URL")
         .containsEntry("APP_NAME", "poppang-prod")
         .containsEntry("CONTAINER_NAME", "poppang-prod")
-        .containsEntry("SERVER_DIR", "/home/poppang/opt/deploy")
-        .containsEntry("HEALTH_URL", "http://localhost:4002/actuator/health")
-        .containsEntry("ROLLBACK_DIR", "/home/poppang/opt/deploy/rollback")
-        .containsEntry(
-            "PRIVATE_BASE_URL",
-            "https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE");
-
-    Map<Object, Object> downloadPrivateConfigs = step(buildAndDeploy, "Download private configs");
-    assertThat(asMap(downloadPrivateConfigs.get("env"), "Private download environment"))
-        .containsOnly(entry("PERSONAL_ACCESS_TOKEN", "${{ secrets.PERSONAL_ACCESS_TOKEN }}"));
+        .containsEntry("SERVER_DIR", "/home/poppang-deploy/app")
+        .containsEntry("DEPLOY_SCRIPT", "/opt/poppang/deploy-prod.sh")
+        .containsEntry("HEALTH_URL", "http://localhost:4002/actuator/health");
 
     int remoteActionCount = 0;
     for (Object stepValue : asList(buildAndDeploy.get("steps"), "Build and deploy steps")) {
@@ -90,7 +80,7 @@ class MainCiCdWorkflowContractTest {
             .containsEntry("host", "${{ secrets.SERVER_HOST }}")
             .containsEntry("username", "${{ secrets.SERVER_USER }}")
             .containsEntry("key", "${{ secrets.SERVER_SSH_KEY }}");
-      } else if (!"Download private configs".equals(productionStep.get("name"))) {
+      } else {
         assertThat(String.valueOf(productionStep))
             .as("Unrelated build steps must not receive production credentials")
             .doesNotContain(
@@ -104,6 +94,42 @@ class MainCiCdWorkflowContractTest {
     assertThat(workflowSource)
         .doesNotContain(
             "${{ env.SSH_HOST }}", "${{ env.SERVER_USER }}", "${{ env.SERVER_SSH_KEY }}");
+  }
+
+  @Test
+  void pinsServerHostKeyAndFailsBeforeBuildWhenFingerprintIsMissing() throws Exception {
+    List<Object> steps = asList(job("build-and-deploy").get("steps"), "Build and deploy steps");
+    Map<Object, Object> gate = asMap(steps.get(0), "Host key gate must run first");
+    assertThat(gate.get("name")).isEqualTo(HOST_KEY_GATE);
+    assertThat(gate).doesNotContainKeys("uses", "if", "continue-on-error");
+    assertThat(asMap(gate.get("env"), "Host key gate environment"))
+        .containsOnly(entry("SERVER_HOST_FINGERPRINT", FINGERPRINT_SECRET));
+
+    String gateScript = String.valueOf(gate.get("run"));
+    String validFingerprint = "SHA256:" + "Ab0+/".repeat(8) + "Ab0";
+    for (String invalid : List.of("", "   ", "SHA256:short", validFingerprint + "=", "MD5:aa:bb")) {
+      ShellResult rejected = runGate(gateScript, invalid);
+      assertThat(rejected.exitCode()).as("fingerprint %s must be rejected", invalid).isNotZero();
+      assertThat(rejected.log()).doesNotContain("SHA256:short", validFingerprint);
+    }
+    ShellResult accepted = runGate(gateScript, validFingerprint);
+    assertThat(accepted.exitCode()).isZero();
+    assertThat(accepted.log()).doesNotContain(validFingerprint);
+
+    int pinnedRemoteActions = 0;
+    for (Object stepValue : steps) {
+      Map<Object, Object> step = asMap(stepValue, "Every step must be a mapping");
+      Object action = step.get("uses");
+      if ("appleboy/scp-action@v0.1.7".equals(action)
+          || "appleboy/ssh-action@v1.2.5".equals(action)) {
+        pinnedRemoteActions++;
+        assertThat(asMap(step.get("with"), "Remote action inputs"))
+            .containsEntry("fingerprint", FINGERPRINT_SECRET);
+      } else if (step != gate) {
+        assertThat(String.valueOf(step)).doesNotContain(FINGERPRINT_SECRET);
+      }
+    }
+    assertThat(pinnedRemoteActions).isEqualTo(3);
   }
 
   @Test
@@ -185,51 +211,66 @@ class MainCiCdWorkflowContractTest {
 
     String remoteDeploy = usesStep(buildAndDeploy, "appleboy/ssh-action@v1.2.5").toString();
     assertThat(remoteDeploy)
-        .contains(
-            "CONTAINER_NAME=${{ env.CONTAINER_NAME }}",
-            "${{ env.IMAGE_TAR }}",
-            "${{ env.IMAGE_NAME }}");
+        .contains("${{ env.CONTAINER_NAME }}", "${{ env.IMAGE_TAR }}", "${{ env.IMAGE_NAME }}");
   }
 
   @Test
-  void downloadsOnlyRequiredPrivateFilesWithFailClosedChecks() {
-    Map<Object, Object> buildAndDeploy = job("build-and-deploy");
-    String downloadCommand = runStep(buildAndDeploy, "Download private configs");
-
-    assertThat(downloadCommand)
-        .contains(
-            "set -euo pipefail",
-            "curl --fail --silent --show-error --location",
-            "[[ ! -s \"${destination}\" ]]",
-            "--quiet",
-            "!doctype",
-            "html",
-            "not[[:space:]]+found",
-            "src/main/resources/application.yml",
-            "src/main/resources/application-prod.yml",
-            "src/main/resources/auth/AuthKey_382T2TB4RW.p8")
+  void buildsWithoutPrivateConfigAndVerifiesArtifactsBeforeTransfer() {
+    assertThat(workflowSource)
+        .as("Runtime config is injected on the server, so CD must not download private files")
         .doesNotContain(
-            "application-dev.yml",
-            "application-local.yml",
-            "set -x",
-            "cat ",
-            "head ",
-            "tail ",
-            "sed ");
+            "PRIVATE_BASE_URL",
+            "PERSONAL_ACCESS_TOKEN",
+            "PopPang-Private",
+            "raw.githubusercontent.com",
+            "Download private configs",
+            "AuthKey_",
+            ".p8",
+            "curl");
 
-    for (Map.Entry<Object, Object> entry : jobs().entrySet()) {
-      if (!"build-and-deploy".equals(String.valueOf(entry.getKey()))) {
-        assertThat(String.valueOf(entry.getValue()))
-            .as("Private downloads must exist only in the gated CD build job")
-            .doesNotContain(
-                "PRIVATE_BASE_URL",
-                "PERSONAL_ACCESS_TOKEN",
-                "application.yml",
-                "application-prod.yml",
-                "AuthKey_382T2TB4RW.p8");
-      }
+    Map<Object, Object> buildAndDeploy = job("build-and-deploy");
+    assertThat(runStep(buildAndDeploy, "Verify jar artifact"))
+        .isEqualTo("bash scripts/ci/verify-build-artifacts.sh jar build/libs/*.jar");
+    assertThat(runStep(buildAndDeploy, "Verify image artifact"))
+        .isEqualTo("bash scripts/ci/verify-build-artifacts.sh image \"${IMAGE_NAME}\"");
+    assertThat(step(buildAndDeploy, "Verify jar artifact")).doesNotContainKeys("continue-on-error");
+    assertThat(step(buildAndDeploy, "Verify image artifact"))
+        .doesNotContainKeys("continue-on-error");
+
+    List<String> stepNames = new ArrayList<>();
+    for (Object stepValue : asList(buildAndDeploy.get("steps"), "Build and deploy steps")) {
+      stepNames.add(String.valueOf(asMap(stepValue, "Every step must be a mapping").get("name")));
     }
+    assertThat(stepNames)
+        .containsSubsequence(
+            "Build jar",
+            "Verify jar artifact",
+            "Build Docker image",
+            "Verify image artifact",
+            "Save Docker image",
+            "Copy image to server",
+            "Remote deploy");
   }
+
+  private ShellResult runGate(String script, String fingerprint) throws Exception {
+    // GitHub Actions의 bash run step과 같은 옵션으로 실행한다.
+    ProcessBuilder processBuilder =
+        new ProcessBuilder("bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", script)
+            .redirectErrorStream(true);
+    processBuilder.environment().clear();
+    processBuilder.environment().put("PATH", "/usr/bin:/bin");
+    processBuilder.environment().put("SERVER_HOST_FINGERPRINT", fingerprint);
+
+    Process process = processBuilder.start();
+    if (!process.waitFor(5, TimeUnit.SECONDS)) {
+      process.destroyForcibly();
+      throw new AssertionError("Host key gate did not finish within five seconds");
+    }
+    return new ShellResult(
+        process.exitValue(), new String(process.getInputStream().readAllBytes()));
+  }
+
+  private record ShellResult(int exitCode, String log) {}
 
   private boolean containsProductionOperation(String source) {
     return source.contains("docker/build-push-action")
