@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.yaml.snakeyaml.Yaml;
 
+/**
+ * EC2 배포는 root 진입점(/usr/local/sbin/poppang-deploy-be)이 flock·tar 검증·BE 교체·60초 health·직전 이미지 롤백을
+ * 맡는다. helper는 계약을 검증한 뒤 서버 wrapper를 한 번 호출하고 stdout과 종료 코드를 그대로 전파한다.
+ */
 class ProductionDeploymentSafetyContractTest {
 
   private static final Path WORKFLOW_PATH = Path.of(".github/workflows/cicd.yml");
@@ -19,7 +24,7 @@ class ProductionDeploymentSafetyContractTest {
       Path.of("scripts/ci/production-deploy-with-rollback.sh");
   private static final String HEALTH_URL = "http://localhost:4002/actuator/health";
   private static final String NEW_IMAGE = "poppang-prod:abcdef1";
-  private static final String PREVIOUS_IMAGE = "poppang-prod:1234567";
+  private static final String NEW_TAR = "/home/poppang-deploy/app/poppang-prod-abcdef1.tar";
   private static final String COMMIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
 
   @TempDir Path tempDir;
@@ -43,15 +48,18 @@ class ProductionDeploymentSafetyContractTest {
   }
 
   @Test
-  void invokesTheTestedRollbackHelperOnlyAfterTheChunkFiveGate() {
+  void invokesTheDelegatingHelperOnlyAfterTheVerifyGate() {
     Map<Object, Object> buildAndDeploy = job("build-and-deploy");
     assertThat(buildAndDeploy.get("needs")).isEqualTo("verify");
     assertThat(buildAndDeploy.get("if")).isEqualTo("needs.verify.result == 'success'");
 
     Map<Object, Object> environment =
         asMap(buildAndDeploy.get("env"), "Production job environment");
-    assertThat(environment.get("HEALTH_URL")).isEqualTo(HEALTH_URL);
-    assertThat(environment.get("ROLLBACK_DIR")).isEqualTo("/home/poppang/opt/deploy/rollback");
+    assertThat(environment)
+        .containsEntry("HEALTH_URL", HEALTH_URL)
+        .containsEntry("SERVER_DIR", "/home/poppang-deploy/app")
+        .containsEntry("DEPLOY_SCRIPT", "/opt/poppang/deploy-prod.sh")
+        .doesNotContainKey("ROLLBACK_DIR");
 
     Map<Object, Object> copyHelper = step(buildAndDeploy, "Copy deployment helper to server");
     assertThat(copyHelper.get("uses")).isEqualTo("appleboy/scp-action@v0.1.7");
@@ -63,179 +71,166 @@ class ProductionDeploymentSafetyContractTest {
             asMap(step(buildAndDeploy, "Remote deploy").get("with"), "SSH inputs").get("script"));
     assertThat(remoteScript)
         .contains(
-            "${{ env.SERVER_DIR }}/scripts/ci/production-deploy-with-rollback.sh",
+            "bash ${{ env.SERVER_DIR }}/scripts/ci/production-deploy-with-rollback.sh",
             "${{ env.SERVER_DIR }}/${{ env.IMAGE_TAR }}",
             "${{ env.IMAGE_NAME }}",
             "${{ env.CONTAINER_NAME }}",
-            "${{ env.SERVER_DIR }}/deploy-prod.sh",
+            "${{ env.DEPLOY_SCRIPT }}",
             "${{ env.HEALTH_URL }}",
-            "${{ env.ROLLBACK_DIR }}",
             "${{ github.sha }}",
-            "${{ github.run_id }}-${{ github.run_attempt }}");
+            "${{ github.run_id }}-${{ github.run_attempt }}")
+        .doesNotContain("ROLLBACK_DIR", "${{ env.SERVER_DIR }}/deploy-prod.sh", "sudo", "docker");
   }
 
   @Test
-  void deploymentHelperDefinesFailClosedHealthRollbackCleanupAndLoggingContracts()
+  void helperDelegatesTheWholeTransactionWithoutDockerHealthOrRollbackOfItsOwn()
       throws IOException {
     String source = deploymentScriptSource();
 
     assertThat(source)
         .contains(
+            "EXPECTED_CONTAINER_NAME=\"poppang-prod\"",
             "EXPECTED_HEALTH_URL=\"" + HEALTH_URL + "\"",
-            "HEALTH_TIMEOUT_SECONDS=60",
-            "HEALTH_MAX_ATTEMPTS=12",
-            "HEALTH_RETRY_INTERVAL_SECONDS=5",
-            "docker inspect --type container --format '{{.Config.Image}}'",
-            "docker image inspect",
-            "docker save --output",
-            "curl --fail --silent --show-error",
-            "--max-time",
-            "--write-out",
-            "^2[0-9]{2}$",
-            "local deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))",
-            "jq --exit-status '.status == \"UP\"'",
-            "bash \"${deploy_script}\" \"${new_tar}\" \"${new_image}\"",
-            "bash \"${deploy_script}\" \"${rollback_tar}\" \"${previous_image}\"",
-            "trap cleanup_rollback_tar EXIT",
-            "rm -f -- \"${rollback_tar}\"",
-            "rollback_result=success",
-            "deployment_result=failed_new_release",
-            "manual_recovery=required")
+            "UPLOAD_DIR=\"/home/poppang-deploy/app\"",
+            "\"${deploy_script}\" \"${new_tar}\" \"${new_image}\" 2>/dev/null",
+            "exit \"${deploy_exit_code}\"")
         .doesNotContain(
-            "poppang.co.kr:4002",
-            "docker system prune",
-            "docker image prune",
-            "docker image rm",
-            "docker rmi",
-            "rm -rf",
-            "set -x",
-            "printenv");
+            "docker", "curl", "jq ", "sleep", "rollback_tar", "rm ", "set -x", "printenv", "sudo");
   }
 
   @Test
-  void dryRunNewDeploymentHealthyEndsSuccessfully() throws Exception {
-    DryRunResult result = runScenario("new-healthy");
+  void propagatesEveryEntrypointResultAndExitCodeAfterExactlyOneCall() throws Exception {
+    Map<String, Integer> statuses = new java.util.LinkedHashMap<>();
+    statuses.put("success", 0);
+    statuses.put("rolled_back", 10);
+    statuses.put("rollback_failed", 20);
+    statuses.put("rollback_unavailable", 21);
+    statuses.put("rejected", 64);
+    statuses.put("busy", 75);
+    statuses.put("failed", 70);
 
-    assertThat(result.exitCode()).isZero();
-    assertThat(result.output())
-        .contains(
-            "previous_image=" + PREVIOUS_IMAGE,
-            "new_health=UP attempts=1",
-            "deployment_result=success")
-        .doesNotContain("manual_recovery=required");
-    assertThat(result.deployCalls().lines()).hasSize(1);
-    assertThat(result.deployCalls()).contains(NEW_IMAGE).doesNotContain(PREVIOUS_IMAGE);
-    assertThat(result.dockerCalls())
-        .contains("inspect --type container", "image inspect " + PREVIOUS_IMAGE, "save --output");
-    assertThat(result.cleanupCalls()).contains("poppang-prod-rollback-new-healthy.tar");
+    for (Map.Entry<String, Integer> status : statuses.entrySet()) {
+      DryRunResult result = runHelper(status.getKey(), status.getValue(), validArguments());
+
+      assertThat(result.exitCode()).as(status.getKey()).isEqualTo(status.getValue());
+      List<String> lines = result.output().lines().toList();
+      assertThat(lines.get(0))
+          .isEqualTo("deployment_start commit=" + COMMIT_SHA + " new_image=" + NEW_IMAGE);
+      assertThat(lines.get(lines.size() - 1))
+          .isEqualTo("POPPANG_DEPLOY_RESULT status=" + status.getKey());
+      assertThat(result.output()).doesNotContain("wrapper-stderr-must-not-leak");
+      assertThat(result.wrapperCalls().lines().toList())
+          .as("The entrypoint wrapper must be called exactly once")
+          .containsExactly(NEW_TAR + "|" + NEW_IMAGE);
+      assertThat(result.forbiddenToolCalls()).as("No docker/curl/jq/sleep/rm").isBlank();
+    }
   }
 
   @Test
-  void dryRunUnhealthyDeploymentRollsBackButStillEndsFailed() throws Exception {
-    DryRunResult result = runScenario("rollback-healthy");
+  void rejectsContractViolationsWithoutCallingTheEntrypoint() throws Exception {
+    List<List<String>> invalidArguments =
+        List.of(
+            replace(validArguments(), 0, "/tmp/poppang-prod-abcdef1.tar"),
+            replace(validArguments(), 0, "/home/poppang-deploy/app/poppang-prod-other.tar"),
+            replace(validArguments(), 1, "poppang-dev:abcdef1"),
+            replace(validArguments(), 1, "poppang-prod:-bad"),
+            replace(validArguments(), 2, "poppang-dev"),
+            replace(validArguments(), 4, "http://localhost:4003/actuator/health"),
+            replace(validArguments(), 5, "not-a-sha"),
+            replace(validArguments(), 6, "run key"),
+            validArguments().subList(0, 6));
 
-    assertThat(result.exitCode()).isEqualTo(1);
-    assertThat(result.output())
-        .contains(
-            "new_health=UNHEALTHY attempts=12",
-            "rollback_health=UP attempts=1",
-            "rollback_result=success",
-            "deployment_result=failed_new_release")
-        .doesNotContain("manual_recovery=required");
-    assertThat(result.deployCalls().lines()).hasSize(2);
-    assertThat(result.deployCalls())
-        .contains(NEW_IMAGE, PREVIOUS_IMAGE, "poppang-prod-rollback-rollback-healthy.tar");
-    assertThat(result.cleanupCalls()).contains("poppang-prod-rollback-rollback-healthy.tar");
+    for (List<String> arguments : invalidArguments) {
+      DryRunResult result = runHelper("success", 0, arguments);
+
+      assertThat(result.exitCode()).as(String.valueOf(arguments)).isEqualTo(64);
+      assertThat(result.output()).contains("manual_recovery=not_required");
+      assertThat(result.wrapperCalls()).as(String.valueOf(arguments)).isBlank();
+    }
   }
 
-  @Test
-  void dryRunUnhealthyRollbackRequiresManualRecovery() throws Exception {
-    DryRunResult result = runScenario("rollback-unhealthy");
-
-    assertThat(result.exitCode()).isEqualTo(1);
-    assertThat(result.output())
-        .contains(
-            "new_health=UNHEALTHY attempts=12",
-            "rollback_health=UNHEALTHY attempts=12",
-            "rollback_result=failed",
-            "manual_recovery=required",
-            "deployment_result=failed_new_release");
-    assertThat(result.deployCalls().lines()).hasSize(2);
-    assertThat(result.deployCalls()).contains(NEW_IMAGE, PREVIOUS_IMAGE);
-    assertThat(result.cleanupCalls()).contains("poppang-prod-rollback-rollback-unhealthy.tar");
+  private List<String> validArguments() {
+    return new ArrayList<>(
+        List.of(
+            NEW_TAR,
+            NEW_IMAGE,
+            "poppang-prod",
+            tempDir.resolve("wrapper/deploy-prod.sh").toString(),
+            HEALTH_URL,
+            COMMIT_SHA,
+            "123-1"));
   }
 
-  @Test
-  void dryRunWithoutPreviousImageRequiresManualRecovery() throws Exception {
-    DryRunResult result = runScenario("no-previous-image");
-
-    assertThat(result.exitCode()).isEqualTo(1);
-    assertThat(result.output())
-        .contains(
-            "previous_image=none",
-            "new_health=UNHEALTHY attempts=12",
-            "rollback_result=unavailable",
-            "manual_recovery=required",
-            "deployment_result=failed_new_release");
-    assertThat(result.deployCalls().lines()).hasSize(1);
-    assertThat(result.dockerCalls()).doesNotContain("image inspect", "save --output");
-    assertThat(result.cleanupCalls()).isBlank();
+  private static List<String> replace(List<String> arguments, int index, String value) {
+    List<String> replaced = new ArrayList<>(arguments);
+    replaced.set(index, value);
+    return replaced;
   }
 
-  private DryRunResult runScenario(String scenario) throws Exception {
-    assertThat(DEPLOYMENT_SCRIPT)
-        .as("The production rollback helper must exist before its dry-run contract can pass")
-        .exists();
+  private DryRunResult runHelper(String status, int exitCode, List<String> arguments)
+      throws Exception {
+    assertThat(DEPLOYMENT_SCRIPT).as("The production deployment helper must exist").exists();
 
-    Path scenarioDirectory = Files.createDirectories(tempDir.resolve(scenario));
-    Path binDirectory = Files.createDirectories(scenarioDirectory.resolve("bin"));
-    Path stateDirectory = Files.createDirectories(scenarioDirectory.resolve("state"));
-    Path rollbackDirectory = Files.createDirectories(scenarioDirectory.resolve("rollback"));
+    Path scenario = Files.createTempDirectory(tempDir, status + "-");
+    Path binDirectory = Files.createDirectories(scenario.resolve("bin"));
+    Path stateDirectory = Files.createDirectories(scenario.resolve("state"));
+    for (String tool : List.of("docker", "curl", "jq", "sleep", "rm", "sudo")) {
+      writeExecutable(binDirectory.resolve(tool), forbiddenToolStub(tool));
+    }
+    Path wrapper = tempDir.resolve("wrapper/deploy-prod.sh");
+    Files.createDirectories(wrapper.getParent());
+    writeExecutable(wrapper, wrapperStub());
 
-    writeExecutable(binDirectory.resolve("docker"), dockerStub());
-    writeExecutable(binDirectory.resolve("curl"), curlStub());
-    writeExecutable(binDirectory.resolve("jq"), jqStub());
-    writeExecutable(binDirectory.resolve("sleep"), recordingStub("sleep-calls"));
-    writeExecutable(binDirectory.resolve("rm"), recordingStub("cleanup-calls"));
-    Path deployScript = scenarioDirectory.resolve("deploy-prod.sh");
-    writeExecutable(deployScript, deployStub());
-
-    ProcessBuilder processBuilder =
-        new ProcessBuilder(
-                "bash",
-                DEPLOYMENT_SCRIPT.toString(),
-                scenarioDirectory.resolve("new-image.tar").toString(),
-                NEW_IMAGE,
-                "poppang-prod",
-                deployScript.toString(),
-                HEALTH_URL,
-                rollbackDirectory.toString(),
-                COMMIT_SHA,
-                scenario)
-            .redirectErrorStream(true);
+    List<String> command = new ArrayList<>(List.of("bash", DEPLOYMENT_SCRIPT.toString()));
+    command.addAll(arguments);
+    ProcessBuilder processBuilder = new ProcessBuilder(command).redirectErrorStream(true);
     processBuilder.directory(Path.of(".").toFile());
-    processBuilder.environment().put("SCENARIO", scenario);
     processBuilder.environment().put("STATE_DIR", stateDirectory.toString());
+    processBuilder.environment().put("RESULT_STATUS", status);
+    processBuilder.environment().put("RESULT_EXIT", String.valueOf(exitCode));
     processBuilder
         .environment()
         .put("PATH", binDirectory + ":" + System.getenv().getOrDefault("PATH", ""));
 
     Process process = processBuilder.start();
     String output = new String(process.getInputStream().readAllBytes());
-    int exitCode = process.waitFor();
+    int helperExitCode = process.waitFor();
 
     return new DryRunResult(
-        exitCode,
+        helperExitCode,
         output,
-        readIfPresent(stateDirectory.resolve("deploy-calls")),
-        readIfPresent(stateDirectory.resolve("docker-calls")),
-        readIfPresent(stateDirectory.resolve("cleanup-calls")));
+        readIfPresent(stateDirectory.resolve("wrapper-calls")),
+        readIfPresent(stateDirectory.resolve("forbidden-calls")));
+  }
+
+  private String wrapperStub() {
+    return """
+        #!/usr/bin/env bash
+        printf '%s|%s\n' "$1" "$2" >> "${STATE_DIR}/wrapper-calls"
+        printf '%s\n' 'wrapper-stderr-must-not-leak' >&2
+        case "${RESULT_STATUS}" in
+          success) printf '%s\n' 'new_health=UP attempts=1' 'deployment_result=success' ;;
+          rolled_back) printf '%s\n' 'rollback_result=success' 'deployment_result=failed_new_release' ;;
+          rollback_failed) printf '%s\n' 'rollback_result=failed' 'deployment_result=failed_new_release' ;;
+          rollback_unavailable)
+            printf '%s\n' 'rollback_result=unavailable' 'deployment_result=failed_new_release' ;;
+        esac
+        printf 'POPPANG_DEPLOY_RESULT status=%s\n' "${RESULT_STATUS}"
+        exit "${RESULT_EXIT}"
+        """;
+  }
+
+  private String forbiddenToolStub(String tool) {
+    return """
+        #!/usr/bin/env bash
+        printf '%s %s\n' "__TOOL__" "$*" >> "${STATE_DIR}/forbidden-calls"
+        exit 99
+        """
+        .replace("__TOOL__", tool);
   }
 
   private String deploymentScriptSource() throws IOException {
-    assertThat(DEPLOYMENT_SCRIPT)
-        .as("The production deployment helper is part of the rollback contract")
-        .exists();
+    assertThat(DEPLOYMENT_SCRIPT).as("The production deployment helper must exist").exists();
     return Files.readString(DEPLOYMENT_SCRIPT);
   }
 
@@ -246,78 +241,6 @@ class ProductionDeploymentSafetyContractTest {
 
   private String readIfPresent(Path path) throws IOException {
     return Files.exists(path) ? Files.readString(path) : "";
-  }
-
-  private String dockerStub() {
-    return """
-        #!/usr/bin/env bash
-        set -euo pipefail
-        printf '%s\n' "$*" >> "${STATE_DIR}/docker-calls"
-        if [[ "$1" == "inspect" ]]; then
-          if [[ "${SCENARIO}" == "no-previous-image" ]]; then
-            exit 1
-          fi
-          printf '%s\n' 'poppang-prod:1234567'
-          exit 0
-        fi
-        if [[ "$1" == "image" && "$2" == "inspect" ]]; then
-          exit 0
-        fi
-        if [[ "$1" == "save" ]]; then
-          exit 0
-        fi
-        exit 2
-        """;
-  }
-
-  private String curlStub() {
-    return """
-        #!/usr/bin/env bash
-        set -euo pipefail
-        deploy_count=0
-        if [[ -f "${STATE_DIR}/deploy-count" ]]; then
-          deploy_count="$(<"${STATE_DIR}/deploy-count")"
-        fi
-        status=DOWN
-        if [[ "${SCENARIO}" == "new-healthy" ]]; then
-          status=UP
-        elif [[ "${SCENARIO}" == "rollback-healthy" && "${deploy_count}" -ge 2 ]]; then
-          status=UP
-        fi
-        printf '{"status":"%s"}\n200\n' "${status}"
-        """;
-  }
-
-  private String jqStub() {
-    return """
-        #!/usr/bin/env bash
-        set -euo pipefail
-        payload="$(cat)"
-        [[ "${payload}" == '{"status":"UP"}' ]]
-        """;
-  }
-
-  private String recordingStub(String fileName) {
-    return """
-        #!/usr/bin/env bash
-        set -euo pipefail
-        printf '%s\n' "$*" >> "${STATE_DIR}/__FILE_NAME__"
-        """
-        .replace("__FILE_NAME__", fileName);
-  }
-
-  private String deployStub() {
-    return """
-        #!/usr/bin/env bash
-        set -euo pipefail
-        count=0
-        if [[ -f "${STATE_DIR}/deploy-count" ]]; then
-          count="$(<"${STATE_DIR}/deploy-count")"
-        fi
-        count=$((count + 1))
-        printf '%s' "${count}" > "${STATE_DIR}/deploy-count"
-        printf '%s|%s\n' "$1" "$2" >> "${STATE_DIR}/deploy-calls"
-        """;
   }
 
   private Map<Object, Object> job(String jobId) {
@@ -359,5 +282,5 @@ class ProductionDeploymentSafetyContractTest {
   }
 
   private record DryRunResult(
-      int exitCode, String output, String deployCalls, String dockerCalls, String cleanupCalls) {}
+      int exitCode, String output, String wrapperCalls, String forbiddenToolCalls) {}
 }

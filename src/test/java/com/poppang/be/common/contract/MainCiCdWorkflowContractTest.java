@@ -59,25 +59,12 @@ class MainCiCdWorkflowContractTest {
     Map<Object, Object> environment =
         asMap(buildAndDeploy.get("env"), "Production job must declare its environment");
     assertThat(environment)
-        .containsOnlyKeys(
-            "APP_NAME",
-            "CONTAINER_NAME",
-            "SERVER_DIR",
-            "HEALTH_URL",
-            "ROLLBACK_DIR",
-            "PRIVATE_BASE_URL")
+        .containsOnlyKeys("APP_NAME", "CONTAINER_NAME", "SERVER_DIR", "DEPLOY_SCRIPT", "HEALTH_URL")
         .containsEntry("APP_NAME", "poppang-prod")
         .containsEntry("CONTAINER_NAME", "poppang-prod")
-        .containsEntry("SERVER_DIR", "/home/poppang/opt/deploy")
-        .containsEntry("HEALTH_URL", "http://localhost:4002/actuator/health")
-        .containsEntry("ROLLBACK_DIR", "/home/poppang/opt/deploy/rollback")
-        .containsEntry(
-            "PRIVATE_BASE_URL",
-            "https://raw.githubusercontent.com/team-PopPang/PopPang-Private/BE");
-
-    Map<Object, Object> downloadPrivateConfigs = step(buildAndDeploy, "Download private configs");
-    assertThat(asMap(downloadPrivateConfigs.get("env"), "Private download environment"))
-        .containsOnly(entry("PERSONAL_ACCESS_TOKEN", "${{ secrets.PERSONAL_ACCESS_TOKEN }}"));
+        .containsEntry("SERVER_DIR", "/home/poppang-deploy/app")
+        .containsEntry("DEPLOY_SCRIPT", "/opt/poppang/deploy-prod.sh")
+        .containsEntry("HEALTH_URL", "http://localhost:4002/actuator/health");
 
     int remoteActionCount = 0;
     for (Object stepValue : asList(buildAndDeploy.get("steps"), "Build and deploy steps")) {
@@ -90,7 +77,7 @@ class MainCiCdWorkflowContractTest {
             .containsEntry("host", "${{ secrets.SERVER_HOST }}")
             .containsEntry("username", "${{ secrets.SERVER_USER }}")
             .containsEntry("key", "${{ secrets.SERVER_SSH_KEY }}");
-      } else if (!"Download private configs".equals(productionStep.get("name"))) {
+      } else {
         assertThat(String.valueOf(productionStep))
             .as("Unrelated build steps must not receive production credentials")
             .doesNotContain(
@@ -185,50 +172,45 @@ class MainCiCdWorkflowContractTest {
 
     String remoteDeploy = usesStep(buildAndDeploy, "appleboy/ssh-action@v1.2.5").toString();
     assertThat(remoteDeploy)
-        .contains(
-            "CONTAINER_NAME=${{ env.CONTAINER_NAME }}",
-            "${{ env.IMAGE_TAR }}",
-            "${{ env.IMAGE_NAME }}");
+        .contains("${{ env.CONTAINER_NAME }}", "${{ env.IMAGE_TAR }}", "${{ env.IMAGE_NAME }}");
   }
 
   @Test
-  void downloadsOnlyRequiredPrivateFilesWithFailClosedChecks() {
-    Map<Object, Object> buildAndDeploy = job("build-and-deploy");
-    String downloadCommand = runStep(buildAndDeploy, "Download private configs");
-
-    assertThat(downloadCommand)
-        .contains(
-            "set -euo pipefail",
-            "curl --fail --silent --show-error --location",
-            "[[ ! -s \"${destination}\" ]]",
-            "--quiet",
-            "!doctype",
-            "html",
-            "not[[:space:]]+found",
-            "src/main/resources/application.yml",
-            "src/main/resources/application-prod.yml",
-            "src/main/resources/auth/AuthKey_382T2TB4RW.p8")
+  void buildsWithoutPrivateConfigAndVerifiesArtifactsBeforeTransfer() {
+    assertThat(workflowSource)
+        .as("Runtime config is injected on the server, so CD must not download private files")
         .doesNotContain(
-            "application-dev.yml",
-            "application-local.yml",
-            "set -x",
-            "cat ",
-            "head ",
-            "tail ",
-            "sed ");
+            "PRIVATE_BASE_URL",
+            "PERSONAL_ACCESS_TOKEN",
+            "PopPang-Private",
+            "raw.githubusercontent.com",
+            "Download private configs",
+            "AuthKey_",
+            ".p8",
+            "curl");
 
-    for (Map.Entry<Object, Object> entry : jobs().entrySet()) {
-      if (!"build-and-deploy".equals(String.valueOf(entry.getKey()))) {
-        assertThat(String.valueOf(entry.getValue()))
-            .as("Private downloads must exist only in the gated CD build job")
-            .doesNotContain(
-                "PRIVATE_BASE_URL",
-                "PERSONAL_ACCESS_TOKEN",
-                "application.yml",
-                "application-prod.yml",
-                "AuthKey_382T2TB4RW.p8");
-      }
+    Map<Object, Object> buildAndDeploy = job("build-and-deploy");
+    assertThat(runStep(buildAndDeploy, "Verify jar artifact"))
+        .isEqualTo("bash scripts/ci/verify-build-artifacts.sh jar build/libs/*.jar");
+    assertThat(runStep(buildAndDeploy, "Verify image artifact"))
+        .isEqualTo("bash scripts/ci/verify-build-artifacts.sh image \"${IMAGE_NAME}\"");
+    assertThat(step(buildAndDeploy, "Verify jar artifact")).doesNotContainKeys("continue-on-error");
+    assertThat(step(buildAndDeploy, "Verify image artifact"))
+        .doesNotContainKeys("continue-on-error");
+
+    List<String> stepNames = new ArrayList<>();
+    for (Object stepValue : asList(buildAndDeploy.get("steps"), "Build and deploy steps")) {
+      stepNames.add(String.valueOf(asMap(stepValue, "Every step must be a mapping").get("name")));
     }
+    assertThat(stepNames)
+        .containsSubsequence(
+            "Build jar",
+            "Verify jar artifact",
+            "Build Docker image",
+            "Verify image artifact",
+            "Save Docker image",
+            "Copy image to server",
+            "Remote deploy");
   }
 
   private boolean containsProductionOperation(String source) {

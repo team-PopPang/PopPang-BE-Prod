@@ -4,6 +4,12 @@
 
 `APPROVED` — 2026-07-18
 
+2026-10-02 갱신: 운영을 미니 PC에서 AWS EC2로 옮기는 이전 스펙(`PopPang-AWS-Ops`
+`docs/specs/prod-aws-migration.md`, `APPROVED`)의 청크 7이 이 문서의 일부 계약을 대체한다. 대체되는 것은
+JAR에 운영 설정 포함, CD의 private 설정 다운로드, 원격 `deploy-prod.sh`의 평문 secret, 서버 스크립트 경로다.
+verify gate, 배포 직렬화, health check와 자동 롤백, 비차단 알림 계약은 그대로 유지한다. 자세한 내용은
+[AWS 이전으로 대체되는 계약](#aws-이전으로-대체되는-계약-2026-10-02)에 있다.
+
 ## Goal
 
 JWT v2를 여러 청크로 추가하는 동안 기존 v1 서비스를 유지하면서, 검증되지 않은 코드가 단일 운영
@@ -29,12 +35,14 @@ Docker tar 전송, 원격 `deploy-prod.sh` 구조를 최소한으로 보강한�
 - 모든 PR에서 성능 테스트 실행
 - CI/CD에서 DDL 또는 migration SQL 실행
 - 외부 운영·개발 DB/Redis를 사용하는 CI 테스트
-- 원격 `deploy-prod.sh`의 secret을 환경 파일이나 secret manager로 이전
+- 원격 `deploy-prod.sh`의 secret을 환경 파일이나 secret manager로 이전 (2026-10-02 AWS 이전이 대체:
+  EC2는 Secrets Manager 런타임 캐시로 주입)
 - 현재 평문으로 관리되는 운영 credential 교체
 - 원격 `deploy-prod.sh` 자체 수정
 
 원격 스크립트의 secret 관리와 credential 교체는 위험이 남아 있음을 인지하고 별도 후속 작업으로
-진행한다. 실제 값은 Workflow, 저장소 문서, 로그에 복사하지 않는다.
+진행한다. 실제 값은 Workflow, 저장소 문서, 로그에 복사하지 않는다. secret 이전은 AWS 이전 스펙이
+맡고, 노출된 credential 교체는 그 스펙의 이전 완료 후 후속 작업으로 남아 있다.
 
 ## Current state
 
@@ -66,8 +74,8 @@ JWT v2 청크별 PR
   -> 필수 CI 통과
   -> main 병합
   -> Main verify: 동일 검증 재실행
-  -> private 운영 설정 다운로드
-  -> bootJar + poppang-prod:<short-sha> 이미지 생성
+  -> bootJar(커밋된 설정 템플릿만 포함) + 산출물 검사   # 2026-10-02: private 설정 다운로드 대체
+  -> poppang-prod:<short-sha> 이미지 생성 + 산출물 검사
   -> 운영 서버 전송
   -> 기존 이미지 기록
   -> deploy-prod.sh 실행
@@ -360,6 +368,10 @@ Main verify와 production build gate 결과 — 2026-07-18:
 
 Status: `CONFIRMED`
 
+2026-10-02: 아래 helper의 서버 측 docker 조작·health·롤백은 EC2 배포 진입점 위임으로 대체됐다.
+[EC2 배포 권한 모델과 결과 계약](#ec2-배포-권한-모델과-결과-계약-2026-10-02-사용자-승인)을 따른다. 아래 기록은
+미니 PC 시절 구현 이력이다.
+
 목표는 production 배포를 직렬화하고 신규 버전이 healthy하지 않을 때 직전 이미지를 자동 복구하는
 것이다.
 
@@ -646,8 +658,9 @@ GitHub rollout 진행 메모 — 2026-07-18:
 - `verify`는 private 운영 설정을 다운로드하기 전에 PR CI와 같은 명령을 실행한다.
 - 이미지 생성·전송·배포 job은 `needs: verify`로 연결한다.
 - `verify` 실패 또는 취소 시 운영 설정 다운로드, 이미지 생성, 원격 배포를 실행하지 않는다.
-- `PERSONAL_ACCESS_TOKEN`은 private 설정 다운로드 step에만 전달하고, 서버 host·user·SSH key는 이를
-  사용하는 각 scp/ssh action 입력에만 전달한다.
+- 서버 host·user·SSH key는 이를 사용하는 각 scp/ssh action 입력에만 전달한다.
+- 2026-10-02부터 CD는 private 설정을 다운로드하지 않으므로 `PERSONAL_ACCESS_TOKEN`을 쓰지 않는다.
+  미사용 GitHub secret 정리는 AWS 이전의 전환·롤백 마감 후에 한다.
 
 ## Branch protection
 
@@ -671,13 +684,13 @@ GitHub rollout 진행 메모 — 2026-07-18:
 | 외부 port | `4002` |
 | container port | `8080` |
 | active profile | `prod` |
-| deploy script | `/home/poppang/opt/deploy/deploy-prod.sh` |
-| health endpoint | `http://localhost:4002/actuator/health` |
+| deploy script | `/opt/poppang/deploy-prod.sh` → sudo 진입점 `/usr/local/sbin/poppang-deploy-be` (2026-10-02, 이전 `/home/poppang/opt/deploy/deploy-prod.sh`) |
+| health endpoint | `http://localhost:4002/actuator/health` (EC2도 같음) |
 
 - 이미지 tag는 기존처럼 Git commit short SHA를 사용한다.
-- CD에서만 private repository의 운영 설정과 Apple 로그인 키를 다운로드한다.
-- 다운로드는 HTTP 오류, 빈 파일, HTML·`Not Found` 응답을 실패로 처리한다.
-- 현재 운영 설정을 JAR에 포함하는 방식과 원격 스크립트의 평문 secret은 이번 범위에서 유지한다.
+- (2026-10-02 대체) CD는 private 설정과 Apple 로그인 키를 다운로드하지 않는다. JAR에는 커밋된 설정 템플릿
+  (`application.yml`, `application-prod.yml`)만 들어가고 운영 값은 서버 런타임에서 주입한다.
+- bootJar와 Docker 이미지는 전송 전에 `scripts/ci/verify-build-artifacts.sh`로 검사하고, 실패하면 배포하지 않는다.
 - 배포는 동일 commit에서 검증을 통과한 뒤 생성한 JAR와 이미지로 수행한다.
 - `workflow_dispatch`는 `main` revision만 운영에 배포할 수 있도록 제한한다.
 
@@ -798,12 +811,91 @@ JAR는 동일하지 않으므로 검증 근거는 동일 commit과 전체 회귀
 운영 배포와 유효 Token/API Key smoke, iOS/AOS/ETL 전환이 남아 있으므로 운영 배포 완료는 6/7,
 v1 삭제 상태는 불가로 유지한다.
 
+## AWS 이전으로 대체되는 계약 (2026-10-02)
+
+기준은 `PopPang-AWS-Ops`의 `docs/specs/prod-aws-migration.md`(청크 7·9)다. 이 절과 다르면 그 스펙이 우선한다.
+
+### 설정 템플릿과 런타임 주입 (청크 7)
+
+- `src/main/resources/application.yml`·`application-prod.yml`은 실제 값 없는 `${ENV}` 템플릿으로 커밋한다.
+  로컬 private 설정(`application-local.yml` 등)과 `*.p8`은 계속 `.gitignore` 대상이다.
+- 비밀값 env는 Secrets Manager `poppang/prod/app`에서 렌더링한 `be.env`로, 비밀 아닌 env는 Compose
+  `environment`로 주입한다. 템플릿이 참조하는 env 집합은 `ConfigurationTemplateContractTest`가 고정한다.
+- 비밀 아닌 env는 `MYSQL_HOST`, `MYSQL_PORT`(기본 3306), `REDIS_HOST`, `REDIS_PORT`(기본 6379),
+  `APPLE_PRIVATE_KEY_PATH`, `SUBMISSION_IMAGE_S3_BUCKET`, `SUBMISSION_IMAGE_S3_REGION`,
+  `SUBMISSION_IMAGE_URL_PREFIX`(기본 `/submissionImages`), `SPRING_PROFILES_ACTIVE=prod`다.
+- Apple 로그인 키는 읽기 전용으로 마운트한 런타임 파일(`APPLE_PRIVATE_KEY_PATH`)에서 읽는다. bootJar는 `*.p8`을
+  넣지 않는다.
+- 운영 제보 이미지는 S3에 저장한다(`application-prod.yml`에서 고정). key는 URL 경로에서 앞의 `/`를 뺀 값이고
+  자격증명은 기본 자격증명 체인(EC2 인스턴스 역할)이다. dev/local 기본은 파일시스템이다.
+- Dockerfile은 `JAVA_TOOL_OPTIONS=-Xmx1g`를 기본으로 두고 `-XX:-UseContainerSupport`를 쓰지 않는다. Compose가 같은
+  env를 지정하면 그 값으로 대체된다. 권장 BE `mem_limit`은 1536m다.
+
+### 산출물 검사 (청크 7)
+
+- `scripts/ci/verify-build-artifacts.sh jar|image`가 다음을 막는다.
+  - JAR 루트·`META-INF`·`BOOT-INF/classes`의 키 파일(`*.p8`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `*.jks`,
+    `*.keystore`, `.env*`)
+  - 커밋된 두 템플릿 외의 설정 파일, git HEAD 템플릿과 바이트가 다른 설정
+  - PEM 개인키·AWS 액세스 키 ID 등 비밀값 패턴
+  - 이미지의 `/app`에 `app.jar` 외 파일, 허용 목록 밖 이미지 env 키, 이미지 파일시스템의 `*.p8`·`.env`·설정 파일
+- 공개 레포의 Actions 로그에 남으므로 출력은 고정 라벨과 개수뿐이다.
+- CD는 bootJar 직후와 이미지 빌드 직후에 검사하고, 실패하면 전송·배포하지 않는다. makefile 로컬 빌드도 같은
+  검사를 한다.
+
+### EC2 배포 권한 모델과 결과 계약 (2026-10-02 사용자 승인)
+
+- 배포 계정 `poppang-deploy`에는 Docker 그룹과 일반 sudo를 주지 않는다. sudoers는 root 소유 배포 진입점
+  `/usr/local/sbin/poppang-deploy-be` 하나만 NOPASSWD로 허용한다. 진입점은 `PopPang-AWS-Ops`가 관리한다.
+- 진입점이 배포 트랜잭션 전체를 맡는다. 전체 flock, tar 검증·load, BE 단독 교체, 60초 health, 직전 불변 image ID
+  롤백 판단·실행이다. 잠금 중이면 기다리지 않고 `busy`로 끝난다.
+- 서버 wrapper `/opt/poppang/deploy-prod.sh`(root:root 0755)는 인자 두 개를 확인한 뒤
+  `exec /usr/bin/sudo -n /usr/local/sbin/poppang-deploy-be "$@"`를 실행한다.
+  - 첫째 인자: tar 경로 `/home/poppang-deploy/app/poppang-prod-<tag>.tar`
+  - 둘째 인자: image ref `poppang-prod:<tag>`, tag는 `[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}`
+- 업로드와 helper 작업 폴더는 `/home/poppang-deploy/app`(deploy 0700)이다. Compose 파일·root 상태·설정은 배포
+  계정이 쓸 수 없다.
+- `scripts/ci/production-deploy-with-rollback.sh`는 인자 계약을 검증한 뒤 wrapper를 한 번만 호출한다. stdout과 종료
+  코드를 그대로 전파하고, health 재확인·재롤백·Docker 직접 실행을 하지 않는다.
+  - wrapper stderr는 공개 로그에 남기지 않는다.
+  - 계약에 맞지 않는 인자는 wrapper를 호출하지 않고 64로 끝낸다.
+- 진입점 stdout의 마지막 줄은 `POPPANG_DEPLOY_RESULT status=<status>`이다. 기존 호환 표식
+  (`new_health=UP`·`deployment_result=success`, 또는 `rollback_result=*`·`deployment_result=failed_new_release`)이 그
+  앞에 나온다. `report-deployment-result.sh`는 status와 종료 코드가 아래 표와 일치할 때만 판정하고, 아니면
+  UNKNOWN·수동 복구 필요로 둔다.
+
+| status | 종료 코드 | Deployment | Rollback | 수동 복구 |
+|---|---|---|---|---|
+| `success` | 0 | SUCCESS | NOT_REQUIRED | NO |
+| `rolled_back` | 10 | FAILED | SUCCESS | NO |
+| `rollback_failed` | 20 | FAILED | FAILED | YES |
+| `rollback_unavailable` | 21 | FAILED | UNAVAILABLE | YES |
+| `rejected` | 64 | FAILED | NOT_REQUIRED (교체 전) | NO |
+| `busy` | 75 | FAILED | NOT_REQUIRED (변경 없음) | NO |
+| `failed` | 70 | FAILED | NOT_REQUIRED (교체 전 도구 오류) | NO |
+
+- 롤백이 성공해도 실패한 신규 배포이므로 Workflow는 실패로 남는다(기존 계약 유지).
+
+### 배포 대상 (청크 9 예정)
+
+- 미니 PC 운영으로 가는 수동 경로를 막았다. makefile의 `getKey`를 없앴고 `send-image`·`remote-deploy`·
+  `prod-deploy`는 실패한다.
+- `cicd.yml`은 EC2 경로(`SERVER_DIR=/home/poppang-deploy/app`, `DEPLOY_SCRIPT=/opt/poppang/deploy-prod.sh`)로 바꿨다.
+  접속 secret(`SERVER_*`)의 EC2 배포 계정 교체와 Workflow 활성화는 청크 9에서 한다.
+  컨테이너명 `poppang-prod`, 호스트 바인딩 `127.0.0.1:4002`, health URL `http://localhost:4002/actuator/health`,
+  서버 쪽 두 인자, 배포 직렬화는 유지한다.
+- 이 변경은 청크 9 순서(미니 PC 대상 run 확인 → Workflow 비활성화 → secret 교체 → main 반영 → 활성화)를 따르기
+  전에 `main`에 병합하지 않는다. 미니 PC 접속 secret이 남은 채 실행되면 EC2 경로가 없어 전송·배포 단계에서
+  실패한다.
+
 ## Accepted risks and deferred work
 
 - 단일 컨테이너 교체 방식이므로 완전한 무중단을 보장하지 않는다.
-- 원격 `deploy-prod.sh`의 credential 평문 관리 방식은 유지한다.
-- 노출 가능성이 있는 credential의 교체와 서버 env 파일 또는 secret manager 이전은 후속 작업이다.
-- 운영 설정과 Apple 로그인 키가 build artifact에 포함될 수 있는 기존 구조를 유지한다.
+- 원격 `deploy-prod.sh`의 credential 평문 관리 방식은 미니 PC 복귀용 보존 범위에서만 남는다. EC2는 Secrets
+  Manager 런타임 캐시(root 600)로 주입한다(2026-10-02 대체).
+- 노출 가능성이 있는 credential의 교체는 AWS 이전 완료 후 후속 작업이다.
+- 운영 설정과 Apple 로그인 키를 build artifact에 넣던 구조는 2026-10-02 템플릿·런타임 주입과 산출물 검사로
+  대체됐다.
 - 자동 롤백은 애플리케이션 image만 되돌리며 DB schema나 데이터 변경을 되돌리지 않는다. 이 때문에
   DB migration을 CD에서 자동 실행하지 않는다.
 

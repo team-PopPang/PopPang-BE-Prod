@@ -160,12 +160,84 @@ class DeploymentResultNotificationContractTest {
         .doesNotContain("ssh_transport_failed");
   }
 
+  @Test
+  void entrypointStatusAndExitCodeDecideTheSummary() throws Exception {
+    record Case(String status, int exit, String deployment, String rollback, String manual) {}
+    List<Case> cases =
+        List.of(
+            new Case("success", 0, "SUCCESS", "NOT_REQUIRED", "NO"),
+            new Case("rolled_back", 10, "FAILED", "SUCCESS", "NO"),
+            new Case("rollback_failed", 20, "FAILED", "FAILED", "YES"),
+            new Case("rollback_unavailable", 21, "FAILED", "UNAVAILABLE", "YES"),
+            new Case("rejected", 64, "FAILED", "NOT_REQUIRED", "NO"),
+            new Case("busy", 75, "FAILED", "NOT_REQUIRED", "NO"),
+            new Case("failed", 70, "FAILED", "NOT_REQUIRED", "NO"));
+
+    for (Case expected : cases) {
+      String legacy =
+          switch (expected.status()) {
+            case "success" -> "new_health=UP attempts=1\ndeployment_result=success\n";
+            case "rolled_back" -> "rollback_result=success\ndeployment_result=failed_new_release\n";
+            case "rollback_failed" -> "rollback_result=failed\ndeployment_result=failed_new_release\n";
+            case "rollback_unavailable" -> "rollback_result=unavailable\ndeployment_result=failed_new_release\n";
+            default -> "";
+          };
+      ReportResult result =
+          runReport(
+              "success",
+              "deployment_start commit="
+                  + COMMIT_SHA
+                  + "\n"
+                  + legacy
+                  + "POPPANG_DEPLOY_RESULT status="
+                  + expected.status()
+                  + "\nremote_exit_code="
+                  + expected.exit()
+                  + "\n");
+
+      assertThat(result.exitCode()).as(expected.status()).isEqualTo(expected.exit() == 0 ? 0 : 1);
+      assertThat(result.summary())
+          .as(expected.status())
+          .contains(
+              "| Deployment | " + expected.deployment() + " |",
+              "| Rollback | " + expected.rollback() + " |",
+              "| Manual recovery | " + expected.manual() + " |");
+    }
+  }
+
+  @Test
+  void entrypointStatusThatDisagreesWithExitCodeIsUnknown() throws Exception {
+    ReportResult result =
+        runReport(
+            "success",
+            """
+            new_health=UP attempts=1
+            deployment_result=success
+            POPPANG_DEPLOY_RESULT status=success
+            remote_exit_code=10
+            """);
+
+    assertThat(result.exitCode()).isEqualTo(1);
+    assertThat(result.summary())
+        .contains("| Deployment | FAILED |", "| Rollback | UNKNOWN |", "| Manual recovery | YES |");
+  }
+
+  @Test
+  void entrypointBusyExplainsThatNothingWasChanged() throws Exception {
+    ReportResult result =
+        runReport("success", "POPPANG_DEPLOY_RESULT status=busy\nremote_exit_code=75\n");
+
+    assertThat(result.exitCode()).isEqualTo(1);
+    assertThat(result.summary())
+        .contains("Another deployment holds the server lock. Nothing was changed.");
+  }
+
   private ReportResult runReport(String actionOutcome, String deploymentOutput) throws Exception {
     assertThat(REPORT_SCRIPT)
         .as("The deployment report helper must exist before its contract can pass")
         .exists();
 
-    Path summary = tempDir.resolve("summary-" + actionOutcome + ".md");
+    Path summary = Files.createTempFile(tempDir, "summary-" + actionOutcome + "-", ".md");
     ProcessBuilder processBuilder =
         new ProcessBuilder("bash", REPORT_SCRIPT.toString()).redirectErrorStream(true);
     processBuilder.directory(Path.of(".").toFile());

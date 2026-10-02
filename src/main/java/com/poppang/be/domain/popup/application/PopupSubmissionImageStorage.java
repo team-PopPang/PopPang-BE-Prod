@@ -2,16 +2,13 @@ package com.poppang.be.domain.popup.application;
 
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +27,17 @@ public class PopupSubmissionImageStorage {
       Set.of("image/jpeg", "image/png", "image/heic", "image/heif");
   private static final Set<String> ALLOWED_EXTENSIONS =
       Set.of("jpg", "jpeg", "png", "heic", "heif");
+  // 저장 시 Content-Type은 검증한 확장자 기준으로 정한다.
+  private static final Map<String, String> CONTENT_TYPE_BY_EXTENSION =
+      Map.of(
+          "jpg", "image/jpeg",
+          "jpeg", "image/jpeg",
+          "png", "image/png",
+          "heic", "image/heic",
+          "heif", "image/heif");
 
   private final PopupSubmissionImageStorageProperties properties;
+  private final PopupSubmissionImageStore imageStore;
 
   public List<String> storeAll(List<MultipartFile> images) {
     List<String> storedImageUrlPathList = new ArrayList<>();
@@ -62,20 +68,11 @@ public class PopupSubmissionImageStorage {
     String extension = getExtension(image);
     String dateDirectory = YearMonth.now(KOREA_ZONE_ID).format(DATE_DIRECTORY_FORMATTER);
     String filename = UUID.randomUUID() + "." + extension;
-    Path directoryPath = getRootPath().resolve(dateDirectory);
-    Path filePath = directoryPath.resolve(filename);
+    String relativePath = dateDirectory + "/" + filename;
 
-    try {
-      Files.createDirectories(directoryPath);
-      try (InputStream inputStream = image.getInputStream()) {
-        Files.copy(inputStream, filePath);
-      }
-    } catch (IOException e) {
-      deleteFile(filePath);
-      throw new BaseException(ErrorCode.INTERNAL_ERROR);
-    }
+    imageStore.save(relativePath, image, CONTENT_TYPE_BY_EXTENSION.get(extension));
 
-    return normalizeUrlPrefix() + "/" + dateDirectory + "/" + filename;
+    return properties.normalizedSubmissionImageUrlPrefix() + "/" + relativePath;
   }
 
   private void validateImage(MultipartFile image) {
@@ -105,48 +102,21 @@ public class PopupSubmissionImageStorage {
   }
 
   private void delete(String imageUrlPath) {
-    Path filePath = resolveFilePath(imageUrlPath);
-    if (filePath == null) {
+    String relativePath = resolveRelativePath(imageUrlPath);
+    if (relativePath == null) {
       return;
     }
 
-    deleteFile(filePath);
+    imageStore.delete(relativePath);
   }
 
-  private void deleteFile(Path filePath) {
-    try {
-      Files.deleteIfExists(filePath);
-    } catch (IOException ignored) {
-    }
-  }
-
-  private Path resolveFilePath(String imageUrlPath) {
-    if (imageUrlPath == null || !imageUrlPath.startsWith(normalizeUrlPrefix() + "/")) {
+  private String resolveRelativePath(String imageUrlPath) {
+    String urlPathPrefix = properties.normalizedSubmissionImageUrlPrefix() + "/";
+    if (imageUrlPath == null || !imageUrlPath.startsWith(urlPathPrefix)) {
       return null;
     }
 
-    String relativePath = imageUrlPath.substring((normalizeUrlPrefix() + "/").length());
-    Path rootPath = getRootPath();
-    Path filePath = rootPath.resolve(relativePath).normalize();
-    if (!filePath.startsWith(rootPath)) {
-      return null;
-    }
-
-    return filePath;
-  }
-
-  private Path getRootPath() {
-    return Path.of(properties.submissionImageRoot()).toAbsolutePath().normalize();
-  }
-
-  private String normalizeUrlPrefix() {
-    String urlPrefix = properties.submissionImageUrlPrefix();
-    if (!urlPrefix.startsWith("/")) {
-      urlPrefix = "/" + urlPrefix;
-    }
-    if (urlPrefix.endsWith("/")) {
-      return urlPrefix.substring(0, urlPrefix.length() - 1);
-    }
-    return urlPrefix;
+    String relativePath = imageUrlPath.substring(urlPathPrefix.length());
+    return relativePath.isEmpty() ? null : relativePath;
   }
 }

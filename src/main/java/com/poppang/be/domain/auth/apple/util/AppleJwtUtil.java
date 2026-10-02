@@ -9,36 +9,35 @@ import com.nimbusds.jose.crypto.ECDSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.poppang.be.domain.auth.apple.config.AppleProperties;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyFactory;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Base64;
 import java.util.Date;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.util.ResourceUtils;
+import org.springframework.util.StringUtils;
 
 public class AppleJwtUtil {
+
+  private static final String CLASSPATH_PREFIX = "classpath:";
+  private static final String FILE_PREFIX = "file:";
+
   /*
   client_secret 생성 메서드
   - Apple “Sign in with Apple” 토큰 교환 시 필요한 client_secret(JWT)을 ES256으로 서명해서 생성
    */
   public static String createClientSecret(AppleProperties properties) throws Exception {
     // 1) .p8 개인키 읽기
-    // - application.yml의 apple.private-key-path 값을 이용
-    // - 현재 구현은 classpath: 경로만 지원하도록 가정
-    String privateKeyPath = properties.getPrivateKeyPath();
-    String privateKeyPem;
-
-    if (privateKeyPath.startsWith("classpath:")) {
-      // "classpath:" 접두어 제거 후 /resources 아래에서 파일 읽기
-      String path = privateKeyPath.replace("classpath:", "");
-      ClassPathResource resource = new ClassPathResource(path);
-      privateKeyPem = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-    } else {
-      // 보안/운영상 외부 경로를 사용할 수도 있으나, 이 유틸은 일단 classpath만 허용
-      throw new IllegalArgumentException(
-          "Only classpath: resource loading is supported in this setup.");
-    }
+    // - apple.private-key-path 값을 이용
+    // - 운영: 컨테이너에 읽기 전용으로 마운트한 외부 파일 경로(절대경로 또는 file:)
+    // - 로컬 개발: classpath: 경로도 계속 지원
+    String privateKeyPem = readPrivateKeyPem(properties.getPrivateKeyPath());
 
     // 2) PEM 텍스트 정리
     // - -----BEGIN/END PRIVATE KEY----- 헤더/푸터 제거
@@ -89,5 +88,26 @@ public class AppleJwtUtil {
 
     // 7) 직렬화(문자열)하여 반환 → 이 문자열이 client_secret
     return signedJWT.serialize();
+  }
+
+  // 키 파일이 없거나 읽을 수 없으면 다른 위치로 대체하지 않고 예외를 던진다.
+  private static String readPrivateKeyPem(String location) throws IOException {
+    if (!StringUtils.hasText(location)) {
+      throw new IllegalStateException("apple.private-key-path가 설정되지 않았습니다.");
+    }
+
+    if (location.startsWith(CLASSPATH_PREFIX)) {
+      ClassPathResource resource =
+          new ClassPathResource(location.substring(CLASSPATH_PREFIX.length()));
+      try (InputStream inputStream = resource.getInputStream()) {
+        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+      }
+    }
+
+    Path path =
+        location.startsWith(FILE_PREFIX)
+            ? ResourceUtils.getFile(location).toPath()
+            : Path.of(location);
+    return Files.readString(path, StandardCharsets.UTF_8);
   }
 }
