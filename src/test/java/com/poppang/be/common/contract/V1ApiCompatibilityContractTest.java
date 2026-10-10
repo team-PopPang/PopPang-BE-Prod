@@ -56,7 +56,7 @@ import org.springframework.web.bind.annotation.RestController;
 @ActiveProfiles("test")
 class V1ApiCompatibilityContractTest {
 
-  private static final Set<Endpoint> APPROVED_V1_ENDPOINTS =
+  private static final Set<Endpoint> LEGACY_V1_ENDPOINTS =
       Set.of(
           // 앱 진입 시 서버 응답 확인
           endpoint(GET, "/api/v1/health"),
@@ -168,15 +168,18 @@ class V1ApiCompatibilityContractTest {
   void applicationV1MappingsMatchApprovedInventory() throws Exception {
     Set<Endpoint> actualEndpoints = discoverApplicationV1Endpoints();
 
-    assertThat(APPROVED_V1_ENDPOINTS).hasSize(78);
+    assertThat(LEGACY_V1_ENDPOINTS).hasSize(78);
+    Set<Endpoint> approvedEndpoints = new TreeSet<>(LEGACY_V1_ENDPOINTS);
+    approvedEndpoints.add(endpoint(POST, "/api/v1/popup/alert-targets"));
+    assertThat(approvedEndpoints).hasSize(79);
     assertThat(actualEndpoints)
         .as("Any v1 endpoint addition, removal, method change, or path change requires approval")
-        .containsExactlyInAnyOrderElementsOf(APPROVED_V1_ENDPOINTS);
+        .containsExactlyInAnyOrderElementsOf(approvedEndpoints);
   }
 
   @Test
   void anonymousRequestsReachTheApplicationSideOfTheSecurityFilterChain() throws Exception {
-    for (Endpoint endpoint : new TreeSet<>(APPROVED_V1_ENDPOINTS)) {
+    for (Endpoint endpoint : new TreeSet<>(LEGACY_V1_ENDPOINTS)) {
       String requestPath = endpoint.path().replaceAll("\\{[^/]+}", "contract-value");
       MockHttpServletRequest request = new MockHttpServletRequest();
       request.setMethod(endpoint.method().name());

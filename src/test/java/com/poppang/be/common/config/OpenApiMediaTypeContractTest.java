@@ -15,6 +15,7 @@ import com.poppang.be.domain.favorite.presentation.UserFavoriteController;
 import com.poppang.be.domain.keyword.application.UserAlertKeywordService;
 import com.poppang.be.domain.keyword.presentation.UserAlertKeywordController;
 import com.poppang.be.domain.popup.application.PopupAdminService;
+import com.poppang.be.domain.popup.application.PopupAlertTargetService;
 import com.poppang.be.domain.popup.application.PopupImageService;
 import com.poppang.be.domain.popup.application.PopupService;
 import com.poppang.be.domain.popup.application.PopupSubmissionService;
@@ -23,6 +24,7 @@ import com.poppang.be.domain.popup.application.PopupUserService;
 import com.poppang.be.domain.popup.application.PopupWebService;
 import com.poppang.be.domain.popup.dto.web.response.PopupWebDetailResponseDto;
 import com.poppang.be.domain.popup.presentation.app.PopupAdminController;
+import com.poppang.be.domain.popup.presentation.app.PopupAlertTargetController;
 import com.poppang.be.domain.popup.presentation.app.PopupController;
 import com.poppang.be.domain.popup.presentation.app.PopupImageController;
 import com.poppang.be.domain.popup.presentation.app.PopupSubmissionController;
@@ -87,6 +89,7 @@ class OpenApiMediaTypeContractTest {
   @MockitoBean private PopupTotalViewCountService popupTotalViewCountService;
   @MockitoBean private PopupUserService popupUserService;
   @MockitoBean private PopupAdminService popupAdminService;
+  @MockitoBean private PopupAlertTargetService popupAlertTargetService;
   @MockitoBean private PopupService popupService;
   @MockitoBean private PopupImageService popupImageService;
   @MockitoBean private PopupSubmissionService popupSubmissionService;
@@ -152,8 +155,8 @@ class OpenApiMediaTypeContractTest {
 
     assertThat(wildcardLocations).isEmpty();
     assertThat(unexpectedMediaTypes).isEmpty();
-    assertThat(jsonResponseCount).isEqualTo(47);
-    assertThat(bodylessResponseCount).isEqualTo(16);
+    assertThat(jsonResponseCount).isEqualTo(49);
+    assertThat(bodylessResponseCount).isEqualTo(15);
   }
 
   @Test
@@ -191,11 +194,57 @@ class OpenApiMediaTypeContractTest {
     }
 
     assertThat(unexpectedMediaTypes).isEmpty();
-    assertThat(jsonRequestCount).isEqualTo(12);
+    assertThat(jsonRequestCount).isEqualTo(13);
     assertThat(multipartLocations)
         .containsExactly(
             "POST /api/v1/popup-submissions",
             "PUT /api/v1/admin/popup-submissions/{popupSubmissionId}");
+  }
+
+  @Test
+  void collectorDocumentsRegistrationResponseAndWorkerAuthentication() {
+    JsonNode registration = openApi.path("paths").path("/api/v1/popup").path("post");
+    assertThat(
+            registration
+                .path("responses")
+                .path("200")
+                .path("content")
+                .path(MediaType.APPLICATION_JSON_VALUE)
+                .path("schema")
+                .path("$ref")
+                .asText())
+        .isEqualTo("#/components/schemas/ApiResponsePopupRegisterResponseDto");
+    assertThat(
+            fieldNames(
+                openApi
+                    .path("components")
+                    .path("schemas")
+                    .path("PopupRegisterResponseDto")
+                    .path("properties")))
+        .containsExactly("popupUuid", "created");
+    assertThat(registration.path("security").isMissingNode()).isTrue();
+
+    JsonNode targets = openApi.path("paths").path("/api/v1/popup/alert-targets").path("post");
+    assertThat(targets.path("security").size()).isEqualTo(1);
+    assertThat(targets.path("security").get(0).has("workerApiKeyAuth")).isTrue();
+    assertThat(
+            targets
+                .path("responses")
+                .path("200")
+                .path("content")
+                .path(MediaType.APPLICATION_JSON_VALUE)
+                .path("schema")
+                .path("$ref")
+                .asText())
+        .isEqualTo("#/components/schemas/ApiResponseListPopupAlertTargetResponseDto");
+    assertThat(
+            fieldNames(
+                openApi
+                    .path("components")
+                    .path("schemas")
+                    .path("PopupAlertTargetResponseDto")
+                    .path("properties")))
+        .containsExactly("userUuid", "fcmToken", "keywords", "popups");
   }
 
   @Test
@@ -431,6 +480,7 @@ class OpenApiMediaTypeContractTest {
     PopupTotalViewController.class,
     PopupUserController.class,
     PopupAdminController.class,
+    PopupAlertTargetController.class,
     PopupController.class,
     PopupImageController.class,
     PopupSubmissionController.class

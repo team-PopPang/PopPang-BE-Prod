@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -34,7 +35,7 @@ public class UserAlertServiceImpl implements UserAlertService {
   private final PopupUserResponseDtoMapper popupUserResponseDtoMapper;
 
   @Override
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public void registerUserAlert(
       String userUuid, UserAlertRegisterRequestDto userAlertRegisterRequestDto) {
     Users user =
@@ -44,7 +45,7 @@ public class UserAlertServiceImpl implements UserAlertService {
 
     Popup popup =
         popupRepository
-            .findByUuid(userAlertRegisterRequestDto.getPopupUuid())
+            .findByUuidForUpdate(userAlertRegisterRequestDto.getPopupUuid())
             .orElseThrow(() -> new BaseException(ErrorCode.POPUP_NOT_FOUND));
 
     if (userAlertRepository.existsByUser_IdAndPopup_Id(user.getId(), popup.getId())) {

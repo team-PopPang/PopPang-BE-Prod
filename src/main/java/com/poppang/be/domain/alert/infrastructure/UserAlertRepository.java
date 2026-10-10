@@ -17,6 +17,20 @@ public interface UserAlertRepository extends JpaRepository<UserAlert, Long> {
 
   @Query(
       """
+      select ua.user.id as userId, ua.popup.id as popupId from UserAlert ua
+      where ua.popup.id in :popupIds and ua.user.id in :userIds
+      """)
+  List<AlertPair> findExistingPairs(
+      @Param("popupIds") List<Long> popupIds, @Param("userIds") List<Long> userIds);
+
+  interface AlertPair {
+    Long getUserId();
+
+    Long getPopupId();
+  }
+
+  @Query(
+      """
                 SELECT ua
                 FROM UserAlert ua
                 JOIN FETCH ua.popup p

@@ -1,23 +1,54 @@
 package com.poppang.be.domain.popup.infrastructure;
 
 import com.poppang.be.domain.popup.entity.Popup;
+import com.poppang.be.domain.popup.infrastructure.projection.PopupAlertTargetRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebFavoriteRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebInProgressRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebRandomRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebSearchRow;
 import com.poppang.be.domain.popup.infrastructure.projection.PopupWebUpcomingRow;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PopupRepository extends JpaRepository<Popup, Long> {
 
   Optional<Popup> findByUuid(String popupUuid);
+
+  Optional<Popup> findByInstaPostId(String instaPostId);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select p from Popup p where p.uuid = :uuid")
+  Optional<Popup> findByUuidForUpdate(@Param("uuid") String uuid);
+
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select p from Popup p where p.uuid in :uuids order by p.id")
+  List<Popup> findAllByUuidInForUpdate(@Param("uuids") List<String> uuids);
+
+  @Query(
+      value =
+          """
+      SELECT u.id AS userId, u.uuid AS userUuid, u.fcm_token AS fcmToken,
+             p.id AS popupId, k.alert_keyword AS keyword
+      FROM popup p
+      JOIN user_alert_keyword k
+        ON (LOCATE(k.alert_keyword, p.name) > 0
+         OR LOCATE(k.alert_keyword, p.caption_summary) > 0)
+      JOIN users u ON u.id = k.users_id
+      WHERE p.uuid IN (:uuids)
+        AND u.is_deleted = 0 AND u.is_alerted = 1
+        AND TRIM(k.alert_keyword) <> ''
+      ORDER BY u.id, k.alert_keyword, p.id
+      """,
+      nativeQuery = true)
+  List<PopupAlertTargetRow> findAlertTargets(@Param("uuids") List<String> uuids);
 
   Slice<Popup> findByActivatedTrueAndEndDateGreaterThanEqualOrderByIdDesc(
       LocalDate currentDate, Pageable pageable);

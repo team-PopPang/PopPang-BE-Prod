@@ -33,15 +33,15 @@ class V1ToV2MigrationMatrixContractTest {
         v1Inventory.stream().map(this::v1InventoryKey).collect(Collectors.toSet());
     List<String> actualV1 = matrix.stream().map(MatrixRow::v1Key).toList();
 
-    assertThat(v1Inventory).hasSize(79);
-    assertThat(matrix).hasSize(79);
+    assertThat(v1Inventory).hasSize(80);
+    assertThat(matrix).hasSize(80);
     assertThat(actualV1).doesNotHaveDuplicates().containsExactlyInAnyOrderElementsOf(expectedV1);
-    assertThat(matrix).filteredOn(row -> row.v1Status().equals("KEEP")).hasSize(77);
+    assertThat(matrix).filteredOn(row -> row.v1Status().equals("KEEP")).hasSize(78);
     assertThat(matrix).filteredOn(row -> row.v1Status().equals("DELETE_APPROVED")).hasSize(2);
 
     assertThat(matrix).filteredOn(row -> row.treatment().equals("V2_TWIN")).hasSize(70);
     assertThat(matrix).filteredOn(row -> row.treatment().equals("REPLACED_FLOW")).hasSize(2);
-    assertThat(matrix).filteredOn(row -> row.treatment().equals("V1_ONLY_KEEP")).hasSize(5);
+    assertThat(matrix).filteredOn(row -> row.treatment().equals("V1_ONLY_KEEP")).hasSize(6);
     assertThat(matrix).filteredOn(row -> row.treatment().equals("DELETE_APPROVED")).hasSize(2);
 
     assertThat(
@@ -109,8 +109,7 @@ class V1ToV2MigrationMatrixContractTest {
   }
 
   @Test
-  void designDocumentContainsTheSameSeventyNineEndpointRowsAsTheContractResource()
-      throws Exception {
+  void designDocumentContainsTheSameEightyEndpointRowsAsTheContractResource() throws Exception {
     List<MatrixRow> matrix = readLines(MIGRATION_MATRIX).stream().map(this::parseRow).toList();
     List<String> documentLines = Files.readAllLines(DESIGN_DOCUMENT, StandardCharsets.UTF_8);
     int headerIndex =
@@ -126,7 +125,7 @@ class V1ToV2MigrationMatrixContractTest {
     List<String> contractRows = matrix.stream().map(MatrixRow::documentProjection).toList();
 
     assertThat(documentRows)
-        .hasSize(79)
+        .hasSize(80)
         .doesNotHaveDuplicates()
         .containsExactlyElementsOf(contractRows);
   }

@@ -38,7 +38,7 @@ class V2InternalUserAlertServiceImplTest {
     Users user = Users.builder().id(3L).uuid("recipient-uuid").build();
     Popup popup = Popup.builder().id(7L).uuid("popup-uuid").build();
     when(usersRepository.findByUuid("recipient-uuid")).thenReturn(Optional.of(user));
-    when(popupRepository.findByUuid("popup-uuid")).thenReturn(Optional.of(popup));
+    when(popupRepository.findByUuidForUpdate("popup-uuid")).thenReturn(Optional.of(popup));
 
     userAlertService.registerUserAlert(
         "recipient-uuid", new V2WorkerUserAlertRegisterRequestDto("popup-uuid"));
@@ -56,7 +56,7 @@ class V2InternalUserAlertServiceImplTest {
     Users user = Users.builder().id(3L).uuid("recipient-uuid").build();
     Popup popup = Popup.builder().id(7L).uuid("popup-uuid").build();
     when(usersRepository.findByUuid("recipient-uuid")).thenReturn(Optional.of(user));
-    when(popupRepository.findByUuid("popup-uuid")).thenReturn(Optional.of(popup));
+    when(popupRepository.findByUuidForUpdate("popup-uuid")).thenReturn(Optional.of(popup));
     when(userAlertRepository.existsByUser_IdAndPopup_Id(3L, 7L)).thenReturn(true);
 
     assertThatThrownBy(
@@ -84,7 +84,7 @@ class V2InternalUserAlertServiceImplTest {
 
     Users user = Users.builder().id(3L).uuid("recipient-uuid").build();
     when(usersRepository.findByUuid("recipient-uuid")).thenReturn(Optional.of(user));
-    when(popupRepository.findByUuid("missing-popup")).thenReturn(Optional.empty());
+    when(popupRepository.findByUuidForUpdate("missing-popup")).thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->

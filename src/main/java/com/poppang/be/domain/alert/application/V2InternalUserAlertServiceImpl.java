@@ -12,6 +12,7 @@ import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -23,7 +24,7 @@ public class V2InternalUserAlertServiceImpl implements V2InternalUserAlertServic
   private final PopupRepository popupRepository;
 
   @Override
-  @Transactional
+  @Transactional(isolation = Isolation.READ_COMMITTED)
   public void registerUserAlert(String userUuid, V2WorkerUserAlertRegisterRequestDto request) {
     if (userUuid == null
         || userUuid.isBlank()
@@ -38,7 +39,7 @@ public class V2InternalUserAlertServiceImpl implements V2InternalUserAlertServic
             .orElseThrow(() -> new BaseException(ErrorCode.USER_NOT_FOUND));
     Popup popup =
         popupRepository
-            .findByUuid(request.popupUuid())
+            .findByUuidForUpdate(request.popupUuid())
             .orElseThrow(() -> new BaseException(ErrorCode.POPUP_NOT_FOUND));
 
     if (userAlertRepository.existsByUser_IdAndPopup_Id(user.getId(), popup.getId())) {
