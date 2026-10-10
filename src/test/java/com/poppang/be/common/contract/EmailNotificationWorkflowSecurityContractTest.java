@@ -22,6 +22,7 @@ class EmailNotificationWorkflowSecurityContractTest {
 
   private static final Path WORKFLOW_PATH = Path.of(".github/workflows/email-notify.yml");
   private static final Path MAIN_WORKFLOW_PATH = Path.of(".github/workflows/cicd.yml");
+  private static final Path PR_RESULT_WORKFLOW_PATH = Path.of(".github/workflows/pr-ci-notify.yml");
   private static final String APPROVED_SEND_MAIL_ACTION =
       "dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7";
   private static final Pattern DIRECT_GITHUB_EXPRESSION =
@@ -67,15 +68,18 @@ class EmailNotificationWorkflowSecurityContractTest {
     assertThat(inputs)
         .containsEntry("username", "${{ secrets.MAIL_USERNAME }}")
         .containsEntry("password", "${{ secrets.MAIL_PASSWORD }}")
-        .containsEntry("to", "indextrown@gmail.com");
+        .containsEntry("to", "devsong42@gmail.com");
   }
 
   @Test
-  void pinsEverySendMailUseInEmailAndMainWorkflowsToTheSameImmutableCommit() throws IOException {
+  void pinsEveryMailActionAndRestrictsAllRecipientsToTheApprovedAddress() throws IOException {
     List<String> sendMailActions = new ArrayList<>();
-    for (Path workflowPath : List.of(WORKFLOW_PATH, MAIN_WORKFLOW_PATH)) {
+    for (Path workflowPath : List.of(WORKFLOW_PATH, MAIN_WORKFLOW_PATH, PR_RESULT_WORKFLOW_PATH)) {
+      assertThat(workflowPath).exists();
+      String source = Files.readString(workflowPath);
+      assertThat(source).doesNotContain("indextrown@gmail.com");
       Map<Object, Object> parsedWorkflow =
-          asMap(new Yaml().load(Files.readString(workflowPath)), "Workflow must be valid YAML");
+          asMap(new Yaml().load(source), "Workflow must be valid YAML");
       Map<Object, Object> jobs = asMap(parsedWorkflow.get("jobs"), "Workflow must declare jobs");
       for (Object jobValue : jobs.values()) {
         Map<Object, Object> job = asMap(jobValue, "Every job must be a mapping");
@@ -84,17 +88,21 @@ class EmailNotificationWorkflowSecurityContractTest {
           continue;
         }
         for (Object stepValue : asList(stepsValue, "Job steps must be a list")) {
-          Object action = asMap(stepValue, "Every step must be a mapping").get("uses");
+          Map<Object, Object> step = asMap(stepValue, "Every step must be a mapping");
+          Object action = step.get("uses");
           if (action != null && String.valueOf(action).startsWith("dawidd6/action-send-mail@")) {
             sendMailActions.add(String.valueOf(action));
+            assertThat(asMap(step.get("with"), "Mail inputs"))
+                .containsEntry("to", "devsong42@gmail.com")
+                .doesNotContainKeys("cc", "bcc");
           }
         }
       }
     }
 
     assertThat(sendMailActions)
-        .as("All three mail steps must use the same approved immutable commit")
-        .hasSize(3)
+        .as("All five mail steps must use the same approved immutable commit")
+        .hasSize(5)
         .allMatch(APPROVED_SEND_MAIL_ACTION::equals);
   }
 

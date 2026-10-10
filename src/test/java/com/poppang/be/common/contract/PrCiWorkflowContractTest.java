@@ -4,14 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.yaml.snakeyaml.Yaml;
 
 class PrCiWorkflowContractTest {
@@ -42,6 +47,8 @@ class PrCiWorkflowContractTest {
 
   private String workflowSource;
   private Map<Object, Object> workflow;
+
+  @TempDir Path tempDir;
 
   @BeforeEach
   void loadWorkflow() throws IOException {
@@ -106,6 +113,118 @@ class PrCiWorkflowContractTest {
 
     assertThat(gradleCommands).containsExactly(VALIDATION_COMMAND);
   }
+
+  @Test
+  void requiresBranchNameCheckBeforeCheckoutWithoutBlockingManualRuns() {
+    Map<Object, Object> job =
+        asMap(asMap(rootValue("jobs"), "Workflow jobs").get(JOB_ID), "PR CI job");
+    List<Object> steps = asList(job.get("steps"), "PR CI steps");
+    Map<Object, Object> check = branchNameCheck();
+
+    assertThat(steps.get(0)).isEqualTo(check);
+    assertThat(check)
+        .containsEntry("if", "github.event_name == 'pull_request'")
+        .containsEntry("shell", "bash")
+        .doesNotContainKey("continue-on-error");
+    assertThat(job).doesNotContainKey("continue-on-error");
+    assertThat(asMap(check.get("env"), "Branch names must enter the shell through env"))
+        .containsEntry("BRANCH_NAME", "${{ github.head_ref }}");
+    assertThat(check.get("run")).isInstanceOf(String.class);
+    assertThat((String) check.get("run")).doesNotContain("${{");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "feature/popup-collector-api",
+        "fix/popup-road-address",
+        "docs/development-workflow",
+        "refactor/popup-response-mapping",
+        "test/popup-registration",
+        "ci/branch-name-check",
+        "chore/update-dependencies",
+        "feature/v2-popup-api",
+        "fix/address-2026",
+        "docs/a"
+      })
+  void acceptsApprovedBranchNames(String branchName) throws Exception {
+    ShellResult result = runBranchNameCheck(branchName);
+
+    assertThat(result.exitCode()).as(result.log()).isZero();
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "",
+        "main",
+        "develop",
+        "feat/popup-api",
+        "hotfix/popup-api",
+        "codex/popup-api",
+        "release/1.2.0",
+        "feature/123-popup-api",
+        "feature/#123",
+        "feature/Popup-api",
+        "Feature/popup-api",
+        "feature/popup_api",
+        "feature/popup api",
+        "feature/팝업",
+        "feature/",
+        "feature/-popup",
+        "feature/popup-",
+        "feature/popup--api",
+        "feature/popup/api",
+        "feature/popup.api",
+        "feature/popup-api\n"
+      })
+  void rejectsUnapprovedBranchNames(String branchName) throws Exception {
+    ShellResult result = runBranchNameCheck(branchName);
+
+    assertThat(result.exitCode()).as(result.log()).isNotZero();
+    assertThat(result.log()).contains("::error::");
+  }
+
+  @Test
+  void treatsShellSyntaxInBranchNamesAsData() throws Exception {
+    Path sentinel = tempDir.resolve("branch-name-command-executed");
+
+    ShellResult result = runBranchNameCheck("feature/$(touch " + sentinel + ")");
+
+    assertThat(result.exitCode()).as(result.log()).isNotZero();
+    assertThat(sentinel).doesNotExist();
+  }
+
+  private Map<Object, Object> branchNameCheck() {
+    Map<Object, Object> job =
+        asMap(asMap(rootValue("jobs"), "Workflow jobs").get(JOB_ID), "PR CI job");
+    return asList(job.get("steps"), "PR CI steps").stream()
+        .map(value -> asMap(value, "Workflow step"))
+        .filter(step -> "Check branch name".equals(step.get("name")))
+        .findFirst()
+        .orElseThrow(() -> new AssertionError("PR CI must validate the source branch name"));
+  }
+
+  private ShellResult runBranchNameCheck(String branchName) throws Exception {
+    String script = (String) branchNameCheck().get("run");
+    assertThat(script).doesNotContain("${{");
+    ProcessBuilder builder = new ProcessBuilder("bash", "-c", script).redirectErrorStream(true);
+    builder.directory(tempDir.toFile());
+    builder.environment().clear();
+    builder.environment().put("PATH", "/usr/bin:/bin");
+    builder.environment().put("BRANCH_NAME", branchName);
+    Process process = builder.start();
+    if (!process.waitFor(5, TimeUnit.SECONDS)) {
+      process.descendants().forEach(ProcessHandle::destroyForcibly);
+      process.destroyForcibly();
+      throw new AssertionError("Branch name check did not finish within five seconds");
+    }
+    return new ShellResult(
+        process.exitValue(),
+        new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+  }
+
+  private record ShellResult(int exitCode, String log) {}
 
   private Object rootValue(String key) {
     if (workflow.containsKey(key)) {
