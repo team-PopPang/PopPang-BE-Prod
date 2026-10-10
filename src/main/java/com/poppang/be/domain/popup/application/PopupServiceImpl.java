@@ -7,11 +7,10 @@ import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
 import com.poppang.be.common.util.StringNormalizer;
 import com.poppang.be.domain.favorite.infrastructure.UserFavoriteRepository;
-import com.poppang.be.domain.popup.dto.app.request.PopupImageUpsertRequestDto;
 import com.poppang.be.domain.popup.dto.app.request.PopupRegisterRequestDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupRegisterResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.RegionDistrictsResponse;
-import com.poppang.be.domain.popup.entity.MediaType;
 import com.poppang.be.domain.popup.entity.Popup;
 import com.poppang.be.domain.popup.entity.PopupImage;
 import com.poppang.be.domain.popup.entity.PopupRecommend;
@@ -23,9 +22,7 @@ import com.poppang.be.domain.popup.infrastructure.PopupRecommendRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupRepository;
 import com.poppang.be.domain.popup.infrastructure.PopupTotalViewCountRepository;
 import com.poppang.be.domain.popup.mapper.PopupResponseDtoMapper;
-import com.poppang.be.domain.recommend.entity.Recommend;
 import com.poppang.be.domain.recommend.entity.UserRecommend;
-import com.poppang.be.domain.recommend.infrastructure.RecommendRepository;
 import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
 import com.poppang.be.domain.users.entity.Users;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
@@ -44,8 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PopupServiceImpl implements PopupService {
 
   private final PopupRepository popupRepository;
+  private final PopupRegistrationService popupRegistrationService;
   private final PopupImageRepository popupImageRepository;
-  private final RecommendRepository recommendRepository;
   private final PopupRecommendRepository popupRecommendRepository;
   private final UserFavoriteRepository userFavoriteRepository;
   private final PopupTotalViewCountRepository popupTotalViewCountRepository;
@@ -253,66 +250,8 @@ public class PopupServiceImpl implements PopupService {
   }
 
   @Override
-  @Transactional
-  public void registerPopup(PopupRegisterRequestDto popupRegisterRequestDto) {
-
-    // popup 테이블 저장
-    Popup popup =
-        Popup.builder()
-            .name(popupRegisterRequestDto.getName())
-            .startDate(popupRegisterRequestDto.getStartDate())
-            .endDate(popupRegisterRequestDto.getEndDate())
-            .openTime(popupRegisterRequestDto.getOpenTime())
-            .closeTime(popupRegisterRequestDto.getCloseTime())
-            .address(popupRegisterRequestDto.getAddress())
-            .roadAddress(popupRegisterRequestDto.getRoadAddress())
-            .longitude(popupRegisterRequestDto.getLongitude())
-            .latitude(popupRegisterRequestDto.getLatitude())
-            .region(popupRegisterRequestDto.getRegion())
-            .geocodingQuery(popupRegisterRequestDto.getGeocodingQuery())
-            .instaPostId(popupRegisterRequestDto.getInstaPostId())
-            .instaPostUrl(popupRegisterRequestDto.getInstaPostUrl())
-            .captionSummary(popupRegisterRequestDto.getCaptionSummary())
-            .caption(popupRegisterRequestDto.getCaption())
-            .mediaType(
-                popupRegisterRequestDto.getMediaType() != null
-                    ? MediaType.valueOf(popupRegisterRequestDto.getMediaType())
-                    : null)
-            .activated(Boolean.TRUE.equals(popupRegisterRequestDto.getIsActive()))
-            .build();
-    popupRepository.save(popup);
-
-    // popup 이미지 저장
-    if (popupRegisterRequestDto.getImageList() != null
-        && !popupRegisterRequestDto.getImageList().isEmpty()) {
-      List<PopupImage> imageList = new ArrayList<>();
-      for (int i = 0; i < popupRegisterRequestDto.getImageList().size(); i++) {
-        PopupImageUpsertRequestDto image = popupRegisterRequestDto.getImageList().get(i);
-        imageList.add(
-            PopupImage.builder()
-                .popup(popup)
-                .imageUrl(image.getImageUrl())
-                .sortOrder(image.getSortOrder() != null ? image.getSortOrder() : i)
-                .build());
-      }
-      popupImageRepository.saveAll(imageList);
-    }
-
-    // popup 이미지 저장
-    if (popupRegisterRequestDto.getRecommendIdList() != null
-        && !popupRegisterRequestDto.getRecommendIdList().isEmpty()) {
-      List<Recommend> found =
-          recommendRepository.findAllById(popupRegisterRequestDto.getRecommendIdList());
-      if (found.size() != popupRegisterRequestDto.getRecommendIdList().size()) {
-        throw new BaseException(ErrorCode.INVALID_RECOMMEND_ID);
-      }
-
-      List<PopupRecommend> popupRecommendList = new ArrayList<>();
-      for (Recommend recommend : found) {
-        popupRecommendList.add(PopupRecommend.builder().popup(popup).recommend(recommend).build());
-      }
-      popupRecommendRepository.saveAll(popupRecommendList);
-    }
+  public PopupRegisterResponseDto registerPopup(PopupRegisterRequestDto request) {
+    return popupRegistrationService.register(request);
   }
 
   @Override

@@ -1052,12 +1052,16 @@ ErrorCode만 기록한다. endpoint별 v1 호출 0건은 최소 30일 연속 관
 시작하지 않는다. 구현 후에는 BE test, iOS, AOS, ETL, 호출량, 삭제 가능 열을 갱신한다.
 Task 19까지 기록을 미루지 않고 각 청크 검수 시 해당 행을 즉시 갱신한다.
 
-처리 분류는 `V2_TWIN` 70개, `REPLACED_FLOW` 2개, `V1_ONLY_KEEP` 5개,
+처리 분류는 `V2_TWIN` 70개, `REPLACED_FLOW` 2개, `V1_ONLY_KEEP` 6개,
 `DELETE_APPROVED` 2개다. `UNVERIFIED`와 `NO_ROUTE_DATA`는 운영 증거가 없다는 뜻이며 완료로
 추측하지 않는다. Wave 6에서 대표 v2 Web HTTP 200을 확인했지만 route가 기록되지 않았으므로
 개별 endpoint smoke는 모두 `UNVERIFIED`로 유지한다. 아래 표와 동일한 기계 판독 기준선은
-`src/test/resources/contracts/v1-v2-migration-matrix.txt`에 있고 contract test가 v1 79개 전체
+`src/test/resources/contracts/v1-v2-migration-matrix.txt`에 있고 contract test가 v1 80개 전체
 포함, 중복·누락, v2 참조 유효성과 fail-closed 전환 상태를 검사한다.
+
+수집기 요구사항에 따라 승인된 v1 등록 응답 변경과 신규 알림 대상 API는
+[팝업 수집기 API 스펙](../../specs/popup-collector-api.md)을 따른다. 신규 API는 Worker API Key로
+보호한다. 아래 신규 행의 인증 `NONE`은 대응하는 v2 endpoint가 없다는 의미다.
 
 | v1 method/path | 처리 | v2 method/path | actor | target | 인증 | DTO 변경 | 소비자 | BE test | 실제 전환 | 운영 smoke | 최근 v1 호출 | 삭제 가능 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -1134,6 +1138,7 @@ Task 19까지 기록을 미루지 않고 각 청크 검수 시 해당 행을 즉
 | `POST /api/v1/auth/kakao/signup` | `V2_TWIN` | `POST /api/v2/auth/kakao/signup` | `SIGNUP_USER` | `SIGNUP_PROFILE` | `SIGNUP` | `CALLER_IDENTITY_TO_SIGNUP_TOKEN_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 | `POST /api/v1/favorite` | `V2_TWIN` | `POST /api/v2/favorite` | `SELF_USER` | `POPUP_UUID` | `ACCESS` | `CALLER_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 | `POST /api/v1/popup-submissions` | `V2_TWIN` | `POST /api/v2/popup-submissions` | `SELF_USER` | `POPUP_SUBMISSION` | `ACCESS` | `BODY_USER_UUID_TO_PRINCIPAL` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
+| `POST /api/v1/popup/alert-targets` | `V1_ONLY_KEEP` | `-` | `WORKER` | `POPUP_UUIDS` | `NONE` | `WORKER_API_KEY_AND_MATCHED_TARGETS` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 | `POST /api/v1/popup/{popupUuid}/view` | `V2_TWIN` | `POST /api/v2/popup/{popupUuid}/view` | `APP_USER` | `POPUP_UUID` | `ACCESS` | `NONE` | `IOS_AOS` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 | `POST /api/v1/popup` | `V2_TWIN` | `POST /api/v2/internal/popup` | `WORKER` | `POPUP_PAYLOAD` | `WORKER` | `CALLER_TO_WORKER_API_KEY` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |
 | `POST /api/v1/users/{userUuid}/alert` | `V2_TWIN` | `POST /api/v2/internal/users/{userUuid}/alert` | `WORKER` | `RECIPIENT_USER_UUID_AND_POPUP_UUID` | `WORKER` | `CALLER_TO_WORKER_API_KEY_AND_RECIPIENT_TARGET_KEPT` | `ETL` | `COMPLETE` | `NOT_STARTED` | `UNVERIFIED` | `NO_ROUTE_DATA` | `NO` |

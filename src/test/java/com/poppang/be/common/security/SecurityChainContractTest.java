@@ -129,27 +129,32 @@ class SecurityChainContractTest {
   }
 
   @Test
-  void chainsAreOrderedInternalThenQaThenV2ThenV1ThenInfrastructure() {
-    assertThat(securityFilterChains).hasSize(5);
+  void chainsAreOrderedCollectorThenInternalThenQaThenV2ThenV1ThenInfrastructure() {
+    assertThat(securityFilterChains).hasSize(6);
 
+    MockHttpServletRequest collector = request("POST", "/api/v1/popup/alert-targets");
+    assertThat(securityFilterChains.get(0).matches(collector)).isTrue();
+    assertThat(securityFilterChains.get(0).matches(request("POST", "/api/v1/popup"))).isFalse();
+    assertThat(securityFilterChains.get(0).matches(request("/api/v1/popup/alert-targets")))
+        .isFalse();
     MockHttpServletRequest internal = request("/api/v2/internal/resource");
     MockHttpServletRequest qa = request("POST", "/api/v2/test-auth/token");
     MockHttpServletRequest v2 = request("/api/v2/resource");
     MockHttpServletRequest v1 = request("/api/v1/resource");
     MockHttpServletRequest infrastructure = request("/actuator/health");
 
-    assertThat(securityFilterChains.get(0).matches(internal)).isTrue();
-    assertThat(securityFilterChains.get(0).matches(v2)).isFalse();
-    assertThat(securityFilterChains.get(1).matches(internal)).isFalse();
-    assertThat(securityFilterChains.get(1).matches(qa)).isTrue();
+    assertThat(securityFilterChains.get(1).matches(internal)).isTrue();
     assertThat(securityFilterChains.get(1).matches(v2)).isFalse();
-    assertThat(securityFilterChains.get(2).matches(internal)).isTrue();
+    assertThat(securityFilterChains.get(2).matches(internal)).isFalse();
     assertThat(securityFilterChains.get(2).matches(qa)).isTrue();
-    assertThat(securityFilterChains.get(2).matches(v2)).isTrue();
-    assertThat(securityFilterChains.get(2).matches(v1)).isFalse();
-    assertThat(securityFilterChains.get(3).matches(v1)).isTrue();
-    assertThat(securityFilterChains.get(3).matches(infrastructure)).isFalse();
-    assertThat(securityFilterChains.get(4).matches(infrastructure)).isTrue();
+    assertThat(securityFilterChains.get(2).matches(v2)).isFalse();
+    assertThat(securityFilterChains.get(3).matches(internal)).isTrue();
+    assertThat(securityFilterChains.get(3).matches(qa)).isTrue();
+    assertThat(securityFilterChains.get(3).matches(v2)).isTrue();
+    assertThat(securityFilterChains.get(3).matches(v1)).isFalse();
+    assertThat(securityFilterChains.get(4).matches(v1)).isTrue();
+    assertThat(securityFilterChains.get(4).matches(infrastructure)).isFalse();
+    assertThat(securityFilterChains.get(5).matches(infrastructure)).isTrue();
   }
 
   @Test

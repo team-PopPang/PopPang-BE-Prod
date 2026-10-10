@@ -138,6 +138,30 @@ public class SecurityConfig {
   }
 
   @Bean
+  @Order(0)
+  SecurityFilterChain popupCollectorSecurityFilterChain(
+      HttpSecurity http,
+      WorkerApiKeyAuthenticationFilter workerFilter,
+      ApiAuthenticationEntryPoint authenticationEntryPoint,
+      ApiAccessDeniedHandler accessDeniedHandler)
+      throws Exception {
+    stateless(http);
+    return http.securityMatcher(matcher(HttpMethod.POST, "/api/v1/popup/alert-targets"))
+        .authorizeHttpRequests(
+            authorization ->
+                authorization
+                    .anyRequest()
+                    .hasAuthority(WorkerApiKeyAuthenticationFilter.SERVICE_WORKER))
+        .exceptionHandling(
+            exceptions ->
+                exceptions
+                    .authenticationEntryPoint(authenticationEntryPoint)
+                    .accessDeniedHandler(accessDeniedHandler))
+        .addFilterBefore(workerFilter, UsernamePasswordAuthenticationFilter.class)
+        .build();
+  }
+
+  @Bean
   @Order(1)
   SecurityFilterChain internalSecurityFilterChain(
       HttpSecurity http,

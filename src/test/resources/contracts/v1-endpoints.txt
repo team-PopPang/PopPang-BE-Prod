@@ -72,8 +72,9 @@ KEEP|POST|/api/v1/auth/kakao/mobile/login|consumes=-|produces=application/json
 KEEP|POST|/api/v1/auth/kakao/signup|consumes=-|produces=application/json
 KEEP|POST|/api/v1/favorite|consumes=-|produces=-
 KEEP|POST|/api/v1/popup-submissions|consumes=multipart/form-data|produces=-
+KEEP|POST|/api/v1/popup/alert-targets|consumes=-|produces=application/json
 KEEP|POST|/api/v1/popup/{popupUuid}/view|consumes=-|produces=-
-KEEP|POST|/api/v1/popup|consumes=-|produces=-
+KEEP|POST|/api/v1/popup|consumes=-|produces=application/json
 KEEP|POST|/api/v1/users/{userUuid}/alert|consumes=-|produces=-
 KEEP|PUT|/api/v1/admin/popup-submissions/{popupSubmissionId}|consumes=multipart/form-data|produces=application/json
 KEEP|PUT|/api/v1/popup/{popupUuid}/images|consumes=-|produces=-

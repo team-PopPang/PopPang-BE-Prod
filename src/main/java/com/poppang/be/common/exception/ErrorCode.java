@@ -51,6 +51,8 @@ public enum ErrorCode {
   REGION_REQUIRED_FOR_DISTRICT(HttpStatus.BAD_REQUEST, 4314, "구를 조회하려면 지역이 필요합니다."),
   INVALID_INTERNAL_POPUP_REQUEST(HttpStatus.BAD_REQUEST, 4315, "Worker 팝업 요청값이 올바르지 않습니다."),
 
+  INVALID_POPUP_ALERT_TARGET_REQUEST(HttpStatus.BAD_REQUEST, 4316, "팝업 UUID 목록이 올바르지 않습니다."),
+
   // ==================================================
   // 5000 ~ 5099 : Auth / JWT (인증)
   // ==================================================

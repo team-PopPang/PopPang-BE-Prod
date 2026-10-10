@@ -1,6 +1,7 @@
 package com.poppang.be.domain.popup.application;
 
 import com.poppang.be.domain.popup.dto.app.request.PopupRegisterRequestDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupRegisterResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.RegionDistrictsResponse;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
@@ -35,7 +36,7 @@ public interface PopupService {
       Double longitude,
       MapSortStandard mapSortStandard);
 
-  void registerPopup(PopupRegisterRequestDto popupRegisterRequestDto);
+  PopupRegisterResponseDto registerPopup(PopupRegisterRequestDto popupRegisterRequestDto);
 
   List<PopupResponseDto> getRecommendPopupList(String userUuid);
 

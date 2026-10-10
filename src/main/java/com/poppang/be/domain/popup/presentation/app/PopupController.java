@@ -1,7 +1,9 @@
 package com.poppang.be.domain.popup.presentation.app;
 
+import com.poppang.be.common.response.ApiResponse;
 import com.poppang.be.domain.popup.application.PopupService;
 import com.poppang.be.domain.popup.dto.app.request.PopupRegisterRequestDto;
+import com.poppang.be.domain.popup.dto.app.response.PopupRegisterResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.PopupResponseDto;
 import com.poppang.be.domain.popup.dto.app.response.RegionDistrictsResponse;
 import com.poppang.be.domain.popup.enums.HomeSortStandard;
@@ -99,14 +101,12 @@ public class PopupController {
   @Operation(
       summary = "팝업 등록",
       description =
-          "크롤링 또는 관리자가 신규 팝업스토어 데이터를 등록합니다. "
-              + "이미지 리스트(`imageList`)와 추천 ID(`recommendIds`)를 함께 전달해야 합니다.")
-  @PostMapping
-  public ResponseEntity<Void> registerPopup(
+          "팝업과 이미지·추천 정보를 등록하고 popupUuid, created를 반환합니다. "
+              + "동일한 instaPostId가 있으면 저장하지 않고 기존 UUID와 created=false를 반환합니다.")
+  @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<ApiResponse<PopupRegisterResponseDto>> registerPopup(
       @RequestBody PopupRegisterRequestDto popupRegisterRequestDto) {
-    popupService.registerPopup(popupRegisterRequestDto);
-
-    return ResponseEntity.ok().build();
+    return ResponseEntity.ok(ApiResponse.ok(popupService.registerPopup(popupRegisterRequestDto)));
   }
 
   @Operation(

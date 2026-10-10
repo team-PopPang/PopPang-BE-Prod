@@ -47,7 +47,7 @@ public class OpenApiConfig {
                         .type(io.swagger.v3.oas.models.security.SecurityScheme.Type.APIKEY)
                         .in(io.swagger.v3.oas.models.security.SecurityScheme.In.HEADER)
                         .name("X-Worker-Api-Key")
-                        .description("v2 internal worker 전용 API Key"))
+                        .description("수집기 및 v2 internal worker 전용 API Key"))
                 .addSecuritySchemes(
                     QA_API_KEY,
                     new io.swagger.v3.oas.models.security.SecurityScheme()
