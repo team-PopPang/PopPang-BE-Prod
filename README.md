@@ -77,6 +77,47 @@ mapper/             배치 조회 기반 응답 조립
 
 `popup`은 앱·웹 controller/DTO, mapper, projection으로 세분화된 가장 큰 도메인입니다. `auth`는 Kakao·Google·Apple provider별 구현과 Redis refresh token 저장소를 포함합니다. 개인화 팝업 추천은 `recommend`가 아니라 `popup` 서비스에 있습니다.
 
+## 개발 워크플로
+
+### 브랜치 규칙
+
+현재 운영 환경은 production 하나이며, `main`이 운영 배포 기준 브랜치입니다. 별도 `develop` 브랜치 없이 최신 `main`에서 작업별 단기 브랜치를 만듭니다. 작업을 시작하기 위해 GitHub 이슈를 생성하거나 이슈 번호를 붙이지 않습니다. 사람과 에이전트 모두 같은 규칙을 따릅니다.
+
+브랜치 이름은 `<유형>/<작업명>` 형식입니다.
+
+| 유형 | 용도 | 예시 |
+|---|---|---|
+| `feature/` | 기능 추가·확장 | `feature/popup-collector-api` |
+| `fix/` | 버그·데이터 오류 수정 | `fix/popup-road-address` |
+| `docs/` | 문서 변경 | `docs/development-workflow` |
+| `refactor/` | 동작을 유지하는 구조 개선 | `refactor/popup-response-mapping` |
+| `test/` | 테스트만 추가·개선 | `test/popup-registration` |
+| `ci/` | CI/CD 변경 | `ci/branch-name-check` |
+| `chore/` | 의존성·도구 등 유지보수 | `chore/update-dependencies` |
+
+- 작업명은 영문 소문자로 시작하고, 영문 소문자·숫자로 된 단어를 단일 하이픈으로 연결합니다. 공백, 밑줄, 대문자, 추가 `/`, 연속·끝 하이픈은 사용하지 않습니다.
+- 이슈 번호 접두어는 사용하지 않습니다. `feature/123-popup-api`는 허용하지 않으며 `feature/v2-popup-api`처럼 작업을 설명하는 숫자는 사용할 수 있습니다.
+- 기능 브랜치는 `feature/`로 통일합니다. `feat/`, `codex/`는 사용하지 않고, 긴급 수정도 `fix/`와 같은 검증 절차를 사용합니다.
+- 작업의 주된 목적에 따라 유형을 정합니다. 기능 구현에 필요한 테스트와 문서는 같은 기능 브랜치에 포함합니다.
+- 한 브랜치·PR에는 독립적으로 배포 가능한 한 가지 목적을 담습니다. 같은 작업의 후속 수정은 해당 브랜치에서 이어갑니다.
+
+PR CI가 검사하는 패턴은 다음과 같습니다.
+
+```text
+^(feature|fix|docs|refactor|test|ci|chore)/[a-z][a-z0-9]*(-[a-z0-9]+)*$
+```
+
+### 작업 시작부터 병합까지
+
+1. 현재 브랜치와 미커밋 변경을 확인합니다. 기존 작업을 보존한 상태에서 원격 정보를 갱신하고 최신 `main`을 기준으로 작업 브랜치를 만듭니다.
+2. 구현과 관련된 로컬 검증을 수행합니다. 에이전트의 커밋·push·병합 승인은 [AGENTS.md의 작업 승인 규칙](./AGENTS.md#작업-승인-규칙)을 따릅니다.
+3. 작업 브랜치를 push하고 `main` 대상 PR을 만듭니다. PR에는 변경 이유, 변경 내용, 검증 결과를 기록합니다. 이슈 연결은 요구하지 않습니다.
+4. 최신 `main`을 반영하고 필수 `PR CI`가 성공한 뒤 **Squash merge**로 병합합니다. 이미 push한 작업 브랜치에는 `main`을 merge하며, 공유 이력을 임의로 rebase하거나 force push하지 않습니다.
+5. `main` 병합은 운영 CI/CD를 시작합니다. 배포 결과를 확인한 뒤 PR 병합 여부와 추가 미반영 작업이 없는지 확인하여 작업 브랜치를 정리합니다.
+6. 병합한 브랜치는 재사용하지 않습니다. 다음 작업은 최신 `main`에서 새 브랜치로 시작합니다.
+
+`main`은 관리자도 PR과 필수 CI를 거쳐야 하며, 강제 push와 브랜치 삭제가 차단됩니다. 리뷰어 승인 인원은 필수로 지정하지 않습니다. Squash merge만 허용하며, 작업별 변경은 main에 하나의 커밋으로 남습니다.
+
 ## 로컬 개발 시작하기
 
 ### 1. 사전 조건
@@ -98,13 +139,13 @@ cd PopPang-BE-Prod
 
 ### 3. Private config 준비
 
-다음 파일은 `.gitignore` 대상이므로 클린 클론에 없을 수 있습니다.
+`src/main/resources/application.yml`과 `application-prod.yml`은 비밀값이 없는 템플릿으로 커밋되어 있습니다. 다음 로컬 설정과 키는 `.gitignore` 대상이므로 별도로 준비합니다.
 
-- `src/main/resources/application*.yml`
-- `src/main/resources/auth/AuthKey_382T2TB4RW.p8`
+- `src/main/resources/application-local.yml` 등 로컬 private 설정
+- Apple 로그인 키(`*.p8`)
 - `.env`
 
-Apple 키에 대한 현재 ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나만 대상으로 하며 `*.p8` 와일드카드가 아닙니다. 교체 키를 다른 파일명으로 사용하기 전에 `.gitignore`로 ignore 여부를 확인하고, 필요하면 규칙을 먼저 갱신하세요.
+Apple 키는 `*.p8` 패턴으로 제외합니다. 교체 키도 생성·다운로드·스테이징·사용 전에 `git check-ignore -v <키 경로>`로 제외 여부를 확인하세요.
 
 기본 실행에는 MySQL, Redis와 아래 JWT 설정이 필요합니다.
 
@@ -124,7 +165,7 @@ Apple 키에 대한 현재 ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 �
 소셜 로그인 검증에는 OAuth provider와 Apple key 설정이 추가로 필요합니다. 비밀값을 README나 커밋, 채팅, 로그에 남기지 마세요. Private config 확보와 갱신 절차는 팀 관리자와 [DEPLOYMENT.md](./DEPLOYMENT.md)를 확인하세요.
 
 > [!CAUTION]
-> 기본 Spring profile은 `prod`입니다. 로컬 실행에서는 반드시 `local` profile을 명시하고, 테스트·빌드 전에 DB와 Redis가 안전한 로컬 또는 테스트 자원을 가리키는지 확인하세요.
+> 애플리케이션의 기본 Spring profile은 `prod`입니다. 로컬 실행에서는 반드시 `local` profile을 명시하고, DB와 Redis가 로컬 개발 자원을 가리키는지 확인하세요. Gradle `test`는 별도의 `test` 프로필을 사용합니다.
 
 ### 4. 로컬 실행
 
@@ -149,7 +190,7 @@ Apple 키에 대한 현재 ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 �
 ./gradlew spotlessCheck
 ```
 
-`build`와 `test`도 application context를 구성하는 과정에서 private DB, Redis, JWT 설정과 필수 mail property key가 필요할 수 있습니다.
+Gradle `test`는 `test` 프로필과 전용 테스트 설정을 사용하며 운영 private config를 필요로 하지 않습니다. 테스트에 `prod` 프로필을 지정하면 실행 전에 실패합니다. 애플리케이션을 직접 실행하는 `bootRun`의 설정과 구분하세요.
 
 ## API 안내
 
@@ -189,12 +230,15 @@ Apple 키에 대한 현재 ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 �
 
 ## CI/CD와 배포
 
-- `main` 대상 pull request에서는 GitHub Actions가 private config를 받은 뒤 `./gradlew clean build`를 실행합니다.
-- `main` push 또는 수동 실행은 이미지 빌드와 원격 배포 workflow를 실행할 수 있습니다.
-- 현재 CD에는 `poppang-dev` 이미지명과 `deploy-prod.sh` 호출이 혼재하므로 대상과 의도를 확인하기 전 운영 배포로 신뢰하지 않습니다.
-- 루트에서 인자 없이 `make`를 실행하면 private config 다운로드 후 실제 배포까지 이어질 수 있습니다.
+- `main` 대상 PR의 필수 검사 이름은 `PR CI`입니다. 먼저 PR 원본 브랜치 이름을 검사하고, 규칙에 맞지 않으면 테스트·빌드 준비 전에 실패합니다.
+- 브랜치 이름 검사를 통과하면 `./gradlew clean test spotlessCheck --no-daemon`으로 테스트와 포맷을 검사합니다. private 설정을 다운로드하지 않습니다.
+- PR CI의 수동 실행(`workflow_dispatch`)에서는 브랜치 이름 검사를 건너뛰고 같은 테스트·포맷 검사를 수행하므로 `main`에서도 실행할 수 있습니다.
+- `main` push와 `main`에서의 운영 워크플로 수동 실행은 `Main Verify`로 같은 테스트·포맷 검사를 수행합니다. 성공한 커밋만 JAR·Docker 이미지 생성, 산출물 검사, 운영 서버 전송·배포로 이어집니다.
+- 운영 이미지는 `poppang-prod:<커밋 SHA 앞 7자리>`입니다. 운영 설정과 Apple 키는 서버 런타임에서 주입하며, 배포 스크립트가 헬스 체크와 실패 시 롤백을 담당합니다.
+- 현재 문서만 변경한 PR도 `main`에 병합하면 운영 재배포가 실행됩니다.
+- 로컬 `make`의 기본 동작은 도움말이며 `build-jar`, `build-image`, `save-image`는 로컬 산출물 생성용입니다. `prod-deploy` 등 수동 운영 배포 경로는 차단되어 있습니다.
 
-수동 배포, health check, 태그, 롤백, private config 갱신 절차는 반드시 [DEPLOYMENT.md](./DEPLOYMENT.md)를 따르세요.
+운영 절차는 [DEPLOYMENT.md](./DEPLOYMENT.md)와 [CI/CD 안전성 스펙](./docs/specs/ci-cd-safety.md)을 참고하세요. 배포 런북에는 이전 미니 PC·수동 배포 설명이 남아 있으므로 현재 워크플로와 AWS 이전 계약에 맞는지 확인해야 합니다.
 
 ## 개발 문서
 

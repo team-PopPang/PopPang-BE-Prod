@@ -7,6 +7,21 @@
 - `git commit`을 실행하기 직전에 커밋 대상 파일과 예정 커밋 메시지를 사용자에게 알리고 명시적 승인을 받는다.
 - 사용자의 일반적인 작업 진행 승인이나 이전 커밋 승인을 이후 커밋의 승인으로 간주하지 않는다. 커밋마다 새로 확인한다.
 - `git push`는 커밋 승인과 별개다. 사용자가 명시적으로 요청하거나 승인하기 전에는 실행하지 않는다.
+- PR 병합은 운영 배포를 시작하므로 커밋·push 승인과 구분하여 명시적 병합 승인을 받는다. 승인된 병합은 Squash merge로 수행한다.
+
+## 브랜치와 에이전트 작업 흐름
+
+팀 공통 규칙은 [README의 개발 워크플로](./README.md#개발-워크플로)를 따른다. 현재 운영 환경은 production 하나이며 `main`이 배포 기준이다. 이슈 생성이나 이슈 번호 연결을 작업의 선행 조건으로 요구하지 않는다.
+
+- 파일 수정 전에 현재 브랜치, 미커밋·미추적 변경, 원격과의 차이를 확인한다. 기존 사용자 작업을 임의로 stash, 삭제, 덮어쓰기하지 않는다.
+- 신규 작업은 원격 정보를 갱신한 뒤 최신 `main`에서 `<유형>/<작업명>` 브랜치를 만들어 진행한다. 같은 작업을 이어가는 경우 기존 작업 브랜치를 사용하고, `main`에서 직접 수정하지 않는다.
+- 허용 유형은 `feature`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`다. 에이전트도 `codex/`나 `feat/` 대신 이 유형을 사용한다. 긴급 수정은 `fix/`다.
+- 작업명은 영문 소문자로 시작하고 영문 소문자·숫자로 된 단어를 단일 하이픈으로 연결한다. 이슈 번호 접두어를 붙이지 않는다. 정확한 패턴과 예시는 README를 따른다.
+- 한 브랜치·PR은 독립적으로 배포 가능한 한 가지 목적에 한정한다. 기능에 필요한 테스트·문서는 같은 브랜치에 포함한다.
+- 요청 범위의 구현과 관련 검증을 완료한 뒤 변경 내용, 검증 결과, 남은 위험을 보고한다. 확인하지 않은 검증이나 배포를 완료로 보고하지 않는다.
+- PR 대상은 `main`이다. 최신 `main` 반영과 필수 `PR CI` 성공을 확인하고, 승인된 경우에만 Squash merge한다. 관리자도 보호 규칙을 우회하지 않는다. 리뷰어 승인 인원은 필수가 아니다.
+- 이미 push한 작업 브랜치에는 `main`을 merge한다. 명시적 승인 없이 공유 브랜치의 rebase나 force push를 실행하지 않는다.
+- 병합 후 운영 CI/CD 결과를 확인한다. 브랜치 정리 전에는 PR 병합 여부와 추가 미반영 커밋·파일 변경을 확인한다. Squash merge는 원본 커밋의 조상 관계를 보존하지 않으므로 조상 관계만으로 작업 유실 여부를 판단하지 않는다. 병합된 브랜치는 다음 작업에 재사용하지 않는다.
 
 ## 프로젝트 개요
 
@@ -38,16 +53,15 @@
 # 로컬 실행: 기본 profile은 prod이므로 보통 local 명시
 ./gradlew bootRun --args='--spring.profiles.active=local'
 
-# 수동 배포: 상세는 DEPLOYMENT.md
-make getKey
-make prod-deploy VERSION=x.y.z
+# 로컬 산출물 생성 (운영 배포는 main의 GitHub Actions)
+make build-jar
+make build-image VERSION=x.y.z
 ```
 
-- `src/main/resources/application*.yml`과 현재 Apple key 파일 `src/main/resources/auth/AuthKey_382T2TB4RW.p8`는 `.gitignore` 대상이다. 클린 클론에는 실행 설정이 없을 수 있다.
-- Apple key ignore 규칙은 `AuthKey_382T2TB4RW.p8` 파일명 하나만 대상으로 하며 `*.p8` 와일드카드가 아니다. 다른 파일명의 교체 키는 생성·다운로드·스테이징·사용 전에 해당 경로를 `.gitignore`에 추가하고 `git check-ignore -v <path>`로 적용을 확인한다.
-- 테스트/로컬 실행에는 DB, Redis, `jwt.secret`, `jwt.access-token-exp-minutes`, `jwt.refresh-token-exp-days`, `jwt.issuer` 등 private config가 필요하다. 예전 문서처럼 `JWT_SECRET` 하나만 주입한다고 충분하다고 가정하지 않는다.
-- GitHub Actions에는 PR용 `build-test.yml`(`./gradlew clean build`)과 `main` push용 `cicd.yml`(bootJar, Docker build, 원격 deploy)이 존재한다. 로컬 `makefile` 수동 배포도 병행된다.
-- `cicd.yml`은 현재 `APP_NAME: poppang-dev`로 이미지를 만들면서 `deploy-prod.sh`를 호출한다. 운영 배포로 신뢰하기 전에 의도와 대상 서버를 반드시 확인한다.
+- `src/main/resources/application.yml`과 `application-prod.yml`은 실제 비밀값이 없는 커밋된 템플릿이다. 로컬 private 설정, `.env`, `*.p8`은 `.gitignore` 대상이다. 교체 키도 생성·다운로드·스테이징·사용 전에 `git check-ignore -v <path>`로 제외 여부를 확인한다.
+- Gradle `test`는 `test` 프로필과 전용 설정을 강제하고 `prod` 프로필 요청을 차단한다. 운영 private config 없이 검증하며, 애플리케이션 로컬 실행에 필요한 DB·Redis·인증 설정과 구분한다.
+- `build-test.yml`의 필수 검사 이름은 `PR CI`다. PR 원본 브랜치 이름 검사 후 `./gradlew clean test spotlessCheck --no-daemon`을 실행한다. 이름은 shell 본문에 직접 삽입하지 않고 환경변수로 전달한다. 수동 실행은 이름 검사만 건너뛴다.
+- `cicd.yml`은 `main` push 또는 `main` 수동 실행에서 같은 검증을 재실행하고, 성공한 커밋만 `poppang-prod:<short-sha>` 이미지로 빌드·검사·배포한다. 문서만 변경해도 병합하면 재배포가 실행된다.
 
 ## 아키텍처
 
@@ -141,12 +155,10 @@ domain/<domain>/
 
 ## 배포와 설정
 
-- 배포 상세 절차는 [`DEPLOYMENT.md`](./DEPLOYMENT.md)를 따른다.
-- 로컬 `makefile`은 `APP_NAME=poppang-prod`, 기본 `VERSION=1.2.3`이다. 배포 시 항상 `VERSION=x.y.z`를 명시한다.
-- `make getKey`는 private repo(`team-PopPang/PopPang-Private`, branch `BE`)에서 Apple `AuthKey_382T2TB4RW.p8`와 `application-prod.yml`을 받지만, `application.yml`은 받지 않는다.
-- GitHub Actions는 private config를 별도로 다운로드해 빌드/배포한다. workflow secret 이름은 로컬 `.env`의 `GITHUB_ACCESS_TOKEN`과 다르다.
-- `make getKey`의 `curl -s`는 404 응답도 파일로 저장할 수 있다. 갱신 전후 `curl -f`와 파일 sanity check를 수행한다.
-- Dockerfile은 `build/libs/*.jar`만 이미지에 복사하지만, JAR 안에는 빌드 시점의 private config와 Apple key가 포함될 수 있다. `.dockerignore`가 현재 없으므로 Docker build context 노출도 주의한다.
+- 현재 운영 배포는 `main`의 GitHub Actions로 수행한다. [`DEPLOYMENT.md`](./DEPLOYMENT.md)에는 이전 미니 PC·수동 배포 설명이 남아 있으므로 현재 워크플로와 [`CI/CD 안전성 스펙`의 AWS 이전 계약](./docs/specs/ci-cd-safety.md)을 함께 확인한다.
+- 로컬 `makefile`은 빌드 전용이다. 기본 실행은 도움말이며 `build-jar`, `build-image`, `save-image`를 제공한다. 이미지 생성 시 `VERSION=x.y.z`를 명시한다. `getKey`는 제거됐고 `prod-deploy` 등 운영 배포 경로는 차단된다.
+- CI/CD는 private 설정을 다운로드하지 않는다. 운영 설정과 Apple 키는 서버 런타임에서 주입한다.
+- `.dockerignore`는 Docker build context를 JAR 산출물로 제한한다. `bootJar`는 `.p8`을 제외하고, JAR·이미지 산출물 검사는 비밀 파일과 실제 비밀값의 포함 여부를 검사한다.
 - 팝업 제보 이미지는 기본적으로 `/opt/submission_images`에 저장되고 URL prefix는 `/submissionImages`다. 원격 배포 스크립트에서 persistent volume과 정적 서빙/프록시 매핑을 보장하는지 확인해야 한다.
 
 ## 주요 함정
