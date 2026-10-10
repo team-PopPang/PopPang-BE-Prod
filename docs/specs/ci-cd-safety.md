@@ -335,8 +335,9 @@ Main verify와 production build gate 결과 — 2026-07-18:
   verify 실패·취소·skip 시 private 설정 다운로드, JAR와 Docker image 생성, tar 저장, 서버 전송과
   원격 배포가 시작되지 않는다.
 - mail secret을 사용하는 `notify`도 `verify`와 `build-and-deploy`를 직접 필요로 하고
-  `always() && needs.verify.result == 'success'`일 때만 실행한다. verify가 성공하기 전에는 Workflow의
-  어떤 secret 사용 job도 실행될 수 없도록 전역 `env`를 제거하고 job별로 격리했다.
+  `always() && needs.verify.result == 'success'`일 때만 실행한다. 전역 `env`를 제거하고 job별로
+  격리한다. 검증 실패를 알리는 `notify-verify-failure`는 아래 Notification contract의 예외이며,
+  운영 자격 증명과 배포 작업은 계속 verify 성공 이후에만 사용한다.
 - 자동 trigger는 기존 `main` push를 유지하고 기존 수동 `workflow_dispatch` 외 trigger는 추가하지
   않았다. 다른 branch나 tag를 수동 선택하면 verify가 skip되고 모든 후속 job도 차단된다.
 - verify와 build job 모두 `${{ github.sha }}`를 명시적으로 checkout한다. image tag는 같은 실행의
@@ -572,7 +573,7 @@ Acceptance criteria 판정:
 | PR CI가 private 운영 설정과 외부 DB·Redis 없이 실행 | PASS | private download·secret·DB/Redis marker 부재, test profile·config location과 infrastructure bean 부재 계약 통과 |
 | 필수 Gradle 명령 실패 시 PR CI 실패 | PASS | PR step이 정확한 명령을 `continue-on-error` 없이 직접 실행 |
 | Main 배포 Workflow에 동일한 verify gate 존재 | PASS | 독립 `verify` job의 명령·동일 SHA checkout 계약 통과 |
-| verify 실패·취소 시 image 생성·원격 배포 차단 | PASS | 모든 secret·production 작업이 `needs: verify`와 success 조건 뒤에만 존재 |
+| verify 실패·취소 시 image 생성·원격 배포 차단 | PASS | 운영 자격 증명·production 작업은 `needs: verify`와 success 조건 뒤에만 존재. 실패 알림은 mail secret만 사용 |
 | `poppang-prod:<short-sha>` image와 `poppang-prod` container | PASS | Workflow env, version 명령, Docker tag와 remote helper 계약 통과; 실제 원격 실행은 미검증 |
 | production 배포 동시 실행 방지 | PASS | 고정 concurrency group, `cancel-in-progress: false`, `queue: max` 정적 계약 통과; 실제 runner queue는 미검증 |
 | 60초 내 unhealthy 시 직전 image 자동 재배포 | PASS | 60초/12회 health 계약과 rollback dry run 통과; 실제 endpoint·원격 Docker는 미검증 |
@@ -732,8 +733,18 @@ GitHub rollout 진행 메모 — 2026-07-18:
 
 - GitHub Actions job 결과를 배포 성공 여부의 기준으로 삼는다.
 - 이메일은 보조 알림이다.
+- 저장소가 직접 발송하는 이벤트·CI·배포 이메일의 수신자는 `devsong42@gmail.com` 하나다.
+  GitHub 개인 구독·CodeRabbit 자체 계정 알림 설정은 이 계약의 범위 밖이다.
+- `pr-ci-notify.yml`은 `PopPang BE PR CI`의 `workflow_run: completed`를 받아 성공·실패·취소
+  여부와 관계없이 결과를 알린다. PR 이벤트뿐 아니라 수동 실행과 재실행 결과도 포함한다.
+  이 워크플로는 기본 브랜치에 존재해야 동작하며, `permissions: {}`와 고정된 mail action만 사용한다.
+  PR 코드 checkout, shell 실행, 캐시·산출물 다운로드 없이 원래 실행의 SHA와 URL을 메일에 담는다.
+- Main의 `notify-verify-failure`는 `needs: verify`와
+  `always() && needs.verify.result == 'failure'` 조건으로 검증 실패를 알린다. 실패 알림에 필요한
+  mail secret만 사용하고, checkout이나 빌드·배포를 수행하지 않는다. 검증 취소·skip에는 실행하지
+  않으며 기존 배포 알림 `notify`와 중복 발송하지 않는다.
 - 이메일 인증·전송 실패가 성공한 배포를 실패로 바꾸거나 실제 배포 실패 원인을 가리지 않도록
-  알림 step을 non-blocking으로 처리한다.
+  CI 결과·검증 실패·배포 알림 step을 non-blocking으로 처리한다.
 - 배포 실패와 롤백 실패는 GitHub Actions summary에 항상 남긴다.
 
 ## Database and external service safety

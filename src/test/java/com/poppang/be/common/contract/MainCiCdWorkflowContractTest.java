@@ -158,9 +158,10 @@ class MainCiCdWorkflowContractTest {
   }
 
   @Test
-  void requiresSuccessfulVerifyBeforeEverySecretOrProductionJob() {
+  void gatesDeploymentOnVerifyAndKeepsNotificationsDependentOnVerify() {
     Map<Object, Object> jobs = jobs();
-    assertThat(jobs.keySet()).containsExactlyInAnyOrder("verify", "build-and-deploy", "notify");
+    assertThat(jobs.keySet())
+        .containsExactlyInAnyOrder("verify", "build-and-deploy", "notify", "notify-verify-failure");
     assertThat(rootValue("env"))
         .as("Operational values and secrets must not be visible to verify")
         .isNull();
@@ -183,6 +184,34 @@ class MainCiCdWorkflowContractTest {
             .contains("verify");
       }
     }
+  }
+
+  @Test
+  void reportsOnlyVerificationFailureWithoutExecutingRepositoryCode() {
+    Map<Object, Object> notify = job("notify-verify-failure");
+    assertThat(needs(notify)).containsExactly("verify");
+    assertThat(notify.get("if"))
+        .as(
+            "Notify failure even when deployment is skipped, but not for skipped or cancelled verify")
+        .isEqualTo("always() && needs.verify.result == 'failure'");
+    assertThat(notify).doesNotContainKeys("env", "uses");
+
+    List<Object> steps = asList(notify.get("steps"), "Verification failure notification steps");
+    assertThat(steps).hasSize(1);
+    Map<Object, Object> mail = asMap(steps.get(0), "Only the mail action may run");
+    assertThat(mail)
+        .containsEntry("continue-on-error", true)
+        .containsEntry("uses", "dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7")
+        .doesNotContainKeys("run", "if", "env");
+    Map<Object, Object> inputs = asMap(mail.get("with"), "Mail inputs");
+    assertThat(inputs)
+        .containsEntry("username", "${{ secrets.MAIL_USERNAME }}")
+        .containsEntry("password", "${{ secrets.MAIL_PASSWORD }}")
+        .containsEntry("to", "devsong42@gmail.com");
+    assertThat(String.valueOf(inputs.get("subject"))).contains("Main Verify 실패");
+    assertThat(String.valueOf(inputs.get("body")))
+        .contains("배포를 실행하지 않았습니다", "${{ github.sha }}", "${{ github.run_id }}");
+    assertThat(notify.toString()).doesNotContain("${{ secrets.SERVER_", "${{ secrets.PERSONAL_");
   }
 
   @Test

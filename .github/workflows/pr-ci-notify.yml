@@ -1,0 +1,38 @@
+name: PopPang BE PR CI Notifications
+
+# main에 병합된 뒤부터 동작한다. PR 코드를 실행하지 않고 완료된 CI의 정보만 전송한다.
+on:
+  workflow_run:
+    workflows: [PopPang BE PR CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  notify:
+    name: Notify PR CI Result
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send PR CI result
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "PopPang BE PR CI 결과: ${{ github.event.workflow_run.conclusion }}"
+          body: |
+            PR CI 실행이 완료되었습니다.
+
+            저장소: ${{ github.repository }}
+            결과: ${{ github.event.workflow_run.conclusion }}
+            브랜치: ${{ github.event.workflow_run.head_branch }}
+            커밋: ${{ github.event.workflow_run.head_sha }}
+            실행자: ${{ github.event.workflow_run.triggering_actor.login }}
+            실행 시도: ${{ github.event.workflow_run.run_attempt }}
+
+            CI 결과: ${{ github.event.workflow_run.html_url }}
+          to: devsong42@gmail.com
+          from: PopPang CI <${{ secrets.MAIL_USERNAME }}>

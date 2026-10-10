@@ -173,6 +173,35 @@ jobs:
           DEPLOYMENT_IMAGE: ${{ env.IMAGE_NAME }}
         run: scripts/ci/report-deployment-result.sh
 
+  notify-verify-failure:
+    name: Notify Main Verify Failure
+    runs-on: ubuntu-latest
+    needs: verify
+    if: always() && needs.verify.result == 'failure'
+
+    steps:
+      - name: Send email on verification failure
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: ❌ PopPang BE Main Verify 실패
+          body: |
+            Main Verify가 실패하여 빌드와 운영 배포를 실행하지 않았습니다.
+
+            저장소: ${{ github.repository }}
+            브랜치: ${{ github.ref_name }}
+            실행자: ${{ github.actor }}
+            커밋: ${{ github.sha }}
+            실행 시도: ${{ github.run_attempt }}
+
+            CI 결과: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: devsong42@gmail.com
+          from: PopPang CI <${{ secrets.MAIL_USERNAME }}>
+
   notify:
     name: Notify Result
     runs-on: ubuntu-latest
@@ -207,7 +236,7 @@ jobs:
             CI URL
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-          to: indextrown@gmail.com
+          to: devsong42@gmail.com
           from: PopPang CI <${{ env.MAIL_USERNAME }}>
 
       - name: Send email on failure
@@ -232,5 +261,5 @@ jobs:
             CI URL
             https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-          to: indextrown@gmail.com
+          to: devsong42@gmail.com
           from: PopPang CI <${{ env.MAIL_USERNAME }}>
