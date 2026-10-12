@@ -18,6 +18,10 @@ public interface UsersRepository extends JpaRepository<Users, Long> {
 
   Optional<Users> findByUid(String uid);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select u from Users u where u.uid = :uid")
+  Optional<Users> findByUidForUpdate(@Param("uid") String uid);
+
   Optional<Users> findByProviderAndUid(Provider provider, String uid);
 
   boolean existsByUidAndProviderNot(String uid, Provider provider);

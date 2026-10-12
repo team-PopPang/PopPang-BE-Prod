@@ -29,6 +29,7 @@ public enum ErrorCode {
   ACCESS_DENIED(HttpStatus.FORBIDDEN, 4203, "관리자만 사용할 수 있는 기능입니다."),
   SIGNUP_ALREADY_COMPLETED(HttpStatus.CONFLICT, 4204, "이미 회원가입을 완료한 사용자입니다."),
   INVALID_USER_REQUEST(HttpStatus.BAD_REQUEST, 4205, "사용자 요청값이 올바르지 않습니다."),
+  INVALID_SIGNUP_OS(HttpStatus.BAD_REQUEST, 4206, "가입 OS는 IOS 또는 ANDROID여야 합니다."),
 
   // ==================================================
   // 4300 ~ 4399 : Popup (팝업)

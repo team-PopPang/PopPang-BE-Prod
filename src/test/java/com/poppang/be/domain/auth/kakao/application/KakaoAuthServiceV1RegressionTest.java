@@ -147,13 +147,13 @@ class KakaoAuthServiceV1RegressionTest {
             .role(Role.MEMBER)
             .signupStatus(SignupStatus.PENDING)
             .build();
-    when(usersRepository.findByUid(UID)).thenReturn(Optional.of(pending));
+    when(usersRepository.findByUidForUpdate(UID)).thenReturn(Optional.of(pending));
 
     SignupResponseDto response = service.signup(request);
 
     assertThat(response.getProvider()).isEqualTo(Provider.KAKAO);
     assertThat(response.getRole()).isEqualTo(Role.MEMBER);
     assertThat(pending.getSignupStatus()).isEqualTo(SignupStatus.COMPLETED);
-    verify(usersRepository).findByUid(UID);
+    verify(usersRepository).findByUidForUpdate(UID);
   }
 }
