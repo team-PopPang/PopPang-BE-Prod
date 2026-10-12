@@ -99,7 +99,7 @@ public class AppleAuthServiceImpl implements AppleAuthService {
 
     Users user =
         usersRepository
-            .findByUid(signupRequestDto.getUid())
+            .findByUidForUpdate(signupRequestDto.getUid())
             .orElseThrow(() -> new IllegalStateException("유저를 찾을 수 없습니다. "));
 
     user.completeSignup(signupRequestDto);

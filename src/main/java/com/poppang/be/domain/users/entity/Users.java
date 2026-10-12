@@ -9,8 +9,11 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
+// 가입 전에 읽은 회원의 프로필 갱신이 새로 기록된 가입 OS를 덮어쓰지 않게 한다.
+@DynamicUpdate
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
@@ -44,6 +47,10 @@ public class Users extends BaseEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "signup_status", nullable = true, length = 20)
   private SignupStatus signupStatus;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "signup_os", nullable = true, length = 20)
+  private SignupOs signupOs;
 
   @Column(name = "is_alerted", nullable = true)
   private boolean alerted = false;
@@ -88,6 +95,11 @@ public class Users extends BaseEntity {
   }
 
   public void completeSignup(SignupRequestDto signupRequestDto) {
+    SignupOs requestedOs = SignupOs.fromNullable(signupRequestDto.getSignupOs());
+    // 완료 후 재호출로 최초 가입 OS(미확인 null 포함)를 바꾸지 않는다.
+    if (this.signupStatus != SignupStatus.COMPLETED && this.signupOs == null) {
+      this.signupOs = requestedOs;
+    }
     this.email = signupRequestDto.getEmail();
     this.nickname = signupRequestDto.getNickname();
     this.alerted = signupRequestDto.isAlerted();
