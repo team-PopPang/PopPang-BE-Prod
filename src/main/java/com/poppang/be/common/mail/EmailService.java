@@ -1,6 +1,7 @@
 package com.poppang.be.common.mail;
 
 import com.poppang.be.domain.users.entity.Users;
+import com.poppang.be.domain.users.event.UserSignupCompletedEvent;
 import jakarta.mail.*;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeBodyPart;
@@ -12,6 +13,8 @@ import java.util.Properties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Service
 @Slf4j
@@ -25,6 +28,12 @@ public class EmailService {
 
   @Value("${poppang.mail.admins}")
   private String admins;
+
+  /** v2 회원가입 DB 저장이 커밋된 경우에만 가입 알림을 보낸다. */
+  @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+  public void onUserSignupCompleted(UserSignupCompletedEvent event) {
+    sendNewUserSignUpMail(event.user());
+  }
 
   /** 회원가입 완료 시 관리자에게 알림 메일 보내기 */
   public void sendNewUserSignUpMail(Users user) {
