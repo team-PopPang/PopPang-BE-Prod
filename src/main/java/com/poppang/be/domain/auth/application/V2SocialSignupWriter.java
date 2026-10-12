@@ -16,11 +16,13 @@ import com.poppang.be.domain.recommend.infrastructure.UserRecommendRepository;
 import com.poppang.be.domain.users.entity.Provider;
 import com.poppang.be.domain.users.entity.SignupStatus;
 import com.poppang.be.domain.users.entity.Users;
+import com.poppang.be.domain.users.event.UserSignupCompletedEvent;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ class V2SocialSignupWriter {
   private final UserRecommendRepository userRecommendRepository;
   private final RecommendRepository recommendRepository;
   private final V2SignupTokenRedisRepository signupTokenRepository;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional
   V2AuthUserResponseDto completeSignup(
@@ -87,6 +90,7 @@ class V2SocialSignupWriter {
         .forEach(keyword -> userAlertKeywordRepository.save(UserAlertKeyword.from(user, keyword)));
     recommends.forEach(
         recommend -> userRecommendRepository.save(new UserRecommend(user, recommend)));
+    eventPublisher.publishEvent(new UserSignupCompletedEvent(user));
     return V2AuthUserResponseDto.from(user);
   }
 

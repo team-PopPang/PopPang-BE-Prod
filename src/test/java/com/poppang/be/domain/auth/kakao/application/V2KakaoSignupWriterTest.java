@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
@@ -23,6 +24,7 @@ import com.poppang.be.domain.users.entity.Provider;
 import com.poppang.be.domain.users.entity.Role;
 import com.poppang.be.domain.users.entity.SignupStatus;
 import com.poppang.be.domain.users.entity.Users;
+import com.poppang.be.domain.users.event.UserSignupCompletedEvent;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.Instant;
 import java.util.List;
@@ -30,6 +32,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.springframework.context.ApplicationEventPublisher;
 
 class V2KakaoSignupWriterTest {
 
@@ -43,13 +46,16 @@ class V2KakaoSignupWriterTest {
   private final RecommendRepository recommendRepository = Mockito.mock(RecommendRepository.class);
   private final V2SignupTokenRedisRepository signupTokenRepository =
       Mockito.mock(V2SignupTokenRedisRepository.class);
+  private final ApplicationEventPublisher eventPublisher =
+      Mockito.mock(ApplicationEventPublisher.class);
   private final V2KakaoSignupWriter writer =
       new V2KakaoSignupWriter(
           usersRepository,
           keywordRepository,
           userRecommendRepository,
           recommendRepository,
-          signupTokenRepository);
+          signupTokenRepository,
+          eventPublisher);
 
   @Test
   void consumesLatestTokenThenCompletesUserAndStoresValidatedRelations() {
@@ -83,6 +89,7 @@ class V2KakaoSignupWriterTest {
         .extracting(UserAlertKeyword::getAlertKeyword)
         .containsExactly("전시", "패션");
     verify(userRecommendRepository).save(any(UserRecommend.class));
+    verify(eventPublisher).publishEvent(new UserSignupCompletedEvent(user));
   }
 
   @Test
@@ -115,6 +122,7 @@ class V2KakaoSignupWriterTest {
         .isEqualTo(ErrorCode.DUPLICATE_NICKNAME);
 
     verify(signupTokenRepository, never()).consume(any(), any());
+    verifyNoInteractions(eventPublisher);
   }
 
   @Test
@@ -167,6 +175,7 @@ class V2KakaoSignupWriterTest {
         .isInstanceOf(BaseException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.SIGNUP_ALREADY_COMPLETED);
+    verifyNoInteractions(eventPublisher);
   }
 
   @Test
@@ -207,6 +216,7 @@ class V2KakaoSignupWriterTest {
     assertThat(user.getSignupStatus()).isEqualTo(SignupStatus.PENDING);
     verify(keywordRepository, never()).save(any());
     verify(userRecommendRepository, never()).save(any());
+    verifyNoInteractions(eventPublisher);
   }
 
   private Users pendingKakaoUser() {

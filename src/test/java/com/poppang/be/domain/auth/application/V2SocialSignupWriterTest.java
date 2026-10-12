@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.poppang.be.common.exception.BaseException;
 import com.poppang.be.common.exception.ErrorCode;
@@ -20,14 +21,18 @@ import com.poppang.be.domain.users.entity.Provider;
 import com.poppang.be.domain.users.entity.Role;
 import com.poppang.be.domain.users.entity.SignupStatus;
 import com.poppang.be.domain.users.entity.Users;
+import com.poppang.be.domain.users.event.UserSignupCompletedEvent;
 import com.poppang.be.domain.users.infrastructure.UsersRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class V2SocialSignupWriterTest {
@@ -39,10 +44,14 @@ class V2SocialSignupWriterTest {
   @Mock private UserRecommendRepository userRecommendRepository;
   @Mock private RecommendRepository recommendRepository;
   @Mock private V2SignupTokenRedisRepository signupTokenRepository;
+  @Mock private ApplicationEventPublisher eventPublisher;
 
-  @Test
-  void completesAppleSignupUsingOnlyLockedUserAndServerTokenDetails() {
-    Users pending = user(Provider.APPLE, SignupStatus.PENDING, false);
+  @ParameterizedTest
+  @EnumSource(
+      value = Provider.class,
+      names = {"GOOGLE", "APPLE"})
+  void completesSignupAndPublishesNotificationUsingLockedUser(Provider provider) {
+    Users pending = user(provider, SignupStatus.PENDING, false);
     given(usersRepository.findByUuidForUpdate(USER_UUID)).willReturn(Optional.of(pending));
     given(usersRepository.existsByNickname("new-user")).willReturn(false);
     given(signupTokenRepository.consume(any(), any(TokenHashRecord.class))).willReturn(true);
@@ -50,18 +59,19 @@ class V2SocialSignupWriterTest {
     var response =
         writer()
             .completeSignup(
-                Provider.APPLE,
+                provider,
                 USER_UUID,
                 new V2SignupRequestDto("new-user", true, "fcm-value", List.of(), List.of()),
                 details());
 
     assertThat(response.userUuid()).isEqualTo(USER_UUID);
-    assertThat(response.provider()).isEqualTo(Provider.APPLE);
+    assertThat(response.provider()).isEqualTo(provider);
     assertThat(response.role()).isEqualTo(Role.MEMBER);
     assertThat(pending.getNickname()).isEqualTo("new-user");
     assertThat(pending.getSignupStatus()).isEqualTo(SignupStatus.COMPLETED);
     assertThat(pending.isAlerted()).isTrue();
     assertThat(pending.getFcmToken()).isEqualTo("fcm-value");
+    verify(eventPublisher).publishEvent(new UserSignupCompletedEvent(pending));
   }
 
   @Test
@@ -80,6 +90,7 @@ class V2SocialSignupWriterTest {
         ErrorCode.SIGNUP_PROVIDER_MISMATCH);
 
     verify(signupTokenRepository, never()).consume(any(), any());
+    verifyNoInteractions(eventPublisher);
   }
 
   @Test
@@ -101,6 +112,7 @@ class V2SocialSignupWriterTest {
 
     assertThat(pending.getNickname()).isNull();
     assertThat(pending.getSignupStatus()).isEqualTo(SignupStatus.PENDING);
+    verifyNoInteractions(eventPublisher);
   }
 
   private V2SocialSignupWriter writer() {
@@ -109,7 +121,8 @@ class V2SocialSignupWriterTest {
         keywordRepository,
         userRecommendRepository,
         recommendRepository,
-        signupTokenRepository);
+        signupTokenRepository,
+        eventPublisher);
   }
 
   private Users user(Provider provider, SignupStatus signupStatus, boolean deleted) {
